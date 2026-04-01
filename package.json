@@ -1,0 +1,25 @@
+{
+  "name": "my-agent-cli",
+  "version": "1.0.0",
+  "description": "A simple Agent CLI built with LangGraph",
+  "main": "dist/cli.js",
+  "scripts": {
+    "start": "ts-node src/cli.ts",
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts"
+  },
+  "keywords": ["agent", "langgraph", "cli", "llm"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^1.1.38",
+    "@langchain/langgraph": "^1.2.6",
+    "@langchain/openai": "^1.4.1",
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  }
+}
