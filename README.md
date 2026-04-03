@@ -1,18 +1,112 @@
 # My Agent CLI (v2.0)
 
-阶段 2 进阶项目：带 Checkpoint 记忆的 LangGraph Agent CLI。
+> 阶段 1 & 2 学习项目：带 Checkpoint 记忆的 LangGraph Agent CLI
 
-## 功能特性
+---
 
-- ✅ 基于 LangGraph 的状态机 Agent
-- ✅ 支持 3 个自定义工具（天气、搜索、计算）
-- ✅ 流式输出响应
-- ✅ **Checkpoint 记忆持久化**
-- ✅ **多会话管理**
-- ✅ 会话历史恢复
-- ✅ 命令行交互界面
+## 🗺️ 核心流程图
 
-## 快速开始
+### 1. Agent 整体工作流程
+
+```
+用户输入问题
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    LangGraph 状态图                          │
+│                                                              │
+│  ┌──────────┐                                               │
+│  │  START   │  ← 用户输入（比如："北京天气怎么样？"）         │
+│  └────┬─────┘                                               │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌──────────┐                                               │
+│  │  agent   │  ← AI 思考：我需要工具吗？                     │
+│  │  节点    │                                               │
+│  └────┬─────┘                                               │
+│       │                                                      │
+│       ├─── 需要工具 ──→ ┌──────────┐                        │
+│       │                │  tools   │  ← 执行工具（查天气）    │
+│       │                │  节点    │                         │
+│       │                └────┬─────┘                         │
+│       │                     │                               │
+│       │                     └──── 返回结果 ──→ agent 节点   │
+│       │                                                      │
+│       └─── 不需要工具 ──→ END（直接回答用户）                │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+     │
+     ▼
+AI 回答用户
+（同时自动保存到 Checkpoint）
+```
+
+### 2. Checkpoint 记忆机制
+
+```
+第 1 次对话                    第 2 次对话
+─────────────────              ─────────────────
+用户："你好"                   用户："我叫什么？"
+     │                              │
+     ▼                              ▼
+AI 回答："你好！"              AI 查询 Checkpoint
+     │                              │
+     ▼                              ▼
+💾 保存到 Checkpoint           读取历史记录
+   thread_id: "session-1"          │
+   messages: [你好, 你好！]         ▼
+                               AI 回答："你叫小明！"
+                               （因为记得之前聊过）
+```
+
+### 3. 工具调用流程
+
+```
+用户："北京今天天气怎么样？"
+     │
+     ▼
+AI 分析问题
+     │
+     ▼
+AI 决策："这个问题需要查天气，我要调用 get_weather 工具"
+     │
+     ▼
+调用 get_weather("北京")
+     │
+     ▼
+工具返回：{ temp: 25, condition: "晴", humidity: 40 }
+     │
+     ▼
+AI 整理结果："北京今天天气晴朗，气温25°C，湿度40%，适合出行！"
+     │
+     ▼
+回答用户 ✅
+```
+
+### 4. 代码结构图
+
+```
+my-agent-cli/
+│
+├── src/
+│   ├── agent/
+│   │   ├── agent.ts     ← 🧠 核心大脑（StateGraph + Checkpoint）
+│   │   └── index.ts     ← 📦 模块导出
+│   │
+│   ├── tools/
+│   │   └── index.ts     ← 🔧 工具箱（天气/搜索/计算）
+│   │
+│   └── cli.ts           ← 💻 命令行界面（用户交互）
+│
+├── .sessions/
+│   └── sessions.json    ← 💾 会话记录（本地持久化）
+│
+└── .env                 ← 🔑 API 密钥配置
+```
+
+---
+
+## 🚀 快速开始
 
 ### 1. 安装依赖
 
@@ -23,11 +117,8 @@ npm install
 ### 2. 配置环境变量
 
 ```bash
-# 复制示例文件
 cp .env.example .env
-
-# 编辑 .env 文件，填入你的 OpenAI API Key
-OPENAI_API_KEY=sk-your-api-key-here
+# 编辑 .env，填入你的 OpenAI API Key
 ```
 
 ### 3. 运行
@@ -36,148 +127,85 @@ OPENAI_API_KEY=sk-your-api-key-here
 npm start
 ```
 
-## 使用示例
+---
+
+## 💬 使用示例
 
 ```
 ╔════════════════════════════════════════════════════════╗
 ║         🤖 My Agent CLI v2.0.0 (带 Checkpoint 记忆)      ║
-╠════════════════════════════════════════════════════════╣
-║  可用工具:                                              ║
-║  • get_weather - 查询天气                               ║
-║  • search_web  - 联网搜索                               ║
-║  • calculator  - 数学计算                               ║
-╠════════════════════════════════════════════════════════╣
-║  命令:                                                  ║
-║  • /new       - 创建新会话                             ║
-║  • /sessions  - 列出所有会话                           ║
-║  • /switch    - 切换会话                               ║
-║  • /history   - 查看当前会话历史                       ║
-║  • /checkpoints - 列出检查点                          ║
-║  • /clear     - 清空对话历史                          ║
-║  • /tools     - 查看可用工具                          ║
-║  • /help      - 显示帮助                              ║
-║  • /exit      - 退出程序                              ║
 ╚════════════════════════════════════════════════════════╝
 
 📝 当前会话: 会话 2024/1/1 12:00:00
-   Session ID: session_xxx
-
-💬 输入问题开始对话 (输入 /exit 退出)
 
 👤 你: 北京今天天气怎么样？
 
-🤖 Agent: 
-🔧 正在调用工具: get_weather
+🤖 Agent:
+🔧 AI 决定调用工具: get_weather
 
-北京今天天气晴朗，温度25°C，湿度40%，适合出行。
+北京今天天气晴朗，气温25°C，湿度40%，适合出行！
+
+👤 你: /sessions    # 查看所有会话
+📋 所有会话:
+  ▶ 1. 会话 2024/1/1 12:00:00 | 消息数: 2
+
+👤 你: /new         # 开启新话题
+🆕 新会话已创建
+
+👤 你: /switch session_xxx  # 切换回之前的会话
+✅ 已切换，已加载 2 条历史消息
 ```
 
-## Checkpoint 记忆功能
+---
 
-### 核心概念
+## 📚 命令列表
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Checkpoint 工作原理                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  用户提问         Agent 执行         状态保存                │
-│     │               │                 │                    │
-│     ▼               ▼                 ▼                    │
-│  ┌────────┐     ┌────────┐        ┌─────────┐              │
-│  │ 输入   │ ──→ │ Agent  │ ──→    │ Checkpoint│            │
-│  │       │     │ 处理   │        │ (内存/磁盘)│            │
-│  └────────┘     └────────┘        └─────────┘              │
-│                          │               │                  │
-│                          │  恢复          │                  │
-│                          ▼               ▼                  │
-│                    ┌──────────────┐                           │
-│                    │ 会话历史恢复  │                           │
-│                    └──────────────┘                           │
-│                                                              │
-│  关键特性:                                                   │
-│  • thread_id: 每个会话的唯一标识                             │
-│  • 自动保存: 每次对话后自动保存状态                           │
-│  • 任意恢复: 可恢复到任意历史检查点                           │
-│  • 多会话: 支持同时维护多个会话                              │
-└─────────────────────────────────────────────────────────────┘
-```
+| 命令 | 说明 |
+|------|------|
+| `/new` | 创建新会话 |
+| `/sessions` | 列出所有会话 |
+| `/switch <id>` | 切换到指定会话 |
+| `/history` | 查看当前会话历史 |
+| `/checkpoints` | 列出所有检查点 |
+| `/clear` | 清空当前对话 |
+| `/tools` | 查看可用工具 |
+| `/help` | 显示帮助 |
+| `/exit` | 退出 |
 
-### 使用命令
+---
 
-| 命令 | 说明 | 示例 |
-|------|------|------|
-| `/new` | 创建新会话 | 切换到新话题 |
-| `/sessions` | 列出所有会话 | 查看历史会话 |
-| `/switch <id>` | 切换到指定会话 | `/switch session_123` |
-| `/history` | 查看当前会话历史 | 查看之前对话 |
-| `/checkpoints` | 列出所有检查点 | 恢复到之前状态 |
-| `/clear` | 清空当前对话 | 重新开始 |
-| `/exit` | 退出 | 关闭程序 |
+## 🧠 核心概念解释（小白版）
 
-### 编程接口
+### StateGraph（状态图）
+> 就像一张"工作流程图"，告诉 AI 遇到不同情况该怎么做。
+> 有了它，AI 就不会乱来，会按照预定的流程处理问题。
 
-```typescript
-// 创建 Agent（已内置 Checkpoint）
-const agent = new LangGraphAgent(config);
+### Checkpoint（检查点）
+> 就像游戏里的"存档"。每次对话结束，自动保存进度。
+> 下次打开，可以从上次的地方继续，不用重新开始。
 
-// 对话时传入 threadId
-const response = await agent.invoke(messages, {
-  threadId: 'my-session-123'
-});
+### Tool Calling（工具调用）
+> AI 自己不能上网、不能查天气，但它可以"指挥"工具去做。
+> 就像老板不亲自干活，但会安排员工去做。
 
-// 获取会话历史
-const history = await agent.getSessionHistory('my-session-123', 10);
+### threadId（会话 ID）
+> 就像每个人的"身份证号"。
+> 有了它，系统才能区分"这是张三的对话"还是"这是李四的对话"。
 
-// 列出检查点
-const checkpoints = await agent.listCheckpoints('my-session-123');
+---
 
-// 恢复到特定检查点
-await agent.restoreCheckpoint('my-session-123', 'checkpoint-id');
-
-// 删除会话
-await agent.deleteSession('my-session-123');
-```
-
-## 项目结构
-
-```
-my-agent-cli/
-├── src/
-│   ├── agent/
-│   │   ├── agent.ts      # Agent 核心实现（含 Checkpoint）
-│   │   └── index.ts      # 模块导出
-│   ├── tools/
-│   │   └── index.ts      # 工具定义
-│   └── cli.ts            # CLI 入口（含会话管理）
-├── .sessions/            # 会话存储目录
-│   └── sessions.json     # 会话列表
-├── .env.example          # 环境变量示例
-├── package.json
-└── tsconfig.json
-```
-
-## 学习要点
-
-通过这个项目，你将学习到：
+## 📖 学习要点
 
 1. **LangGraph StateGraph** - 如何构建状态机 Agent
 2. **Checkpoint** - 如何持久化 Agent 状态
 3. **Tool Calling** - 如何定义和使用工具
-4. **流式输出** - 如何实现流式响应
+4. **流式输出** - 如何实现打字机效果
 5. **会话管理** - 如何管理多会话
 
-## 下一步
+---
 
-完成阶段 2 后，继续学习：
-
-- 阶段 3：CrewAI / AutoGen 多 Agent 协作
-- 阶段 4：MCP / A2A 协议
-- 阶段 5：垂直场景实践（代码 Agent）
-
-## 参考资料
+## 🔗 参考资料
 
 - [LangChain 文档](https://js.langchain.com/docs/)
 - [LangGraph 文档](https://langchain-ai.github.io/langgraph/)
 - [LangGraph Checkpoint](https://langchain-ai.github.io/langgraph/how-tos/checkpointing/)
-- [OpenAI API 文档](https://platform.openai.com/docs/)
