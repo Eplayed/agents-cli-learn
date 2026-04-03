@@ -1,7 +1,7 @@
 {
   "name": "my-agent-cli",
-  "version": "1.0.0",
-  "description": "A simple Agent CLI built with LangGraph",
+  "version": "3.0.0",
+  "description": "Agent CLI with LangGraph + Multi-Agent collaboration (Sequential/Parallel/Supervisor/GroupChat/TeamGraph)",
   "main": "dist/cli.js",
   "scripts": {
     "start": "ts-node src/cli.ts",
