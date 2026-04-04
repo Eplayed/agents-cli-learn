@@ -1,0 +1,36 @@
+# ==========================================
+# Phase 3 Backend - Python FastAPI
+# ==========================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+aiosqlite==0.20.0
+alembic==1.13.1
+
+# AI / Agent
+langchain==0.1.20
+langchain-openai==0.1.6
+langgraph==0.0.55
+langchain-community==0.0.38
+
+# Data Validation
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# Streaming
+sse-starlette==1.8.2
+
+# Utilities
+python-dotenv==1.0.1
+loguru==0.7.2
+tenacity==8.2.3
+
+# Testing
+pytest==8.0.0
+pytest-asyncio==0.23.4

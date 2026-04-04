@@ -1,0 +1,61 @@
+"""
+Session API - Session management
+"""
+from datetime import datetime
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
+
+from app.core.database import get_db
+from app.schemas.chat import SessionInfo, SessionCreate
+from app.models.models import Session, Message
+
+router = APIRouter()
+
+
+@router.post("/", response_model=SessionInfo)
+async def create_session(request: SessionCreate, db: AsyncSession = Depends(get_db)):
+    session = Session(name=request.name or f"Session {datetime.now().strftime('%m/%d %H:%M')}", mode="single")
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return SessionInfo(id=session.id, name=session.name, message_count=session.message_count, created_at=session.created_at, updated_at=session.updated_at)
+
+
+@router.get("/", response_model=List[SessionInfo])
+async def list_sessions(limit: int = 20, db: AsyncSession = Depends(get_db)):
+    stmt = select(Session).order_by(desc(Session.updated_at)).limit(limit)
+    result = await db.execute(stmt)
+    sessions = result.scalars().all()
+    return [SessionInfo(id=s.id, name=s.name, message_count=s.message_count, created_at=s.created_at, updated_at=s.updated_at) for s in sessions]
+
+
+@router.get("/{session_id}", response_model=SessionInfo)
+async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(Session).where(Session.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return SessionInfo(id=session.id, name=session.name, message_count=session.message_count, created_at=session.created_at, updated_at=session.updated_at)
+
+
+@router.delete("/{session_id}")
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(Session).where(Session.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await db.delete(session)
+    await db.commit()
+    return {"message": "Session deleted"}
+
+
+@router.get("/{session_id}/messages")
+async def get_messages(session_id: str, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    stmt = select(Message).where(Message.session_id == session_id).order_by(Message.created_at).limit(limit)
+    result = await db.execute(stmt)
+    messages = result.scalars().all()
+    return [m.__dict__ | {"session": None} for m in messages]
