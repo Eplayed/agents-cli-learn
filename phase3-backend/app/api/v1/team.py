@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.schemas.team import TeamRequest, TeamResponse
 from app.models.models import Session
 from app.agents.multi.team import MultiAgentTeam
@@ -17,6 +18,12 @@ router = APIRouter()
 
 @router.post("/execute")
 async def team_execute(request: TeamRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
+        raise HTTPException(
+            status_code=400,
+            detail="OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
+        )
+
     if request.session_id:
         from sqlalchemy import select
         stmt = select(Session).where(Session.id == request.session_id)
@@ -63,6 +70,21 @@ async def team_stream(request: TeamRequest, db: AsyncSession = Depends(get_db)):
         session = Session(name=f"Team {datetime.now().strftime('%m/%d %H:%M')}", mode="multi")
         db.add(session)
         await db.commit()
+
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
+        async def event_generator():
+            yield {
+                "event": "message",
+                "data": json.dumps(
+                    {
+                        "type": "error",
+                        "content": "OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
+                    }
+                ),
+            }
+            yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
+
+        return EventSourceResponse(event_generator())
 
     team = MultiAgentTeam(mode=request.mode)
     gen = getattr(team, f"execute_{request.mode}")(request.topic)

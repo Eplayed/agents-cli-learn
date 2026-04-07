@@ -3,11 +3,12 @@ Chat API - Single Agent endpoints
 """
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.models.models import Session, Message
 from app.agents.single.agent import SingleAgent
@@ -33,6 +34,12 @@ async def get_or_create_session(session_id: str | None, db: AsyncSession):
 
 @router.post("/send")
 async def chat_send(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
+        raise HTTPException(
+            status_code=400,
+            detail="OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
+        )
+
     session, _ = await get_or_create_session(request.session_id, db)
 
     user_msg = Message(session_id=session.id, role="user", content=request.message)
@@ -61,6 +68,21 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     user_msg = Message(session_id=session.id, role="user", content=request.message)
     db.add(user_msg)
     await db.commit()
+
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
+        async def event_generator():
+            yield {
+                "event": "message",
+                "data": json.dumps(
+                    {
+                        "type": "error",
+                        "content": "OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
+                    }
+                ),
+            }
+            yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
+
+        return EventSourceResponse(event_generator())
 
     agent = SingleAgent(session_id=session.id)
 

@@ -19,6 +19,7 @@
 import * as readline from "readline";
 import * as fs from "fs";
 import * as path from "path";
+import dotenv from "dotenv";
 import { LangGraphAgent } from "./agent";
 import {
   AgentFactory,
@@ -30,7 +31,16 @@ import {
   TeamGraph,
 } from "./multi-agent";
 import type { Task } from "./multi-agent";
-import "dotenv/config";
+
+dotenv.config({
+  path:
+    process.env.DOTENV_CONFIG_PATH ||
+    (fs.existsSync(path.join(process.cwd(), ".env"))
+      ? path.join(process.cwd(), ".env")
+      : fs.existsSync(path.join(process.cwd(), ".env.dev"))
+        ? path.join(process.cwd(), ".env.dev")
+        : undefined),
+});
 
 // ============================================
 // 会话存储目录

@@ -1,19 +1,15 @@
 """
 Single Agent - LangGraph + Checkpoint + Tools
 """
-import json
 from typing import AsyncGenerator
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, AIMessage
-from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage
+from langchain_core.tools import tool
+from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.graph.message import MessagesState
 from app.core.config import settings
-
-
-class AgentState(dict):
-    messages: list
-    session_id: str
 
 
 class SingleAgent:
@@ -27,39 +23,24 @@ class SingleAgent:
             streaming=True,
         )
         self.tools = get_tools()
-        self.tool_node = ToolNode(self.tools)
         self.llm_with_tools = self.llm.bind_tools(self.tools)
         self.checkpointer = MemorySaver()
         self.graph = self._build_graph()
 
     def _build_graph(self):
-        workflow = StateGraph(AgentState)
+        tool_node = ToolNode(self.tools)
+
+        workflow = StateGraph(MessagesState)
         workflow.add_node("agent", self._agent_node)
-        workflow.add_node("tools", self._tools_node)
+        workflow.add_node("tools", tool_node)
         workflow.set_entry_point("agent")
-        workflow.add_conditional_edges("agent", self._should_continue, {"continue": "tools", "end": END})
+        workflow.add_conditional_edges("agent", tools_condition)
         workflow.add_edge("tools", "agent")
         return workflow.compile(checkpointer=self.checkpointer)
 
     async def _agent_node(self, state):
         response = await self.llm_with_tools.ainvoke(state["messages"])
         return {"messages": [response]}
-
-    async def _tools_node(self, state):
-        tool_calls = state.get("tool_calls", [])
-        if not tool_calls:
-            return {}
-        results = await self.tool_node.ainvoke(tool_calls)
-        for result in results:
-            if hasattr(result, "content"):
-                state["messages"].append({"role": "tool", "content": str(result.content)})
-        return {"messages": state["messages"]}
-
-    def _should_continue(self, state):
-        last = state["messages"][-1] if state["messages"] else None
-        if last and hasattr(last, "tool_calls") and last.tool_calls:
-            return "continue"
-        return "end"
 
     async def stream(self, message: str, thread_id: str = None) -> AsyncGenerator[dict, None]:
         thread_id = thread_id or self.session_id
@@ -68,7 +49,7 @@ class SingleAgent:
         
         try:
             async for event in self.graph.astream_events(
-                {"messages": messages, "session_id": self.session_id},
+                {"messages": messages},
                 config=config, version="v1"
             ):
                 kind = event["event"]
@@ -87,11 +68,17 @@ class SingleAgent:
 
 
 # === Tools ===
+
+@tool
 def get_weather(city: str) -> str:
+    """获取指定城市的天气信息（示例工具）。输入城市名称，返回天气字符串。"""
     data = {"beijing": "Sunny, 15-25C", "shanghai": "Cloudy, 18-26C", "shenzhen": "Sunny, 22-30C"}
     return data.get(city.lower(), f"Weather for {city} not found")
 
+
+@tool
 def calculator(expr: str) -> str:
+    """执行简单数学表达式计算（示例工具）。仅允许数字与 +-*/.() 空格。"""
     try:
         allowed = set("0123456789+-*/.() ")
         if set(expr) - allowed:
@@ -100,7 +87,10 @@ def calculator(expr: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
+@tool
 def search_web(query: str) -> str:
+    """联网搜索信息（示例工具）。输入关键词，返回搜索结果摘要字符串。"""
     return f"Search results for: {query} (Configure BRAVE_API_KEY for real search)"
 
 

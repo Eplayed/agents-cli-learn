@@ -1,6 +1,6 @@
 # 🤖 Agent 开发学习计划
 
-> 基于 noah-chat-svc & noah-dataset-h5 项目实践
+> 基于 my-agent-cli 项目实践（TypeScript CLI + Python FastAPI），面向 2026-04 主流 Agent 技术栈
 
 ---
 
@@ -11,9 +11,9 @@
 | Phase 1 | TypeScript CLI 基础 (LangChain) | ✅ 已完成 |
 | Phase 2 | LangGraph 工作流 (状态/记忆/中断/子图) | ✅ 已完成 |
 | Phase 3 | Python FastAPI 后端 (单Agent + Multi-Agent) | ✅ 已完成 |
-| Phase 4 | MCP/A2A 协议 + 工具生态 | ⏳ 待开始 |
-| Phase 5 | Next.js 前端 + 可视化 | ⏳ 待开始 |
-| Phase 6 | Docker/K8s 生产部署 | ⏳ 待开始 |
+| Phase 4 | MCP（工具/上下文标准化）+ A2A（Agent-to-Agent） | ⏳ 待开始 |
+| Phase 5 | Next.js 15 前端 + 可视化 | ⏳ 待开始 |
+| Phase 6 | 生产化：部署/可观测性/评测/安全 | ⏳ 待开始 |
 
 **仓库**: https://github.com/Eplayed/agents-cli-learn
 
@@ -41,10 +41,11 @@
 - 基础工程化：配置管理（env）、日志与最小可观测（请求 id、耗时）
 
 ### 核心概念
-- `ChatOpenAI` - OpenAI API 封装
+- `ChatOpenAI`/Responses API - 模型调用与流式输出
 - `PromptTemplate` - 提示词模板
-- `LLMChain` - LLM + Prompt 链式调用
-- `StructuredOutputParser` - 结构化输出
+- LCEL / Runnables - 可组合的链式编排（替代传统 `LLMChain` 思路）
+- Structured Outputs（Schema 驱动）- 稳定 JSON 输出（Zod/JSON Schema）
+- Tool Calling - 工具函数规范、参数校验、结果回填
 
 ### 实践项目
 - `my-agent-cli` - CLI 工具
@@ -68,7 +69,7 @@
 ### 面试题
 ```typescript
 // Q: 如何让 LLM 调用外部工具？
-const llmWithTools = llm.bind_tools([getWeather, calculator]);
+const llmWithTools = llm.bindTools([getWeather, calculator]);
 const response = await llmWithTools.invoke("北京天气怎么样？");
 // response.tool_calls 包含工具调用信息
 ```
@@ -215,6 +216,8 @@ async def chat_stream(request: ChatRequest):
 
 ### 4.1 MCP (Model Context Protocol)
 
+**定位**：把“工具/资源/提示词”以统一协议暴露给模型/Agent，降低工具集成成本。
+
 **协议栈**:
 - Server/Client 架构
 - tools/resources/prompts 标准化接口
@@ -222,10 +225,10 @@ async def chat_stream(request: ChatRequest):
 - 生态定位：由 Anthropic 发起并推动的工具标准化协议，用于把“外部能力/上下文”以统一接口提供给模型与 Agent
 
 **实现计划**:
-- [ ] MCP Server 框架
-- [ ] 文件系统工具
-- [ ] Git 工具
-- [ ] 搜索工具 (Brave/Tavily)
+- [ ] MCP Server 框架（最小可用：stdio transport + tools 列表）
+- [ ] 文件系统工具（读/写/搜索，带权限白名单）
+- [ ] Git 工具（log/diff/status）
+- [ ] 搜索工具（Brave/Tavily/自建）
 
 
 #### MCP 核心概念补全
@@ -268,12 +271,12 @@ async def chat_stream(request: ChatRequest):
 **协议栈**:
 - Agent Card (能力描述)
 - JSON-RPC 2.0
-- Streamable HTTP
+- SSE/WebSocket（流式）
 
 **实现计划**:
 - [ ] Agent Card 注册
-- [ ] 任务委托协议
-- [ ] 跨 Agent 通信
+- [ ] 任务委托（含进度/取消）
+- [ ] 跨 Agent 通信（鉴权 + 速率限制）
 
 
 #### A2A 核心概念补全
@@ -292,15 +295,16 @@ async def chat_stream(request: ChatRequest):
 | 工具 | 功能 |
 |------|------|
 | Playwright | Browser 自动化 |
-| Code Interpreter | 安全沙箱代码执行 |
-| Brave Search | 联网搜索 |
+| Sandbox / Code Interpreter | 安全沙箱代码执行（强隔离） |
+| Search API | 联网搜索（可替换） |
+| Vector DB | RAG 检索（pgvector/Weaviate 等） |
 
 ---
 
 ## 💻 Phase 5: Next.js 前端 (待开始)
 
 ### 技术栈
-- Next.js 14 (App Router)
+- Next.js 15 (App Router)
 - Tailwind CSS + shadcn/ui
 - SSE 流式接收
 
@@ -341,7 +345,7 @@ async def chat_stream(request: ChatRequest):
 - 渲染一致性：同一条 SSE 事件序列在 UI 中呈现一致
 ---
 
-## 🚀 Phase 6: 生产部署 (待开始)
+## 🚀 Phase 6: 生产化（部署/可观测/评测/安全）(待开始)
 
 ### 6.1 Docker Compose
 ```yaml
@@ -358,10 +362,12 @@ services:
 - ConfigMap / Secret
 - Helm Chart
 
-### 6.3 监控
-- Prometheus + Grafana
-- JWT 认证
-- Rate Limiting
+### 6.3 可观测性与评测（2026 生产必备）
+- Tracing/Logging/Metrics（OpenTelemetry + 可视化平台）
+- Evals：离线集评测 + 线上 A/B + 回归测试
+- Prompt/配置版本化（可回滚）
+- JWT/OIDC 认证 + RBAC
+- Rate Limiting + 审计日志
 
 
 ### 核心概念补全
@@ -428,6 +434,8 @@ services:
 ### 官方文档
 - [LangChain.js](https://js.langchain.com/)
 - [LangGraph](https://langchain-ai.github.io/langgraph/)
+- [OpenAI Responses API](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
+- [OpenAI Agents SDK（含 MCP）](https://openai.github.io/openai-agents-python/mcp/)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [MCP Spec](https://modelcontextprotocol.io/)
 - [A2A Protocol](https://google.github.io/A2A/)
@@ -464,4 +472,4 @@ services:
 
 ---
 
-*最后更新: 2026-04-04*
+*最后更新: 2026-04-07*

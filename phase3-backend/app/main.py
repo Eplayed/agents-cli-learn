@@ -3,8 +3,10 @@ Noah Agent Platform - FastAPI Backend
 Phase 3: Enterprise Python Backend with Multi-Agent
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1 import chat, team, session
@@ -36,3 +38,9 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/ui", include_in_schema=False)
+async def ui():
+    ui_file = Path(__file__).resolve().parent / "ui" / "index.html"
+    return FileResponse(ui_file)

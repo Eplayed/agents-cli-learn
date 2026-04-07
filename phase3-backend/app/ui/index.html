@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Noah Agent Web UI</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0f19;
+        --panel: #121a2b;
+        --muted: #9aa4b2;
+        --text: #e6eaf2;
+        --border: #25314a;
+        --accent: #7c5cff;
+        --danger: #ff4d6d;
+        --ok: #2dd4bf;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --panel: #ffffff;
+          --muted: #667085;
+          --text: #101828;
+          --border: #e4e7ec;
+          --accent: #6d5efc;
+          --danger: #d92d20;
+          --ok: #0e9384;
+          --shadow: 0 10px 30px rgba(16, 24, 40, 0.12);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(124, 92, 255, 0.12), rgba(124, 92, 255, 0));
+      }
+      header h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+      }
+      header .meta {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .container {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 16px;
+        padding: 16px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      @media (max-width: 900px) {
+        .container {
+          grid-template-columns: 1fr;
+        }
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+      .panel .inner {
+        padding: 14px;
+      }
+      .label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      select,
+      input,
+      textarea,
+      button {
+        font: inherit;
+      }
+      select,
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        outline: none;
+      }
+      textarea {
+        min-height: 92px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      @media (max-width: 900px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+      .btn {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(124, 92, 255, 0.12);
+        color: var(--text);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .btn:hover {
+        border-color: rgba(124, 92, 255, 0.7);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .btn.secondary {
+        background: transparent;
+      }
+      .btn.danger {
+        background: rgba(255, 77, 109, 0.12);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pill strong {
+        color: var(--text);
+        font-weight: 650;
+      }
+      .chat {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 140px);
+        min-height: 520px;
+      }
+      @media (max-width: 900px) {
+        .chat {
+          height: auto;
+          min-height: 520px;
+        }
+      }
+      .messages {
+        flex: 1;
+        overflow: auto;
+        padding: 14px;
+      }
+      .msg {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      @media (prefers-color-scheme: light) {
+        .msg {
+          background: #fbfbfd;
+        }
+      }
+      .msg .who {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .msg .content {
+        white-space: pre-wrap;
+        line-height: 1.55;
+        font-size: 13px;
+      }
+      .msg.user {
+        border-color: rgba(124, 92, 255, 0.5);
+      }
+      .msg.assistant {
+        border-color: rgba(45, 212, 191, 0.4);
+      }
+      .msg.event {
+        border-style: dashed;
+      }
+      .composer {
+        border-top: 1px solid var(--border);
+        padding: 14px;
+        display: grid;
+        gap: 10px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .kvs {
+        display: grid;
+        gap: 8px;
+      }
+      .kv {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+      .kv span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 220px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Noah Agent Web UI</h1>
+      <div class="meta">
+        <span class="pill"><strong>Backend</strong> <span id="backendUrl"></span></span>
+        <span class="pill"><strong>Session</strong> <span id="sessionId">-</span></span>
+        <span class="pill"><strong>Status</strong> <span id="statusText">idle</span></span>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <div class="inner">
+          <div class="label">交互类型</div>
+          <div class="row">
+            <select id="uiMode">
+              <option value="single" selected>单 Agent（/api/v1/chat）</option>
+              <option value="team">Multi-Agent（/api/v1/team）</option>
+            </select>
+            <select id="teamMode" disabled>
+              <option value="sequential" selected>sequential</option>
+              <option value="parallel">parallel</option>
+              <option value="supervisor">supervisor</option>
+              <option value="groupchat">groupchat</option>
+            </select>
+          </div>
+
+          <div style="height: 12px"></div>
+          <div class="label">后端地址（同源即可）</div>
+          <input id="apiBase" placeholder="例如：http://localhost:8000" />
+
+          <div style="height: 12px"></div>
+          <div class="kvs">
+            <div class="kv"><strong>说明</strong><span>默认使用流式（fetch + 解析 SSE）</span></div>
+            <div class="kv"><strong>入口</strong><span>/ui</span></div>
+          </div>
+
+          <div style="height: 12px"></div>
+          <button class="btn secondary" id="newSessionBtn">新建 Session</button>
+          <div style="height: 8px"></div>
+          <button class="btn danger" id="clearBtn">清空窗口</button>
+
+          <div style="height: 12px"></div>
+          <div class="hint">
+            如果你是用 CLI（Node）直接跑的 Agent，这个页面不会连接到 CLI。
+            这个 Web UI 面向 phase3-backend 的 HTTP/SSE 接口。
+          </div>
+        </div>
+      </section>
+
+      <section class="panel chat">
+        <div class="messages" id="messages"></div>
+        <div class="composer">
+          <div class="label">输入</div>
+          <textarea id="input" placeholder="单 Agent：输入一句话；Multi-Agent：输入 topic"></textarea>
+          <div class="row">
+            <button class="btn" id="sendBtn">发送（流式）</button>
+            <button class="btn secondary" id="sendOnceBtn">发送（非流式）</button>
+          </div>
+          <div class="hint" id="hint"></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const apiBaseInput = $("apiBase");
+      const backendUrlEl = $("backendUrl");
+      const sessionIdEl = $("sessionId");
+      const statusTextEl = $("statusText");
+      const uiModeEl = $("uiMode");
+      const teamModeEl = $("teamMode");
+      const messagesEl = $("messages");
+      const inputEl = $("input");
+      const sendBtn = $("sendBtn");
+      const sendOnceBtn = $("sendOnceBtn");
+      const newSessionBtn = $("newSessionBtn");
+      const clearBtn = $("clearBtn");
+      const hintEl = $("hint");
+
+      let currentSessionId = null;
+      let running = false;
+
+      const defaultBase =
+        window.location.origin && window.location.origin.startsWith("http")
+          ? window.location.origin
+          : "http://localhost:8000";
+
+      apiBaseInput.value = defaultBase;
+      backendUrlEl.textContent = defaultBase;
+
+      function setRunning(v) {
+        running = v;
+        sendBtn.disabled = v;
+        sendOnceBtn.disabled = v;
+        newSessionBtn.disabled = v;
+        uiModeEl.disabled = v;
+        teamModeEl.disabled = v || uiModeEl.value !== "team";
+        statusTextEl.textContent = v ? "running" : "idle";
+      }
+
+      function formatTime(d) {
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        const ss = String(d.getSeconds()).padStart(2, "0");
+        return `${hh}:${mm}:${ss}`;
+      }
+
+      function addMessage(kind, who, content) {
+        const div = document.createElement("div");
+        div.className = `msg ${kind}`;
+        const head = document.createElement("div");
+        head.className = "who";
+        head.innerHTML = `<span>${who}</span><span>${formatTime(new Date())}</span>`;
+        const body = document.createElement("div");
+        body.className = "content";
+        body.textContent = content;
+        div.appendChild(head);
+        div.appendChild(body);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return body;
+      }
+
+      async function apiFetch(path, init) {
+        const base = apiBaseInput.value.trim() || defaultBase;
+        backendUrlEl.textContent = base;
+        const url = base.replace(/\/$/, "") + path;
+        const res = await fetch(url, init);
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
+        }
+        return res;
+      }
+
+      async function createSession() {
+        const res = await apiFetch("/api/v1/session/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        currentSessionId = data.id;
+        sessionIdEl.textContent = currentSessionId;
+        return currentSessionId;
+      }
+
+      function parseSSEBlock(block) {
+        const lines = block.split("\n").filter(Boolean);
+        let eventName = "message";
+        const dataLines = [];
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventName = line.slice("event:".length).trim();
+          } else if (line.startsWith("data:")) {
+            dataLines.push(line.slice("data:".length).trim());
+          }
+        }
+        const dataStr = dataLines.join("\n");
+        return { eventName, dataStr };
+      }
+
+      async function streamSSE(path, payload, onChunk) {
+        const res = await apiFetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.body) {
+          throw new Error("响应不支持流式 body");
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buffer.indexOf("\n\n")) !== -1) {
+            const raw = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            const trimmed = raw.trim();
+            if (!trimmed) continue;
+            const { eventName, dataStr } = parseSSEBlock(trimmed);
+            if (!dataStr) continue;
+            let obj;
+            try {
+              obj = JSON.parse(dataStr);
+            } catch {
+              obj = { type: "raw", content: dataStr };
+            }
+            onChunk(eventName, obj);
+          }
+        }
+      }
+
+      function updateHint() {
+        if (uiModeEl.value === "single") {
+          hintEl.textContent = "单 Agent：POST /api/v1/chat/stream（会话会写入 DB）";
+        } else {
+          hintEl.textContent = "Multi-Agent：POST /api/v1/team/stream（模式：sequential/parallel/supervisor/groupchat）";
+        }
+      }
+
+      uiModeEl.addEventListener("change", () => {
+        teamModeEl.disabled = uiModeEl.value !== "team" || running;
+        updateHint();
+      });
+
+      clearBtn.addEventListener("click", () => {
+        messagesEl.innerHTML = "";
+      });
+
+      newSessionBtn.addEventListener("click", async () => {
+        try {
+          setRunning(true);
+          await createSession();
+          addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+        } catch (e) {
+          addMessage("event", "error", String(e && e.message ? e.message : e));
+        } finally {
+          setRunning(false);
+        }
+      });
+
+      sendOnceBtn.addEventListener("click", async () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        try {
+          setRunning(true);
+          addMessage("user", "user", text);
+          inputEl.value = "";
+
+          if (uiModeEl.value === "single") {
+            if (!currentSessionId) await createSession();
+            const res = await apiFetch("/api/v1/chat/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: text, session_id: currentSessionId, stream: false }),
+            });
+            const data = await res.json();
+            addMessage("assistant", "assistant", data.content || "");
+          } else {
+            const res = await apiFetch("/api/v1/team/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ topic: text, mode: teamModeEl.value }),
+            });
+            const data = await res.json();
+            addMessage("assistant", `team:${data.mode || teamModeEl.value}`, data.summary || "");
+          }
+        } catch (e) {
+          addMessage("event", "error", String(e && e.message ? e.message : e));
+        } finally {
+          setRunning(false);
+        }
+      });
+
+      sendBtn.addEventListener("click", async () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        try {
+          setRunning(true);
+          addMessage("user", "user", text);
+          inputEl.value = "";
+
+          if (uiModeEl.value === "single") {
+            if (!currentSessionId) await createSession();
+            const bodyEl = addMessage("assistant", "assistant", "");
+            let full = "";
+            await streamSSE("/api/v1/chat/stream", { message: text, session_id: currentSessionId, stream: true }, (_evt, chunk) => {
+              if (chunk.type === "text") {
+                full += chunk.content || "";
+                bodyEl.textContent = full;
+              } else if (chunk.type === "tool_calls") {
+                addMessage("event", "tool_calls", JSON.stringify(chunk.data || chunk, null, 2));
+              } else if (chunk.type === "tool_result") {
+                addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
+              } else if (chunk.type === "error") {
+                addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
+              } else if (chunk.type === "done") {
+                return;
+              } else {
+                addMessage("event", "event", JSON.stringify(chunk, null, 2));
+              }
+            });
+          } else {
+            const bodyEl = addMessage("assistant", `team:${teamModeEl.value}`, "");
+            let acc = "";
+            await streamSSE("/api/v1/team/stream", { topic: text, mode: teamModeEl.value }, (_evt, chunk) => {
+              if (chunk.type === "summary") {
+                acc = chunk.content || "";
+                bodyEl.textContent = acc;
+              } else if (chunk.type === "task_result") {
+                addMessage("event", "task_result", String(chunk.content || ""));
+              } else if (chunk.type === "agent_thinking" || chunk.type === "agent_start" || chunk.type === "agent_done") {
+                addMessage("event", chunk.type, String(chunk.content || ""));
+              } else if (chunk.type === "error") {
+                addMessage("event", "error", String(chunk.content || ""));
+              } else {
+                addMessage("event", "event", JSON.stringify(chunk, null, 2));
+              }
+            });
+          }
+        } catch (e) {
+          addMessage("event", "error", String(e && e.message ? e.message : e));
+        } finally {
+          setRunning(false);
+        }
+      });
+
+      (async () => {
+        updateHint();
+        try {
+          await createSession();
+          addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+        } catch (e) {
+          addMessage("event", "error", `无法创建 Session：${String(e && e.message ? e.message : e)}`);
+        }
+      })();
+    </script>
+  </body>
+</html>

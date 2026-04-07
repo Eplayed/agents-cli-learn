@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-change-in-production"
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env", "../.env.dev")
         case_sensitive = True
 
 
