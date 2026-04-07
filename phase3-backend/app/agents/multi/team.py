@@ -15,6 +15,10 @@ from app.core.config import settings
 
 
 class AgentProfile:
+    # 每个 Agent 的“人设/职责”描述：
+    # - name: 显示名（Researcher/Writer/Reviewer）
+    # - role: 角色名（本示例未深度使用，主要用于可读性）
+    # - system_prompt: 写进 SystemMessage，影响模型行为
     def __init__(self, name: str, role: str, system_prompt: str):
         self.name = name
         self.role = role
@@ -32,9 +36,11 @@ PROFILES = {
 class WorkerAgent:
     def __init__(self, profile: AgentProfile):
         self.profile = profile
+        # 每个 worker 都是一个独立的 ChatOpenAI 实例（便于不同温度/模型/提示词）
         self.llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7)
 
     async def execute(self, task: str) -> str:
+        # 统一执行入口：SystemMessage(人设) + HumanMessage(任务)
         messages = [SystemMessage(content=self.profile.system_prompt), HumanMessage(content=task)]
         resp = await self.llm.ainvoke(messages)
         return str(resp.content)
@@ -44,12 +50,16 @@ class MultiAgentTeam:
     def __init__(self, mode: str):
         self.mode = mode
         self.workers = {}
+        # supervisor_llm 用于“分派任务/规划”类提示，本示例用简单 JSON 解析
         self.supervisor_llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7)
 
     def add_worker(self, profile: AgentProfile):
         self.workers[profile.name] = WorkerAgent(profile)
 
     async def execute_sequential(self, topic: str) -> AsyncGenerator:
+        # 顺序模式：Researcher -> Writer -> Reviewer
+        # 产出的 chunk 类型（供 API/Web UI 渲染）：
+        # - agent_start / agent_thinking / agent_done / summary
         self.add_worker(PROFILES["researcher"])
         self.add_worker(PROFILES["writer"])
         self.add_worker(PROFILES["reviewer"])
@@ -71,6 +81,9 @@ class MultiAgentTeam:
         yield {"type": "summary", "content": f"=== Research ===\n{research}\n\n=== Written ===\n{writer}\n\n=== Review ===\n{review}"}
 
     async def execute_parallel(self, topic: str) -> AsyncGenerator:
+        # 并行模式：同时跑多个 worker，最后汇总
+        # - task_result: 中间过程（为了 UI 不刷屏，做了截断）
+        # - summary: 完整内容
         self.add_worker(PROFILES["researcher"])
         self.add_worker(PROFILES["writer"])
         self.add_worker(PROFILES["reviewer"])
@@ -91,6 +104,8 @@ class MultiAgentTeam:
         yield {"type": "summary", "content": "\n\n".join([f"【{n}】\n{o}" for (n, _), o in zip(tasks, results)])}
 
     async def execute_supervisor(self, topic: str) -> AsyncGenerator:
+        # 主管模式：先让 supervisor_llm 产出“任务分解”，再让 worker 执行
+        # 为了教学简单，这里用正则从模型输出中提取 JSON（不保证绝对可靠）
         self.add_worker(PROFILES["researcher"])
         self.add_worker(PROFILES["writer"])
         self.add_worker(PROFILES["reviewer"])
@@ -125,6 +140,10 @@ class MultiAgentTeam:
         yield {"type": "summary", "content": "\n\n".join([f"【{r['agent']}】\n{r['output']}" for r in results])}
 
     async def execute_groupchat(self, topic: str) -> AsyncGenerator:
+        # 群聊模式：让多个 agent 轮流发言 N 轮，把上下文不断追加
+        # 真实项目中建议：
+        # - 控制上下文长度（摘要/裁剪）
+        # - 引入“主持人/经理”选择发言者与终止条件
         self.add_worker(PROFILES["researcher"])
         self.add_worker(PROFILES["writer"])
         self.add_worker(PROFILES["reviewer"])

@@ -20,6 +20,10 @@
 
 ## 🗺️ 核心流程图
 
+### Phase 1–3 端到端流程（含代码定位）
+
+详见：[PHASE1-3-FLOW.md](file:///Users/noahadmin/noah/my-agent-cli/PHASE1-3-FLOW.md)
+
 ### Multi-Agent 模式对比
 
 ```

@@ -14,6 +14,8 @@ from app.core.config import settings
 
 class SingleAgent:
     def __init__(self, session_id: str):
+        # session_id 用于把“图的记忆（checkpoint）”绑定到一次会话
+        # 同一个 session_id/ thread_id 重复调用时，LangGraph 会从 MemorySaver 中恢复上下文
         self.session_id = session_id
         self.llm = ChatOpenAI(
             model=settings.OPENAI_MODEL,
@@ -22,28 +24,38 @@ class SingleAgent:
             temperature=0.7,
             streaming=True,
         )
+        # tools 是 Agent 可调用的函数列表（通过 @tool 包装，LangGraph 才能识别）
         self.tools = get_tools()
+        # 给 LLM 绑定工具：模型输出 tool_calls 时，ToolNode 才能根据 name/args 执行
         self.llm_with_tools = self.llm.bind_tools(self.tools)
+        # checkpointer 用来保存 MessagesState（本示例用内存版，重启进程会丢失）
         self.checkpointer = MemorySaver()
+        # graph 是一个“agent -> tools -> agent”的状态机
         self.graph = self._build_graph()
 
     def _build_graph(self):
+        # ToolNode：把工具执行封装成一个图节点
         tool_node = ToolNode(self.tools)
 
+        # MessagesState：LangGraph 内置状态结构，字段 messages 里存对话消息列表
         workflow = StateGraph(MessagesState)
         workflow.add_node("agent", self._agent_node)
         workflow.add_node("tools", tool_node)
         workflow.set_entry_point("agent")
+        # tools_condition：如果 agent 输出里包含 tool_calls 就走 tools，否则结束
         workflow.add_conditional_edges("agent", tools_condition)
+        # 工具执行后回到 agent，让模型读取工具结果继续生成
         workflow.add_edge("tools", "agent")
         return workflow.compile(checkpointer=self.checkpointer)
 
     async def _agent_node(self, state):
+        # 让模型基于当前 messages 生成下一条 AIMessage（可能包含 tool_calls）
         response = await self.llm_with_tools.ainvoke(state["messages"])
         return {"messages": [response]}
 
     async def stream(self, message: str, thread_id: str = None) -> AsyncGenerator[dict, None]:
         thread_id = thread_id or self.session_id
+        # thread_id 是 LangGraph “可恢复记忆”的关键：同一个 thread_id 会串起同一会话
         config = {"configurable": {"thread_id": thread_id}}
         messages = [HumanMessage(content=message)]
         
@@ -52,6 +64,9 @@ class SingleAgent:
                 {"messages": messages},
                 config=config, version="v1"
             ):
+                # astream_events 会产出丰富的事件：
+                # - on_chat_model_stream: 模型 token 流
+                # - on_tool_start/on_tool_end: 工具开始/结束
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
                     content = event["data"]["chunk"].content

@@ -16,6 +16,8 @@ router = APIRouter()
 
 @router.post("/", response_model=SessionInfo)
 async def create_session(request: SessionCreate, db: AsyncSession = Depends(get_db)):
+    # 创建一个新会话（单 Agent 默认 mode=single）
+    # Web UI 会在打开页面时自动调用这个接口，拿到 session_id 用于后续对话持久化
     session = Session(name=request.name or f"Session {datetime.now().strftime('%m/%d %H:%M')}", mode="single")
     db.add(session)
     await db.commit()
@@ -25,6 +27,7 @@ async def create_session(request: SessionCreate, db: AsyncSession = Depends(get_
 
 @router.get("/", response_model=List[SessionInfo])
 async def list_sessions(limit: int = 20, db: AsyncSession = Depends(get_db)):
+    # 按最近活跃排序，便于前端展示“最近会话”
     stmt = select(Session).order_by(desc(Session.updated_at)).limit(limit)
     result = await db.execute(stmt)
     sessions = result.scalars().all()
@@ -33,6 +36,7 @@ async def list_sessions(limit: int = 20, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{session_id}", response_model=SessionInfo)
 async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    # 查询单个会话元信息（不包含消息）
     stmt = select(Session).where(Session.id == session_id)
     result = await db.execute(stmt)
     session = result.scalar_one_or_none()
@@ -43,6 +47,7 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    # 删除会话会级联删除 messages（models.py 里 relationship 配置了 cascade）
     stmt = select(Session).where(Session.id == session_id)
     result = await db.execute(stmt)
     session = result.scalar_one_or_none()
@@ -55,6 +60,8 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{session_id}/messages")
 async def get_messages(session_id: str, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    # 获取会话内消息（按时间正序）
+    # 这里直接返回 dict 方便 Web UI 调试；生产环境建议用专门的 schema 严格控制字段
     stmt = select(Message).where(Message.session_id == session_id).order_by(Message.created_at).limit(limit)
     result = await db.execute(stmt)
     messages = result.scalars().all()
