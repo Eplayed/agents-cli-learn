@@ -50,5 +50,5 @@ async def health():
 async def ui():
     # Web UI 静态页入口（不需要前端工程/打包）
     # 浏览器打开 /ui 后，通过 fetch 调用上面的 /api/v1/* 接口
-    ui_file = Path(__file__).resolve().parent / "ui" / "index.html"
+    ui_file = Path(__file__).resolve().parent.parent.parent / "web" / "public" / "ui" / "index.html"
     return FileResponse(ui_file)

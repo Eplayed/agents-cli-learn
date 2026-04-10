@@ -584,6 +584,7 @@
       let running = false;
       let sessionSummaries = [];
       let currentMessages = [];
+      let pendingToolBlocks = [];
 
       const LOG_STORE_KEY = "noah_agent_ui_logs_v1";
       const LOG_UI_KEY = "noah_agent_ui_logpanel_v1";
@@ -629,6 +630,51 @@
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         return body;
+      }
+
+      function addToolBlock(name, input, time) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg event";
+
+        const details = document.createElement("details");
+        details.open = false;
+        details.style.border = "1px solid rgba(124, 92, 255, 0.25)";
+        details.style.borderRadius = "12px";
+        details.style.padding = "10px 12px";
+        details.style.background = "rgba(124, 92, 255, 0.06)";
+
+        const summary = document.createElement("summary");
+        summary.style.cursor = "pointer";
+        summary.style.fontWeight = "700";
+        summary.textContent = `Tool: ${name}`;
+        details.appendChild(summary);
+
+        const meta = document.createElement("div");
+        meta.className = "who";
+        meta.style.marginTop = "8px";
+        meta.style.marginBottom = "6px";
+        meta.innerHTML = `<span>tool_calls</span><span>${formatTime(time ? new Date(time) : new Date())}</span>`;
+        details.appendChild(meta);
+
+        const preIn = document.createElement("pre");
+        preIn.style.margin = "0";
+        preIn.style.whiteSpace = "pre-wrap";
+        preIn.style.fontSize = "12px";
+        preIn.textContent = input ? safeJson(input) : "(no input)";
+        details.appendChild(preIn);
+
+        const preOut = document.createElement("pre");
+        preOut.style.marginTop = "8px";
+        preOut.style.marginBottom = "0";
+        preOut.style.whiteSpace = "pre-wrap";
+        preOut.style.fontSize = "12px";
+        preOut.textContent = "…";
+        details.appendChild(preOut);
+
+        wrap.appendChild(details);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return { name, details, preOut };
       }
 
       function loadLogStore() {
@@ -800,12 +846,20 @@
           const path = fetchSpan && fetchSpan.data ? getPathFromUrl(fetchSpan.data.url) : null;
 
           const tools = [];
+          const toolCalls = [];
           for (const it of trace.list) {
             if ((it.kind || "event") === "event" && it.name === "tool:call" && it.data && it.data.name) {
               tools.push(String(it.data.name));
+              toolCalls.push({ name: String(it.data.name), input: it.data.input || null });
             }
           }
           const uniqTools = Array.from(new Set(tools));
+          const toolResults = [];
+          for (const it of trace.list) {
+            if ((it.kind || "event") === "event" && it.name === "tool:result" && it.data && it.data.name) {
+              toolResults.push({ name: String(it.data.name), output: it.data.output || null });
+            }
+          }
 
           const backend = [];
           if (path === "/api/v1/chat/stream_ndjson") {
@@ -842,7 +896,18 @@
 
           const flowLine = steps.join(" → ");
           const toolLine = uniqTools.length ? `Tools: ${uniqTools.join(", ")}` : "Tools: (none)";
-          return { flowLine, toolLine };
+          const detailLines = [];
+          if (toolCalls.length) {
+            detailLines.push("Tool details:");
+            for (const c of toolCalls) {
+              const r = toolResults.find((x) => x.name === c.name);
+              const out = r && r.output ? String(r.output) : "";
+              const out1 = out.length > 240 ? out.slice(0, 240) + "…" : out || "(no output)";
+              detailLines.push(`- ${c.name} input=${c.input ? safeJson(c.input) : "{}"}`);
+              detailLines.push(`  output=${out1}`);
+            }
+          }
+          return { flowLine, toolLine, detail: detailLines.join("\n") };
         }
 
         logListEl.innerHTML = "";
@@ -871,7 +936,7 @@
             title.className = "title";
             title.textContent = "运作流程";
             const pre = document.createElement("pre");
-            pre.textContent = `${flow.flowLine}\n${flow.toolLine}`;
+            pre.textContent = `${flow.flowLine}\n${flow.toolLine}${flow.detail ? `\n${flow.detail}` : ""}`;
             box.appendChild(title);
             box.appendChild(pre);
             inner.appendChild(box);
@@ -1402,6 +1467,7 @@
           await runTrace("INFO", "ui:sendStream", { mode: uiModeEl.value, text }, async () => {
             addMessage("user", "user", text);
             inputEl.value = "";
+            pendingToolBlocks = [];
 
             if (uiModeEl.value === "single") {
               if (!currentSessionId) await createSession();
@@ -1413,12 +1479,21 @@
                   bodyEl.textContent = full;
                 } else if (chunk.type === "tool_calls") {
                   const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
-                  if (toolName) emitLog("INFO", "event", "tool:call", { name: toolName });
-                  addMessage("event", "tool_calls", JSON.stringify(chunk.data || chunk, null, 2));
+                  const toolInput = chunk.data && chunk.data.input ? chunk.data.input : null;
+                  if (toolName) emitLog("INFO", "event", "tool:call", { name: toolName, input: toolInput });
+                  const block = addToolBlock(toolName || "tool", toolInput, Date.now());
+                  pendingToolBlocks.push(block);
                 } else if (chunk.type === "tool_result") {
                   const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
-                  if (toolName) emitLog("INFO", "event", "tool:result", { name: toolName });
-                  addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
+                  const toolOutput = chunk.data && chunk.data.output ? chunk.data.output : null;
+                  if (toolName) emitLog("INFO", "event", "tool:result", { name: toolName, output: toolOutput });
+                  const idx = pendingToolBlocks.findIndex((b) => b.name === toolName && b.preOut && b.preOut.textContent === "…");
+                  if (idx !== -1) {
+                    const b = pendingToolBlocks[idx];
+                    b.preOut.textContent = toolOutput ? String(toolOutput) : "(no output)";
+                  } else {
+                    addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
+                  }
                 } else if (chunk.type === "error") {
                   addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
                 } else if (chunk.type === "done") {

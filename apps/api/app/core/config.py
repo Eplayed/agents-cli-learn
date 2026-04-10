@@ -36,12 +36,12 @@ class Settings(BaseSettings):
 
     class Config:
         # 读取环境变量的优先级：
-        # 1) phase3-backend/.env
+        # 1) apps/api/.env
         # 2) 项目根目录 .env
         # 3) 项目根目录 .env.dev
         #
         # 这样可以让“前端/后端共用一份 .env.dev”时，后端也能直接读到 OPENAI_API_KEY。
-        env_file = (".env", "../.env", "../.env.dev")
+        env_file = (".env", "../../.env", "../../.env.dev")
         case_sensitive = True
 
 

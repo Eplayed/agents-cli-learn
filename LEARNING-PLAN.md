@@ -1,145 +1,147 @@
-# 🤖 Agent 开发学习计划
+﻿# 🤖 Agent 开发学习计划（Web-only）
 
-> 基于 my-agent-cli 项目实践（TypeScript CLI + Python FastAPI），面向 2026-04 主流 Agent 技术栈
+> 基于 my-agent-cli 项目实践（只做 Web：FastAPI + Web 前端），面向 2026-04 主流 Agent 技术栈。
 
 ---
 
-## 📊 当前进度
+## 🎯 目标收敛：只做 Web
 
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| Phase 1 | TypeScript CLI 基础 (LangChain) | ✅ 已完成 |
-| Phase 2 | LangGraph 工作流 (状态/记忆/中断/子图) | ✅ 已完成 |
-| Phase 3 | Python FastAPI 后端 (单Agent + Multi-Agent) | ✅ 已完成 |
-| Phase 4 | MCP（工具/上下文标准化）+ A2A（Agent-to-Agent） | ⏳ 待开始 |
-| Phase 5 | Next.js 15 前端 + 可视化 | ⏳ 待开始 |
-| Phase 6 | 生产化：部署/可观测性/评测/安全 | ⏳ 待开始 |
+### Web-only 的含义
+- 仅保留 Web UI + Web API 作为主要入口
+- `/src`（TypeScript CLI）不再作为主线（建议迁移到 `archive/cli` 仅供参考）
+
+### Web-only 的核心交付物
+- Web UI：对话、历史会话、工具可视化、日志面板（Trace→Span→Event）、导出
+- Web API：chat/team/session、NDJSON 流式协议、错误分层、预算控制（最小版）
+- 可回归：最小回归集（工具调用、结构化输出、场景对话）
+- 可上线：Docker Compose、基本鉴权/限流、可观测与告警（最小版）
+
+---
+
+## 📊 里程碑总览（可验收）
+
+| Milestone | 范围 | 验收标准（简要） | 状态 |
+|---|---|---|---|
+| M0 | 目标收敛 + 协议/目录 PRD | PRD 文件齐全，边界明确 | ✅ |
+| M1 | Web 后端（API + Agent Runtime） | NDJSON 流式稳定；tool input/output 可见；错误分层 | ✅（持续迭代） |
+| M2 | Web 前端（学习控制台） | 会话列表/切换；日志面板；导出可用 | ✅（持续迭代） |
+| M3 | 场景能力（可回归） | 天气/搜索/计算场景可用；≥30 回归用例框架 | ✅（持续扩展） |
+| M4 | Skills/MCP（Web-only） | MCP Server + Skills manifest + UI 管理 | ⏳ |
+| M5 | Memory/RAG（长期记忆） | 摘要/向量检索；引用可解释；回放可复现 | ⏳ |
+| M6 | Evals/Observability/DevOps | eval 一键跑；trace_id 贯通；compose 一键起停 | ⏳ |
 
 **仓库**: https://github.com/Eplayed/agents-cli-learn
 
 ---
 
-## 🧭 学习路径（检查与建议顺序）
+## 🧭 推荐学习顺序（Web-only）
 
-- Phase 1：先把“模型 + 工具 + 结构化输出”跑通，形成最小可用 Agent
-- Phase 2：用状态机把“决策/工具/校验/记忆/中断”工程化，保证可控与可恢复
-- Phase 3：服务化与多 Agent，把“运行时/会话/并发/输出协议”固定下来
-- Phase 4：用 MCP/A2A/Skills 抽象外部工具与跨 Agent 协作，形成可复用生态
-- Phase 5：把 trace、回放、eval 可视化，显著提升调试效率与迭代速度
-- Phase 6：把安全、成本、可观测、弹性带入生产环境，形成长期可维护系统
-
-## 📚 Phase 1: LangChain 基础 (TypeScript)
-
-### 目标
-掌握 TypeScript 环境下的 LLM 开发基础
-
-### 核心功能
-- 模型调用：对话/流式输出/错误重试/超时控制
-- 提示词工程：模板化、变量注入、少样本、系统提示词与角色划分
-- 工具调用：工具 schema、参数校验、工具执行与结果回填
-- 结构化输出：JSON Schema / Zod（如已使用）约束、解析失败回退策略
-- 基础工程化：配置管理（env）、日志与最小可观测（请求 id、耗时）
-
-### 核心概念
-- `ChatOpenAI`/Responses API - 模型调用与流式输出
-- `PromptTemplate` - 提示词模板
-- LCEL / Runnables - 可组合的链式编排（替代传统 `LLMChain` 思路）
-- Structured Outputs（Schema 驱动）- 稳定 JSON 输出（Zod/JSON Schema）
-- Tool Calling - 工具函数规范、参数校验、结果回填
-
-### 实践项目
-- `my-agent-cli` - CLI 工具
-- 文件: `src/agent/agent.ts`, `src/tools/index.ts`
-
-### 阶段产出（可验收）
-- 一个可运行的 CLI：支持输入问题 → 选择工具 → 输出结构化结果
-- 至少 2 个工具：一个纯计算/解析工具 + 一个带 I/O（如网络/文件）的只读工具
-- 明确的失败处理：解析失败/工具失败时给出可读错误，并可重试/降级
-
-### 实现计划
-- [x] 建立最小 CLI 交互：输入/输出/错误处理
-- [x] 定义工具 schema 与执行器：参数校验、超时、失败回填
-- [x] 建立结构化输出约束与解析失败回退
-- [x] 增加最小观测字段：request id、耗时、token/工具调用计数（如可获取）
-
-### 回归点（Phase 1）
-- 结构化输出回归：给定 10 条输入，输出 JSON 必须可解析且字段完整
-- 工具调用回归：给定 10 条工具型问题，工具调用率/参数正确率可统计
-
-### 面试题
-```typescript
-// Q: 如何让 LLM 调用外部工具？
-const llmWithTools = llm.bindTools([getWeather, calculator]);
-const response = await llmWithTools.invoke("北京天气怎么样？");
-// response.tool_calls 包含工具调用信息
-```
+- 先把“API 协议 + 流式 + 工具可视化”固定（M1）
+- 再把“会话管理 + 日志分层 + 导出”做到能复盘（M2）
+- 用 3–5 个日常场景把能力落地，并做回归集（M3）
+- 再引入 MCP/Skills 与长期记忆（M4/M5）
+- 最后补齐评测、观测与交付（M6）
 
 ---
 
-## 🔀 Phase 2: LangGraph 工作流
+## ✅ M1：Web 后端（FastAPI + Agent Runtime）
 
-### 目标
-理解状态流图、条件边、子图编排
+### 学习重点
+- HTTP 边界：传输层与 Agent Runtime 解耦
+- NDJSON 流式协议：事件类型稳定、可消费、可回放
+- 工具工程：参数 schema、输入/输出可见、超时/重试/降级
+- 错误分层：用户/工具/模型/系统
+- 预算控制：max_steps / max_tool_calls / max_time（最小版）
 
-### 核心模块
-
-#### 2.1 状态管理 (state.ts)
-```typescript
-export const AgentState = Annotation.Root({
-  messages: Annotation<BaseMessage[]>,
-  chatId: Annotation<string>,
-  tools: Annotation<string[]>,
-  reasoning: Annotation<string>,
-});
-```
-
-#### 2.1.1 核心概念补全
-- State：不仅是 messages，更应包含“任务态”（计划、证据、约束、预算）
-- Node：一个确定的处理步骤（LLM 决策、工具执行、校验、总结）
-- Edge：状态流转；Conditional Edge：由判定函数决定走向
-- Checkpoint/Memory：可恢复执行（断点续跑）、跨请求保持会话
-- Reducer（如适用）：并行分支汇合时的状态合并策略
-
-#### 2.2 记忆管理 (memory.ts)
-| 策略 | 原理 | 适用场景 |
-|------|------|----------|
-| WindowMemory | 滑动窗口保留最近 N 条 | 简单对话 |
-| SummaryMemory | 压缩旧消息为摘要 | 长对话 |
-| EntityMemory | 提取实体（人名、地点） | 个性化助手 |
-
-#### 2.3 中断机制 (interrupt.ts)
-- 用户输入中断 Agent 执行
-- 确认后继续执行
-- 用于敏感操作确认
-
-#### 2.4 子图 (subgraph.ts)
-- 独立子图模块化
-- 错误处理与重试
-- 状态共享
-
-#### 2.5 核心功能清单（建议补齐）
-- 工具前置校验：权限/参数/预算（token、工具次数、耗时）
-- 工具后置校验：返回值 schema 校验、失败重试与降级路径
-- 可恢复执行：中断后能从 checkpoint 继续，而不是从头跑
-- 子图复用：如“检索子图 / 总结子图 / 写文件子图”独立可测试
-- 可观测：每个 node 记录输入/输出摘要、耗时、是否命中工具
-
-### 实现计划
-- [x] 抽象 AgentState：messages + 任务态（计划/证据/约束/预算）
-- [x] 拆分节点：LLM 决策节点 / 工具执行节点 / 校验节点 / 总结节点
-- [x] 增加条件边：继续调用工具/结束/需要确认/需要重试
-- [x] 接入 checkpoint：支持断点续跑与会话恢复
-- [x] 子图化通用流程：检索/总结/写入（如有写入则纳入确认）
-- [x] 记录每步 trace：节点输入输出摘要、耗时、错误码（可用于回放）
-
-### 回归点（Phase 2）
-- 状态机回归：同一输入在同一配置下路径稳定（节点序列可预测）
-- 记忆回归：长对话下摘要/窗口切换后仍能回答关键信息
-- 中断回归：敏感操作触发确认，拒绝后不会继续执行危险工具
+### 验收清单（必须能跑通）
+- `/health`
+- `/api/v1/session/summary`（会话摘要：最后消息预览）
+- `/api/v1/session/{id}/messages`（历史消息可加载）
+- `/api/v1/chat/send`（非流式）
+- `/api/v1/chat/stream_ndjson`（流式，含 tool input/output）
+- `/api/v1/team/execute` 与 `/api/v1/team/stream_ndjson`
 
 ---
 
-## 🔧 Phase 3: Python FastAPI 后端
+## ✅ M2：Web 前端（对话学习控制台）
+
+### 学习重点
+- 会话状态管理：列表/选中会话/消息加载/刷新
+- 流式渲染：ReadableStream 按行解析 NDJSON
+- 可观测 UI：Trace→Span→Event、搜索/筛选/导出
+- 工具可视化：tool_calls/tool_result 折叠展示
+
+### 验收清单
+- 10+ 个会话切换不串扰
+- 日志面板能定位一次请求的关键链路与耗时
+- 导出 JSON/文本可用于复盘
+
+---
+
+## ✅ M3：日常场景能力（可回归）
+
+### 场景优先级（建议）
+- S1：天气 + 洗车建议（必须先调用 get_weather，再给结论+依据）
+- S2：联网搜索 + 摘要（provider 可替换）
+- S3：计算/解析（强校验与防注入）
+
+### 回归体系（最小）
+- 统一用例格式（jsonl/yaml）：id/input/assertions/tags/permissions
+- 断言类型：必须调用/禁止调用某工具、必须包含某关键数据、不得泄露敏感信息
+
+---
+
+## ⏳ M4：Skills/MCP（Web-only）
+
+### 学习重点
+- Tool 抽象标准化：name/description/input_schema/permission/timeout/idempotency
+- Skills：manifest + 资源文件 +（可选）prompt/流程
+- MCP：tools/resources/prompts 的标准接口与安全边界
+
+### 验收清单
+- MCP Server（stdio 或 http）至少 2 个只读工具
+- Skills 可安装/启停/版本化，UI 可管理
+
+---
+
+## ⏳ M5：Memory/RAG（长期记忆）
+
+### 学习重点
+- 会话摘要策略（窗口/摘要/实体）
+- 向量检索与引用可解释（回答中标注来源）
+- 轨迹检索（tool run 复用）
+
+### 验收清单
+- memory upsert/search API
+- 每次回答可显示“引用了哪些记忆片段”
+
+---
+
+## ⏳ M6：Evals / Observability / DevOps（上线交付）
+
+### 学习重点
+- Evals：离线回归、失败用例复盘、指标（通过率/延迟/成本）
+- Observability：trace_id 贯通、关键耗时与错误率统计
+- DevOps：Docker Compose、配置与密钥、版本与回滚
+
+### 验收清单
+- eval 一键跑（≥30 用例）输出通过率与失败列表
+- docker compose 一键启动（web + api + db）
+- 最小鉴权/限流与审计日志
+
+---
+
+## ⏱️ 时间节点（不做“估时”，只给可落地的交付顺序）
+
+- T0：目标收敛（Web-only）与 PRD 完成
+- T1：M1 可验收（后端关键路径全通）
+- T2：M2 可验收（前端会话+日志+导出全通）
+- T3：M3 可验收（3 个场景 + 最小回归框架）
+- T4：M4/M5/M6 依次推进（先标准化工具/技能，再做长期记忆，再做交付与回归）
+
+---
+
+*最后更新: 2026-04-10*
 
 ### 架构
 
