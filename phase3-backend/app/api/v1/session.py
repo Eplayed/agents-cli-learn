@@ -6,9 +6,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from sqlalchemy import func
 
 from app.core.database import get_db
-from app.schemas.chat import SessionInfo, SessionCreate
+from app.schemas.chat import SessionInfo, SessionCreate, SessionSummary
 from app.models.models import Session, Message
 
 router = APIRouter()
@@ -32,6 +33,55 @@ async def list_sessions(limit: int = 20, db: AsyncSession = Depends(get_db)):
     result = await db.execute(stmt)
     sessions = result.scalars().all()
     return [SessionInfo(id=s.id, name=s.name, message_count=s.message_count, created_at=s.created_at, updated_at=s.updated_at) for s in sessions]
+
+
+@router.get("/summary", response_model=List[SessionSummary])
+async def list_session_summaries(limit: int = 50, db: AsyncSession = Depends(get_db)):
+    last_ts = (
+        select(Message.session_id, func.max(Message.created_at).label("max_created"))
+        .group_by(Message.session_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(Session, Message)
+        .outerjoin(last_ts, last_ts.c.session_id == Session.id)
+        .outerjoin(
+            Message,
+            (Message.session_id == Session.id) & (Message.created_at == last_ts.c.max_created),
+        )
+        .order_by(desc(Session.updated_at))
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    items: List[SessionSummary] = []
+    for sess, msg in rows:
+        preview = None
+        last_at = None
+        last_role = None
+        if msg:
+            last_role = msg.role
+            last_at = msg.created_at
+            txt = msg.content or ""
+            preview = txt if len(txt) <= 120 else txt[:120] + "…"
+
+        items.append(
+            SessionSummary(
+                id=sess.id,
+                name=sess.name,
+                message_count=sess.message_count,
+                created_at=sess.created_at,
+                updated_at=sess.updated_at,
+                last_message_preview=preview,
+                last_message_at=last_at,
+                last_role=last_role,
+            )
+        )
+
+    return items
 
 
 @router.get("/{session_id}", response_model=SessionInfo)
@@ -65,4 +115,14 @@ async def get_messages(session_id: str, limit: int = 50, db: AsyncSession = Depe
     stmt = select(Message).where(Message.session_id == session_id).order_by(Message.created_at).limit(limit)
     result = await db.execute(stmt)
     messages = result.scalars().all()
-    return [m.__dict__ | {"session": None} for m in messages]
+    return [
+        {
+            "id": m.id,
+            "session_id": m.session_id,
+            "role": m.role,
+            "content": m.content,
+            "tool_calls": m.tool_calls,
+            "created_at": m.created_at,
+        }
+        for m in messages
+    ]

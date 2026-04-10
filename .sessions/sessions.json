@@ -19,5 +19,19 @@
     "createdAt": "2026-04-07T06:58:48.138Z",
     "lastMessageAt": "2026-04-07T07:21:42.465Z",
     "messageCount": 1
+  },
+  {
+    "id": "session_1775800702723_35sehrb0s",
+    "name": "会话 2026/4/10 13:58:22",
+    "createdAt": "2026-04-10T05:58:22.758Z",
+    "lastMessageAt": "2026-04-10T05:58:22.759Z",
+    "messageCount": 0
+  },
+  {
+    "id": "session_1775801020259_igt1e5wcq",
+    "name": "会话 2026/4/10 14:03:40",
+    "createdAt": "2026-04-10T06:03:40.325Z",
+    "lastMessageAt": "2026-04-10T06:03:40.325Z",
+    "messageCount": 0
   }
 ]

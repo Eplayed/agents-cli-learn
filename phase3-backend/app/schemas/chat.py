@@ -29,3 +29,9 @@ class SessionInfo(BaseModel):
     message_count: int
     created_at: datetime
     updated_at: datetime
+
+
+class SessionSummary(SessionInfo):
+    last_message_preview: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    last_role: Optional[str] = None

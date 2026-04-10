@@ -238,6 +238,221 @@
         white-space: nowrap;
         max-width: 220px;
       }
+
+      .sectionTitle {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 10px 0 6px;
+      }
+
+      .sessionList {
+        display: grid;
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+        padding-right: 2px;
+      }
+      .sessionItem {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 10px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      @media (prefers-color-scheme: light) {
+        .sessionItem {
+          background: #fbfbfd;
+        }
+      }
+      .sessionItem:hover {
+        border-color: rgba(124, 92, 255, 0.7);
+      }
+      .sessionItem.active {
+        border-color: rgba(124, 92, 255, 0.9);
+        box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.15);
+      }
+      .sessionItem .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .sessionItem .name {
+        font-weight: 650;
+        font-size: 13px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .sessionItem .time {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .sessionItem .preview {
+        font-size: 12px;
+        color: var(--muted);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .pillBtn {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .logPanel {
+        grid-column: 1 / -1;
+        display: none;
+        flex-direction: column;
+        max-height: 520px;
+      }
+      .logPanel.open {
+        display: flex;
+      }
+      .logHeader {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .logHeader strong {
+        font-size: 13px;
+      }
+      .logBody {
+        padding: 12px 14px;
+        overflow: auto;
+        display: grid;
+        gap: 10px;
+      }
+      .logControls {
+        display: grid;
+        grid-template-columns: 1fr 140px;
+        gap: 10px;
+      }
+      @media (max-width: 520px) {
+        .logControls {
+          grid-template-columns: 1fr;
+        }
+      }
+      .logList {
+        display: grid;
+        gap: 8px;
+      }
+      .logList details > summary {
+        list-style: none;
+      }
+      .logList details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .logItem {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      @media (prefers-color-scheme: light) {
+        .logItem {
+          background: #fbfbfd;
+        }
+      }
+      .logItem .metaRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .logItem .lvl {
+        font-weight: 700;
+      }
+      .logItem .lvl.DEBUG {
+        color: var(--muted);
+      }
+      .logItem .lvl.INFO {
+        color: var(--text);
+      }
+      .logItem .lvl.WARN {
+        color: #fbbf24;
+      }
+      .logItem .lvl.ERROR {
+        color: var(--danger);
+      }
+      .logItem pre {
+        margin: 0;
+        white-space: pre-wrap;
+        line-height: 1.45;
+        font-size: 12px;
+      }
+      .traceBody {
+        padding: 10px 0 0;
+        display: grid;
+        gap: 8px;
+      }
+      .traceFlow {
+        border: 1px solid rgba(124, 92, 255, 0.25);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(124, 92, 255, 0.06);
+      }
+      @media (prefers-color-scheme: light) {
+        .traceFlow {
+          background: rgba(124, 92, 255, 0.06);
+        }
+      }
+      .traceFlow .title {
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .traceFlow pre {
+        margin: 0;
+        white-space: pre-wrap;
+        line-height: 1.45;
+        font-size: 12px;
+        color: var(--text);
+      }
+      .logLeaf {
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+      @media (prefers-color-scheme: light) {
+        .logLeaf {
+          border-color: rgba(0, 0, 0, 0.1);
+        }
+      }
+      .logSpan {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+      }
+      @media (prefers-color-scheme: light) {
+        .logSpan {
+          border-color: rgba(0, 0, 0, 0.1);
+          background: #ffffff;
+        }
+      }
+      .spanBody {
+        padding: 8px 0 0;
+        display: grid;
+        gap: 8px;
+      }
+      .logActions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
     </style>
   </head>
   <body>
@@ -247,12 +462,19 @@
         <span class="pill"><strong>Backend</strong> <span id="backendUrl"></span></span>
         <span class="pill"><strong>Session</strong> <span id="sessionId">-</span></span>
         <span class="pill"><strong>Status</strong> <span id="statusText">idle</span></span>
+        <button class="pill pillBtn" id="toggleLogBtn" type="button"><strong>Logs</strong> <span id="logCount">0</span></button>
       </div>
     </header>
 
     <main class="container">
       <section class="panel">
         <div class="inner">
+          <div class="label">历史会话</div>
+          <input id="sessionSearch" placeholder="搜索：标题 / 预览 / ID" />
+          <div style="height: 10px"></div>
+          <div class="sessionList" id="sessionList"></div>
+
+          <div style="height: 12px"></div>
           <div class="label">交互类型</div>
           <div class="row">
             <select id="uiMode">
@@ -273,7 +495,7 @@
 
           <div style="height: 12px"></div>
           <div class="kvs">
-            <div class="kv"><strong>说明</strong><span>默认使用流式（fetch + 解析 SSE）</span></div>
+            <div class="kv"><strong>说明</strong><span>默认使用流式（NDJSON，兼容性更好）</span></div>
             <div class="kv"><strong>入口</strong><span>/ui</span></div>
           </div>
 
@@ -302,6 +524,31 @@
           <div class="hint" id="hint"></div>
         </div>
       </section>
+
+      <section class="panel logPanel" id="logPanel" aria-hidden="true">
+        <div class="logHeader">
+          <div><strong>会话日志</strong> <span style="color: var(--muted); font-size: 12px" id="logSessionMeta"></span></div>
+          <div class="logActions">
+            <button class="btn secondary" id="exportLogJsonBtn" type="button">导出 JSON</button>
+            <button class="btn secondary" id="exportLogTextBtn" type="button">导出文本</button>
+            <button class="btn danger" id="clearLogBtn" type="button">清空日志</button>
+            <button class="btn" id="closeLogBtn" type="button">关闭</button>
+          </div>
+        </div>
+        <div class="logBody">
+          <div class="logControls">
+            <input id="logSearch" placeholder="搜索日志（方法/API/内容）" />
+            <select id="logLevel">
+              <option value="ALL" selected>全部级别</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARN">WARN</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+          </div>
+          <div class="logList" id="logList"></div>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -319,9 +566,29 @@
       const newSessionBtn = $("newSessionBtn");
       const clearBtn = $("clearBtn");
       const hintEl = $("hint");
+      const sessionSearchEl = $("sessionSearch");
+      const sessionListEl = $("sessionList");
+      const toggleLogBtn = $("toggleLogBtn");
+      const logCountEl = $("logCount");
+      const logPanelEl = $("logPanel");
+      const logListEl = $("logList");
+      const logSearchEl = $("logSearch");
+      const logLevelEl = $("logLevel");
+      const logSessionMetaEl = $("logSessionMeta");
+      const exportLogJsonBtn = $("exportLogJsonBtn");
+      const exportLogTextBtn = $("exportLogTextBtn");
+      const clearLogBtn = $("clearLogBtn");
+      const closeLogBtn = $("closeLogBtn");
 
       let currentSessionId = null;
       let running = false;
+      let sessionSummaries = [];
+      let currentMessages = [];
+
+      const LOG_STORE_KEY = "noah_agent_ui_logs_v1";
+      const LOG_UI_KEY = "noah_agent_ui_logpanel_v1";
+      let logsBySession = {};
+      let pendingLogSave = null;
 
       const defaultBase =
         window.location.origin && window.location.origin.startsWith("http")
@@ -348,12 +615,12 @@
         return `${hh}:${mm}:${ss}`;
       }
 
-      function addMessage(kind, who, content) {
+      function addMessage(kind, who, content, time) {
         const div = document.createElement("div");
         div.className = `msg ${kind}`;
         const head = document.createElement("div");
         head.className = "who";
-        head.innerHTML = `<span>${who}</span><span>${formatTime(new Date())}</span>`;
+        head.innerHTML = `<span>${who}</span><span>${formatTime(time ? new Date(time) : new Date())}</span>`;
         const body = document.createElement("div");
         body.className = "content";
         body.textContent = content;
@@ -364,16 +631,397 @@
         return body;
       }
 
+      function loadLogStore() {
+        try {
+          const raw = localStorage.getItem(LOG_STORE_KEY);
+          logsBySession = raw ? JSON.parse(raw) : {};
+        } catch {
+          logsBySession = {};
+        }
+      }
+
+      function scheduleSaveLogs() {
+        if (pendingLogSave) return;
+        pendingLogSave = setTimeout(() => {
+          pendingLogSave = null;
+          try {
+            localStorage.setItem(LOG_STORE_KEY, JSON.stringify(logsBySession));
+          } catch {}
+        }, 250);
+      }
+
+      function currentLogSessionKey() {
+        return currentSessionId || "no-session";
+      }
+
+      function uid(prefix) {
+        return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      let activeTraceId = null;
+      let spanStack = [];
+      const expandedTraceIds = new Set();
+      const expandedSpanIds = new Set();
+
+      function emitLog(level, kind, name, data, extra) {
+        const key = currentLogSessionKey();
+        const arr = Array.isArray(logsBySession[key]) ? logsBySession[key] : [];
+        const item = {
+          ts: Date.now(),
+          level,
+          kind,
+          name,
+          data: data === undefined ? null : data,
+          traceId: (extra && extra.traceId) || activeTraceId || null,
+          spanId: (extra && extra.spanId) || null,
+          parentSpanId: (extra && extra.parentSpanId) || (spanStack.length ? spanStack[spanStack.length - 1] : null),
+        };
+        arr.push(item);
+        if (arr.length > 2000) arr.splice(0, arr.length - 2000);
+        logsBySession[key] = arr;
+        scheduleSaveLogs();
+        renderLogs();
+      }
+
+      function pushLog(level, action, data) {
+        emitLog(level, "event", action, data);
+      }
+
+      async function runSpan(level, name, data, fn, endExtraBuilder) {
+        const spanId = uid("s");
+        const parentSpanId = spanStack.length ? spanStack[spanStack.length - 1] : null;
+        emitLog(level, "span_start", name, data || {}, { spanId, parentSpanId });
+        const started = performance.now();
+        spanStack.push(spanId);
+        try {
+          const out = await fn(spanId);
+          const ms = Math.round((performance.now() - started) * 100) / 100;
+          const extra = endExtraBuilder ? endExtraBuilder(out) : null;
+          emitLog(level, "span_end", name, { ...(data || {}), ...(extra || {}), ms }, { spanId, parentSpanId });
+          return out;
+        } catch (e) {
+          const ms = Math.round((performance.now() - started) * 100) / 100;
+          emitLog("ERROR", "span_end", name, { ...(data || {}), ms, error: String(e && e.message ? e.message : e) }, { spanId, parentSpanId });
+          throw e;
+        } finally {
+          spanStack.pop();
+        }
+      }
+
+      async function runTrace(level, name, data, fn) {
+        const prevTrace = activeTraceId;
+        const prevStack = spanStack;
+        const traceId = uid("t");
+        activeTraceId = traceId;
+        spanStack = [];
+        emitLog(level, "trace_start", name, data || {}, { traceId, parentSpanId: null });
+        const started = performance.now();
+        try {
+          const out = await fn(traceId);
+          const ms = Math.round((performance.now() - started) * 100) / 100;
+          emitLog(level, "trace_end", name, { ...(data || {}), ms }, { traceId, parentSpanId: null });
+          return out;
+        } catch (e) {
+          const ms = Math.round((performance.now() - started) * 100) / 100;
+          emitLog("ERROR", "trace_end", name, { ...(data || {}), ms, error: String(e && e.message ? e.message : e) }, { traceId, parentSpanId: null });
+          throw e;
+        } finally {
+          activeTraceId = prevTrace;
+          spanStack = prevStack;
+        }
+      }
+
+      function fmtTs(ts) {
+        const d = new Date(ts);
+        return `${d.toLocaleDateString("zh-CN")} ${formatTime(d)}`;
+      }
+
+      function safeJson(v) {
+        try {
+          return JSON.stringify(v, null, 2);
+        } catch {
+          return String(v);
+        }
+      }
+
+      function renderLogs() {
+        const key = currentLogSessionKey();
+        const arr = Array.isArray(logsBySession[key]) ? logsBySession[key] : [];
+        logCountEl.textContent = String(arr.length);
+        logSessionMetaEl.textContent = currentSessionId ? `(${currentSessionId})` : "(no-session)";
+
+        const q = (logSearchEl.value || "").trim().toLowerCase();
+        const lvl = logLevelEl.value || "ALL";
+        const filtered = arr.filter((it) => {
+          const levelOk = lvl === "ALL" || it.level === lvl;
+          if (!levelOk) return false;
+          if (!q) return true;
+          const s = `${it.level} ${it.kind || ""} ${it.name || it.action || ""} ${safeJson(it.data)}`.toLowerCase();
+          return s.includes(q);
+        });
+
+        const byTrace = new Map();
+        for (const it of filtered) {
+          const traceId = it.traceId || "ungrouped";
+          const list = byTrace.get(traceId) || [];
+          list.push(it);
+          byTrace.set(traceId, list);
+        }
+
+        const traces = [];
+        for (const [traceId, list] of byTrace.entries()) {
+          const ts = Math.max(...list.map((x) => x.ts || 0));
+          const start = list.find((x) => x.kind === "trace_start") || null;
+          const end = list.find((x) => x.kind === "trace_end") || null;
+          const title = start ? start.name : traceId === "ungrouped" ? "未分组日志" : traceId;
+          const ms = end && end.data && typeof end.data.ms === "number" ? end.data.ms : null;
+          const hasError = list.some((x) => x.level === "ERROR" || (x.data && x.data.error));
+          traces.push({ traceId, title, ts, ms, hasError, list });
+        }
+        traces.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+        function getPathFromUrl(url) {
+          try {
+            return new URL(url).pathname;
+          } catch {
+            const m = String(url || "").match(/https?:\/\/[^/]+(\/.*)$/);
+            return m ? m[1] : String(url || "");
+          }
+        }
+
+        function buildTraceFlow(trace) {
+          const start = trace.list.find((x) => x.kind === "trace_start") || null;
+          const name = start ? start.name : trace.title;
+
+          const fetchSpan = trace.list.find(
+            (x) => x.kind === "span_start" && x.name === "fetch" && x.data && x.data.url
+          );
+          const method = fetchSpan && fetchSpan.data ? fetchSpan.data.method : null;
+          const path = fetchSpan && fetchSpan.data ? getPathFromUrl(fetchSpan.data.url) : null;
+
+          const tools = [];
+          for (const it of trace.list) {
+            if ((it.kind || "event") === "event" && it.name === "tool:call" && it.data && it.data.name) {
+              tools.push(String(it.data.name));
+            }
+          }
+          const uniqTools = Array.from(new Set(tools));
+
+          const backend = [];
+          if (path === "/api/v1/chat/stream_ndjson") {
+            backend.push("backend: chat_stream_ndjson()");
+            backend.push("backend: SingleAgent.stream()");
+            backend.push("backend: LangGraph.astream_events()");
+            backend.push("backend: ChatOpenAI(stream)");
+            if (uniqTools.length) backend.push("backend: ToolNode(tool execution)");
+          } else if (path === "/api/v1/chat/send") {
+            backend.push("backend: chat_send()");
+            backend.push("backend: SingleAgent.stream()");
+            backend.push("backend: ChatOpenAI");
+            if (uniqTools.length) backend.push("backend: ToolNode(tool execution)");
+          } else if (path === "/api/v1/team/stream_ndjson") {
+            backend.push("backend: team_stream_ndjson()");
+            backend.push("backend: MultiAgentTeam.execute_*()");
+            backend.push("backend: ChatOpenAI x N");
+          } else if (path === "/api/v1/team/execute") {
+            backend.push("backend: team_execute()");
+            backend.push("backend: MultiAgentTeam.execute_*()");
+          } else if (path === "/api/v1/session/summary") {
+            backend.push("backend: list_session_summaries()");
+          } else if (path && path.startsWith("/api/v1/session/") && path.endsWith("/messages")) {
+            backend.push("backend: get_messages()");
+          } else if (path === "/api/v1/session/") {
+            backend.push("backend: create_session()");
+          }
+
+          const steps = [];
+          steps.push(`UI: ${name}`);
+          if (method && path) steps.push(`UI: fetch ${method} ${path}`);
+          else if (path) steps.push(`UI: fetch ${path}`);
+          steps.push(...backend);
+
+          const flowLine = steps.join(" → ");
+          const toolLine = uniqTools.length ? `Tools: ${uniqTools.join(", ")}` : "Tools: (none)";
+          return { flowLine, toolLine };
+        }
+
+        logListEl.innerHTML = "";
+        for (const t of traces) {
+          const details = document.createElement("details");
+          details.open = expandedTraceIds.has(t.traceId) || t.traceId === "ungrouped";
+          details.addEventListener("toggle", () => {
+            if (details.open) expandedTraceIds.add(t.traceId);
+            else expandedTraceIds.delete(t.traceId);
+          });
+
+          const summary = document.createElement("summary");
+          summary.className = "logItem";
+          const left = `${t.title}${t.ms != null ? ` · ${t.ms}ms` : ""}${t.hasError ? " · ERROR" : ""}`;
+          summary.innerHTML = `<div class="metaRow"><span><span class="lvl ${t.hasError ? "ERROR" : "INFO"}">${t.hasError ? "ERROR" : "INFO"}</span> · ${left}</span><span>${fmtTs(t.ts)}</span></div>`;
+          details.appendChild(summary);
+
+          const inner = document.createElement("div");
+          inner.className = "traceBody";
+
+          if (t.traceId !== "ungrouped") {
+            const flow = buildTraceFlow(t);
+            const box = document.createElement("div");
+            box.className = "traceFlow";
+            const title = document.createElement("div");
+            title.className = "title";
+            title.textContent = "运作流程";
+            const pre = document.createElement("pre");
+            pre.textContent = `${flow.flowLine}\n${flow.toolLine}`;
+            box.appendChild(title);
+            box.appendChild(pre);
+            inner.appendChild(box);
+          }
+
+          const spanStarts = new Map();
+          const spanEnds = new Map();
+          const spanChildren = new Map();
+          const spanEvents = new Map();
+          const rootEvents = [];
+
+          for (const it of t.list) {
+            const kind = it.kind || "event";
+            if (kind === "span_start") spanStarts.set(it.spanId, it);
+            else if (kind === "span_end") spanEnds.set(it.spanId, it);
+          }
+
+          for (const it of t.list) {
+            const kind = it.kind || "event";
+            if (kind === "span_start" || kind === "span_end" || kind === "trace_start" || kind === "trace_end") continue;
+            const pid = it.parentSpanId || null;
+            if (!pid) rootEvents.push(it);
+            else {
+              const arr2 = spanEvents.get(pid) || [];
+              arr2.push(it);
+              spanEvents.set(pid, arr2);
+            }
+          }
+
+          for (const [spanId, startIt] of spanStarts.entries()) {
+            const pid = startIt.parentSpanId || null;
+            const arr2 = spanChildren.get(pid) || [];
+            arr2.push(spanId);
+            spanChildren.set(pid, arr2);
+          }
+
+          function renderEvent(it, indent) {
+            const div = document.createElement("div");
+            div.className = "logLeaf";
+            div.style.paddingLeft = `${indent * 14}px`;
+            const meta = document.createElement("div");
+            meta.className = "metaRow";
+            const nm = it.name || it.action || "event";
+            meta.innerHTML = `<span><span class="lvl ${it.level}">${it.level}</span> · ${nm}</span><span>${fmtTs(it.ts)}</span>`;
+            const pre = document.createElement("pre");
+            pre.textContent = it.data ? safeJson(it.data) : "";
+            div.appendChild(meta);
+            if (pre.textContent) div.appendChild(pre);
+            return div;
+          }
+
+          function renderSpan(spanId, indent) {
+            const startIt = spanStarts.get(spanId);
+            if (!startIt) return document.createElement("div");
+            const endIt = spanEnds.get(spanId);
+            const ms2 = endIt && endIt.data && typeof endIt.data.ms === "number" ? endIt.data.ms : null;
+            const isErr = !!(endIt && endIt.data && endIt.data.error);
+            const kids = spanChildren.get(spanId) || [];
+            const evs = spanEvents.get(spanId) || [];
+            const open = expandedSpanIds.has(spanId) || indent <= 1;
+
+            const details = document.createElement("details");
+            details.open = open;
+            details.addEventListener("toggle", () => {
+              if (details.open) expandedSpanIds.add(spanId);
+              else expandedSpanIds.delete(spanId);
+            });
+
+            const summary = document.createElement("summary");
+            summary.className = "logSpan";
+            summary.style.paddingLeft = `${indent * 14}px`;
+            summary.innerHTML = `<div class="metaRow"><span><span class="lvl ${isErr ? "ERROR" : startIt.level}">${isErr ? "ERROR" : startIt.level}</span> · ${startIt.name}${ms2 != null ? ` · ${ms2}ms` : ""}</span><span>${fmtTs(startIt.ts)}</span></div>`;
+            details.appendChild(summary);
+
+            const body = document.createElement("div");
+            body.className = "spanBody";
+            if (startIt.data && Object.keys(startIt.data).length) {
+              const pre = document.createElement("pre");
+              pre.textContent = safeJson(startIt.data);
+              body.appendChild(pre);
+            }
+            for (const e of [...evs].sort((a, b) => (a.ts || 0) - (b.ts || 0))) {
+              body.appendChild(renderEvent(e, indent + 1));
+            }
+            for (const k of kids.sort((a, b) => {
+              const at = (spanStarts.get(a) || {}).ts || 0;
+              const bt = (spanStarts.get(b) || {}).ts || 0;
+              return at - bt;
+            })) {
+              body.appendChild(renderSpan(k, indent + 1));
+            }
+            details.appendChild(body);
+            return details;
+          }
+
+          for (const e of rootEvents.sort((a, b) => (a.ts || 0) - (b.ts || 0))) {
+            inner.appendChild(renderEvent(e, 0));
+          }
+          const roots = spanChildren.get(null) || [];
+          for (const r of roots.sort((a, b) => {
+            const at = (spanStarts.get(a) || {}).ts || 0;
+            const bt = (spanStarts.get(b) || {}).ts || 0;
+            return at - bt;
+          })) {
+            inner.appendChild(renderSpan(r, 0));
+          }
+
+          details.appendChild(inner);
+          logListEl.appendChild(details);
+        }
+      }
+
+      function openLogs() {
+        logPanelEl.classList.add("open");
+        logPanelEl.setAttribute("aria-hidden", "false");
+        try {
+          localStorage.setItem(LOG_UI_KEY, JSON.stringify({ open: true }));
+        } catch {}
+        renderLogs();
+      }
+
+      function closeLogs() {
+        logPanelEl.classList.remove("open");
+        logPanelEl.setAttribute("aria-hidden", "true");
+        try {
+          localStorage.setItem(LOG_UI_KEY, JSON.stringify({ open: false }));
+        } catch {}
+      }
+
       async function apiFetch(path, init) {
         const base = apiBaseInput.value.trim() || defaultBase;
         backendUrlEl.textContent = base;
         const url = base.replace(/\/$/, "") + path;
-        const res = await fetch(url, init);
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
-        }
-        return res;
+        const method = (init && init.method) || "GET";
+        const payload = init && init.body ? (() => { try { return JSON.parse(init.body); } catch { return init.body; } })() : undefined;
+        return await runSpan(
+          "INFO",
+          "fetch",
+          { method, url, body: payload },
+          async () => {
+            const res = await fetch(url, init);
+            if (!res.ok) {
+              const text = await res.text().catch(() => "");
+              emitLog("ERROR", "event", "fetch:failed", { method, url, status: res.status, body: text });
+              throw new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
+            }
+            return res;
+          },
+          (res) => ({ status: res.status, statusText: res.statusText, contentType: res.headers.get("content-type") })
+        );
       }
 
       function buildUrl(path, params) {
@@ -392,15 +1040,94 @@
       }
 
       async function createSession() {
-        const res = await apiFetch("/api/v1/session/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+        return await runSpan("INFO", "ui:createSession", {}, async () => {
+          const res = await apiFetch("/api/v1/session/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const data = await res.json();
+          emitLog("INFO", "event", "api:/api/v1/session response", data);
+          if (!currentSessionId && logsBySession["no-session"] && logsBySession["no-session"].length) {
+            logsBySession[data.id] = (logsBySession[data.id] || []).concat(logsBySession["no-session"]);
+            delete logsBySession["no-session"];
+            scheduleSaveLogs();
+          }
+          currentSessionId = data.id;
+          sessionIdEl.textContent = currentSessionId;
+          currentMessages = [];
+          messagesEl.innerHTML = "";
+          return currentSessionId;
         });
-        const data = await res.json();
-        currentSessionId = data.id;
-        sessionIdEl.textContent = currentSessionId;
-        return currentSessionId;
+      }
+
+      function renderSessionList() {
+        const q = (sessionSearchEl.value || "").trim().toLowerCase();
+        const filtered = sessionSummaries.filter((s) => {
+          if (!q) return true;
+          const text = `${s.name || ""} ${s.id || ""} ${s.last_message_preview || ""}`.toLowerCase();
+          return text.includes(q);
+        });
+
+        sessionListEl.innerHTML = "";
+        for (const s of filtered) {
+          const div = document.createElement("div");
+          div.className = `sessionItem${s.id === currentSessionId ? " active" : ""}`;
+          div.dataset.sid = s.id;
+          const when = s.last_message_at || s.updated_at || s.created_at;
+          const time = when ? new Date(when).toLocaleString("zh-CN") : "";
+          const preview = s.last_message_preview || "";
+          div.innerHTML = `<div class="top"><div class="name">${s.name || s.id}</div><div class="time">${time}</div></div><div class="preview">${preview}</div>`;
+          div.addEventListener("click", async () => {
+            await runTrace("INFO", "ui:switchSessionTrace", { sessionId: s.id }, async () => {
+              await switchSession(s.id);
+            });
+          });
+          sessionListEl.appendChild(div);
+        }
+      }
+
+      async function loadSessionSummaries() {
+        return await runSpan("INFO", "ui:loadSessionSummaries", {}, async () => {
+          const res = await apiFetch("/api/v1/session/summary?limit=100", { method: "GET" });
+          const data = await res.json();
+          emitLog("DEBUG", "event", "api:/api/v1/session/summary response", Array.isArray(data) ? { count: data.length } : data);
+          sessionSummaries = Array.isArray(data) ? data : [];
+          renderSessionList();
+        });
+      }
+
+      function renderMessages(messages) {
+        messagesEl.innerHTML = "";
+        for (const m of messages) {
+          if (!m) continue;
+          const role = m.role || "user";
+          const content = m.content || "";
+          if (role === "assistant") addMessage("assistant", "assistant", content, m.created_at);
+          else if (role === "system") addMessage("event", "system", content, m.created_at);
+          else addMessage("user", "user", content, m.created_at);
+        }
+      }
+
+      async function loadSessionMessages(sessionId) {
+        return await runSpan("INFO", "ui:loadSessionMessages", { sessionId }, async () => {
+          const res = await apiFetch(`/api/v1/session/${encodeURIComponent(sessionId)}/messages?limit=500`, { method: "GET" });
+          const data = await res.json();
+          emitLog("DEBUG", "event", "api:/api/v1/session/{id}/messages response", Array.isArray(data) ? { count: data.length } : data);
+          currentMessages = Array.isArray(data) ? data : [];
+          renderMessages(currentMessages);
+        });
+      }
+
+      async function switchSession(sessionId) {
+        if (!sessionId) return;
+        return await runSpan("INFO", "ui:switchSession", { sessionId }, async () => {
+          currentSessionId = sessionId;
+          sessionIdEl.textContent = currentSessionId;
+          await loadSessionMessages(currentSessionId);
+          renderSessionList();
+          renderLogs();
+        });
       }
 
       function parseSSEBlock(block) {
@@ -498,54 +1225,57 @@
       }
 
       async function streamNDJSON(path, payload, onChunk) {
-        const res = await apiFetch(path, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/x-ndjson" },
-          body: JSON.stringify(payload),
-        });
+        return await runSpan("INFO", "ui:streamNDJSON", { path, payload }, async () => {
+          const res = await apiFetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/x-ndjson" },
+            body: JSON.stringify(payload),
+          });
 
-        if (!res.body) {
-          throw new Error("响应不支持流式 body");
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-
-        function drain() {
-          while (true) {
-            const idx = buffer.indexOf("\n");
-            if (idx === -1) break;
-            const line = buffer.slice(0, idx).trim();
-            buffer = buffer.slice(idx + 1);
-            if (!line) continue;
-            let obj;
-            try {
-              obj = JSON.parse(line);
-            } catch {
-              obj = { type: "raw", content: line };
-            }
-            onChunk("message", obj);
-            if (obj && obj.type === "done") return true;
+          if (!res.body) {
+            throw new Error("响应不支持流式 body");
           }
-          return false;
-        }
 
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          if (drain()) return;
-        }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let buffer = "";
 
-        drain();
+          function drain() {
+            while (true) {
+              const idx = buffer.indexOf("\n");
+              if (idx === -1) break;
+              const line = buffer.slice(0, idx).trim();
+              buffer = buffer.slice(idx + 1);
+              if (!line) continue;
+              let obj;
+              try {
+                obj = JSON.parse(line);
+              } catch {
+                obj = { type: "raw", content: line };
+              }
+              emitLog("DEBUG", "event", "ndjson:chunk", obj && obj.type ? { type: obj.type } : obj);
+              onChunk("message", obj);
+              if (obj && obj.type === "done") return true;
+            }
+            return false;
+          }
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            if (drain()) return;
+          }
+
+          drain();
+        });
       }
 
       function updateHint() {
         if (uiModeEl.value === "single") {
-          hintEl.textContent = "单 Agent：POST /api/v1/chat/stream（会话会写入 DB）";
+          hintEl.textContent = "单 Agent：流式使用 /api/v1/chat/stream_ndjson（会话会写入 DB）";
         } else {
-          hintEl.textContent = "Multi-Agent：POST /api/v1/team/stream（模式：sequential/parallel/supervisor/groupchat）";
+          hintEl.textContent = "Multi-Agent：流式使用 /api/v1/team/stream_ndjson（模式：sequential/parallel/supervisor/groupchat）";
         }
       }
 
@@ -558,11 +1288,64 @@
         messagesEl.innerHTML = "";
       });
 
+      sessionSearchEl.addEventListener("input", () => {
+        renderSessionList();
+      });
+
+      logSearchEl.addEventListener("input", () => renderLogs());
+      logLevelEl.addEventListener("change", () => renderLogs());
+
+      toggleLogBtn.addEventListener("click", () => {
+        if (logPanelEl.classList.contains("open")) closeLogs();
+        else openLogs();
+      });
+      closeLogBtn.addEventListener("click", () => closeLogs());
+
+      clearLogBtn.addEventListener("click", () => {
+        const key = currentLogSessionKey();
+        logsBySession[key] = [];
+        scheduleSaveLogs();
+        renderLogs();
+      });
+
+      function downloadText(filename, content, mime) {
+        const blob = new Blob([content], { type: mime || "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      exportLogJsonBtn.addEventListener("click", () => {
+        const key = currentLogSessionKey();
+        const arr = Array.isArray(logsBySession[key]) ? logsBySession[key] : [];
+        downloadText(
+          `session-log-${key}.json`,
+          JSON.stringify({ sessionId: currentSessionId, exportedAt: new Date().toISOString(), logs: arr }, null, 2),
+          "application/json;charset=utf-8"
+        );
+      });
+
+      exportLogTextBtn.addEventListener("click", () => {
+        const key = currentLogSessionKey();
+        const arr = Array.isArray(logsBySession[key]) ? logsBySession[key] : [];
+        const lines = arr.map((it) => `${fmtTs(it.ts)} [${it.level}] ${(it.kind || "event")}:${it.name || it.action || ""}\n${it.data ? safeJson(it.data) : ""}`.trimEnd());
+        downloadText(`session-log-${key}.txt`, lines.join("\n\n"), "text/plain;charset=utf-8");
+      });
+
       newSessionBtn.addEventListener("click", async () => {
         try {
           setRunning(true);
-          await createSession();
-          addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+          await runTrace("INFO", "ui:newSession", {}, async () => {
+            await createSession();
+            addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+            await loadSessionSummaries();
+            renderLogs();
+          });
         } catch (e) {
           addMessage("event", "error", String(e && e.message ? e.message : e));
         } finally {
@@ -576,27 +1359,33 @@
 
         try {
           setRunning(true);
-          addMessage("user", "user", text);
-          inputEl.value = "";
+          await runTrace("INFO", "ui:sendOnce", { mode: uiModeEl.value, text }, async () => {
+            addMessage("user", "user", text);
+            inputEl.value = "";
 
-          if (uiModeEl.value === "single") {
-            if (!currentSessionId) await createSession();
-            const res = await apiFetch("/api/v1/chat/send", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ message: text, session_id: currentSessionId, stream: false }),
-            });
-            const data = await res.json();
-            addMessage("assistant", "assistant", data.content || "");
-          } else {
-            const res = await apiFetch("/api/v1/team/execute", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ topic: text, mode: teamModeEl.value }),
-            });
-            const data = await res.json();
-            addMessage("assistant", `team:${data.mode || teamModeEl.value}`, data.summary || "");
-          }
+            if (uiModeEl.value === "single") {
+              if (!currentSessionId) await createSession();
+              const res = await apiFetch("/api/v1/chat/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, session_id: currentSessionId, stream: false }),
+              });
+              const data = await res.json();
+              emitLog("INFO", "event", "api:/api/v1/chat/send response", data);
+              addMessage("assistant", "assistant", data.content || "");
+              await loadSessionSummaries();
+            } else {
+              const res = await apiFetch("/api/v1/team/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topic: text, mode: teamModeEl.value }),
+              });
+              const data = await res.json();
+              emitLog("INFO", "event", "api:/api/v1/team/execute response", data);
+              addMessage("assistant", `team:${data.mode || teamModeEl.value}`, data.summary || "");
+              await loadSessionSummaries();
+            }
+          });
         } catch (e) {
           addMessage("event", "error", String(e && e.message ? e.message : e));
         } finally {
@@ -610,47 +1399,56 @@
 
         try {
           setRunning(true);
-          addMessage("user", "user", text);
-          inputEl.value = "";
+          await runTrace("INFO", "ui:sendStream", { mode: uiModeEl.value, text }, async () => {
+            addMessage("user", "user", text);
+            inputEl.value = "";
 
-          if (uiModeEl.value === "single") {
-            if (!currentSessionId) await createSession();
-            const bodyEl = addMessage("assistant", "assistant", "");
-            let full = "";
-            await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, stream: true }, (_evt, chunk) => {
-              if (chunk.type === "text") {
-                full += chunk.content || "";
-                bodyEl.textContent = full;
-              } else if (chunk.type === "tool_calls") {
-                addMessage("event", "tool_calls", JSON.stringify(chunk.data || chunk, null, 2));
-              } else if (chunk.type === "tool_result") {
-                addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
-              } else if (chunk.type === "error") {
-                addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
-              } else if (chunk.type === "done") {
-                return;
-              } else {
-                addMessage("event", "event", JSON.stringify(chunk, null, 2));
-              }
-            });
-          } else {
-            const bodyEl = addMessage("assistant", `team:${teamModeEl.value}`, "");
-            let acc = "";
-            await streamNDJSON("/api/v1/team/stream_ndjson", { topic: text, mode: teamModeEl.value }, (_evt, chunk) => {
-              if (chunk.type === "summary") {
-                acc = chunk.content || "";
-                bodyEl.textContent = acc;
-              } else if (chunk.type === "task_result") {
-                addMessage("event", "task_result", String(chunk.content || ""));
-              } else if (chunk.type === "agent_thinking" || chunk.type === "agent_start" || chunk.type === "agent_done") {
-                addMessage("event", chunk.type, String(chunk.content || ""));
-              } else if (chunk.type === "error") {
-                addMessage("event", "error", String(chunk.content || ""));
-              } else {
-                addMessage("event", "event", JSON.stringify(chunk, null, 2));
-              }
-            });
-          }
+            if (uiModeEl.value === "single") {
+              if (!currentSessionId) await createSession();
+              const bodyEl = addMessage("assistant", "assistant", "");
+              let full = "";
+              await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, stream: true }, (_evt, chunk) => {
+                if (chunk.type === "text") {
+                  full += chunk.content || "";
+                  bodyEl.textContent = full;
+                } else if (chunk.type === "tool_calls") {
+                  const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
+                  if (toolName) emitLog("INFO", "event", "tool:call", { name: toolName });
+                  addMessage("event", "tool_calls", JSON.stringify(chunk.data || chunk, null, 2));
+                } else if (chunk.type === "tool_result") {
+                  const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
+                  if (toolName) emitLog("INFO", "event", "tool:result", { name: toolName });
+                  addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
+                } else if (chunk.type === "error") {
+                  addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
+                } else if (chunk.type === "done") {
+                  return;
+                } else {
+                  addMessage("event", "event", JSON.stringify(chunk, null, 2));
+                }
+              });
+              await loadSessionSummaries();
+            } else {
+              const bodyEl = addMessage("assistant", `team:${teamModeEl.value}`, "");
+              let acc = "";
+              await streamNDJSON("/api/v1/team/stream_ndjson", { topic: text, mode: teamModeEl.value }, (_evt, chunk) => {
+                if (chunk.type === "summary") {
+                  acc = chunk.content || "";
+                  bodyEl.textContent = acc;
+                } else if (chunk.type === "task_result") {
+                  addMessage("event", "task_result", String(chunk.content || ""));
+                } else if (chunk.type === "agent_thinking" || chunk.type === "agent_start" || chunk.type === "agent_done") {
+                  emitLog("INFO", "event", `agent:${chunk.type}`, { content: String(chunk.content || "") });
+                  addMessage("event", chunk.type, String(chunk.content || ""));
+                } else if (chunk.type === "error") {
+                  addMessage("event", "error", String(chunk.content || ""));
+                } else {
+                  addMessage("event", "event", JSON.stringify(chunk, null, 2));
+                }
+              });
+              await loadSessionSummaries();
+            }
+          });
         } catch (e) {
           addMessage("event", "error", String(e && e.message ? e.message : e));
         } finally {
@@ -661,8 +1459,24 @@
       (async () => {
         updateHint();
         try {
-          await createSession();
-          addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+          loadLogStore();
+          try {
+            const raw = localStorage.getItem(LOG_UI_KEY);
+            const ui = raw ? JSON.parse(raw) : null;
+            if (ui && ui.open) openLogs();
+          } catch {}
+
+          await runTrace("INFO", "ui:init", {}, async () => {
+            await loadSessionSummaries();
+            if (sessionSummaries.length > 0) {
+              await switchSession(sessionSummaries[0].id);
+              addMessage("event", "system", `已加载 Session：${currentSessionId}`);
+            } else {
+              await createSession();
+              addMessage("event", "system", `已创建 Session：${currentSessionId}`);
+              await loadSessionSummaries();
+            }
+          });
         } catch (e) {
           addMessage("event", "error", `无法创建 Session：${String(e && e.message ? e.message : e)}`);
         }
