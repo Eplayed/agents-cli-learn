@@ -1,477 +1,255 @@
-﻿# 🤖 Agent 开发学习计划（Web-only）
+# Agent 开发学习计划（2026 主流栈对齐版）
 
-> 基于 my-agent-cli 项目实践（只做 Web：FastAPI + Web 前端），面向 2026-04 主流 Agent 技术栈。
-
----
-
-## 🎯 目标收敛：只做 Web
-
-### Web-only 的含义
-- 仅保留 Web UI + Web API 作为主要入口
-- `/src`（TypeScript CLI）不再作为主线（建议迁移到 `archive/cli` 仅供参考）
-
-### Web-only 的核心交付物
-- Web UI：对话、历史会话、工具可视化、日志面板（Trace→Span→Event）、导出
-- Web API：chat/team/session、NDJSON 流式协议、错误分层、预算控制（最小版）
-- 可回归：最小回归集（工具调用、结构化输出、场景对话）
-- 可上线：Docker Compose、基本鉴权/限流、可观测与告警（最小版）
+> 仓库：https://github.com/Eplayed/agents-cli-learn
+> 路线：Web-only（FastAPI + LangGraph + Web 前端）
+> 最后更新：2026-05-28
 
 ---
 
-## 📊 里程碑总览（可验收）
+## 0. 学习方法论（为什么这样学）
 
-| Milestone | 范围 | 验收标准（简要） | 状态 |
+**学习 Agent 开发，最容易踩的坑是"框架学得多，工程做得浅"。**
+
+我们采用「**对照参考仓库 + 增量改造自己的项目**」的方法：
+
+1. **每个里程碑挂一个主参考仓库**：你不是从零写，而是带着问题去读别人的代码
+2. **每一步都先讲"为什么"再讲"怎么做"**：理解动机比抄代码重要
+3. **不追新只追主流**：2026 已经稳定下来的技术（LangGraph 1.x / MCP / OpenTelemetry）才学
+4. **每个里程碑必须可验收**：不是"看完了"，而是"能跑通某个场景"
+
+---
+
+## 1. 当前项目状态（M0-M3 已完成）
+
+```
+apps/
+├── api/                # Python FastAPI 后端
+│   ├── app/agents/     # 单 Agent + Multi-Agent (4 种模式)
+│   ├── app/api/v1/     # chat / team / session 路由
+│   ├── app/core/       # 配置 + DB
+│   ├── app/models/     # SQLAlchemy ORM
+│   └── app/schemas/    # Pydantic
+└── web/public/ui/      # 静态 Web UI（HTML + fetch + NDJSON）
+
+archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
+```
+
+**已具备能力：**
+- ✅ LangGraph StateGraph + ToolNode + MemorySaver（单 Agent tool calling 循环）
+- ✅ Multi-Agent 4 种模式（Sequential / Parallel / Supervisor / GroupChat）
+- ✅ NDJSON 流式协议（更通用，避开 SSE 在内嵌浏览器的兼容问题）
+- ✅ SQLite + SQLAlchemy 异步持久化（Session / Message）
+- ✅ 真实工具调用（`get_weather` 调 Open-Meteo API）
+
+**对照 2026 主流栈的差距（要补的）：**
+
+| 维度 | 当前实现 | 2026 主流 | 差距优先级 |
 |---|---|---|---|
-| M0 | 目标收敛 + 协议/目录 PRD | PRD 文件齐全，边界明确 | ✅ |
-| M1 | Web 后端（API + Agent Runtime） | NDJSON 流式稳定；tool input/output 可见；错误分层 | ✅（持续迭代） |
-| M2 | Web 前端（学习控制台） | 会话列表/切换；日志面板；导出可用 | ✅（持续迭代） |
-| M3 | 场景能力（可回归） | 天气/搜索/计算场景可用；≥30 回归用例框架 | ✅（持续扩展） |
-| M4 | Skills/MCP（Web-only） | MCP Server + Skills manifest + UI 管理 | ⏳ |
-| M5 | Memory/RAG（长期记忆） | 摘要/向量检索；引用可解释；回放可复现 | ⏳ |
-| M6 | Evals/Observability/DevOps | eval 一键跑；trace_id 贯通；compose 一键起停 | ⏳ |
-
-**仓库**: https://github.com/Eplayed/agents-cli-learn
-
----
-
-## 🧭 推荐学习顺序（Web-only）
-
-- 先把“API 协议 + 流式 + 工具可视化”固定（M1）
-- 再把“会话管理 + 日志分层 + 导出”做到能复盘（M2）
-- 用 3–5 个日常场景把能力落地，并做回归集（M3）
-- 再引入 MCP/Skills 与长期记忆（M4/M5）
-- 最后补齐评测、观测与交付（M6）
+| 工具协议 | 写死在 `agents/single/agent.py` | MCP Client/Server | 🔴 高 |
+| Checkpoint | `MemorySaver`（内存，重启丢） | `AsyncSqliteSaver` / `AsyncPostgresSaver` | 🔴 高 |
+| 可观测 | print + DB 落库 | OpenTelemetry GenAI + Langfuse | 🔴 高 |
+| 预算控制 | 无 | `recursion_limit` + max_tokens + timeout | 🔴 高 |
+| 评测 | 无 | DeepEval / pytest + trajectory eval | 🟡 中 |
+| HITL | 无 | `interrupt()` + Web UI 审批 | 🟡 中 |
+| 鉴权/限流 | 无 | JWT + slowapi | 🟡 中 |
+| 长期记忆 | 无 | `Store` API + 向量检索 | 🟢 低 |
+| 前端 | 静态 HTML | Next.js + agent-chat-ui | 🟢 低 |
+| A2A | 无 | A2A 协议（仅在多团队互通时需要） | 🟢 低 |
 
 ---
 
-## ✅ M1：Web 后端（FastAPI + Agent Runtime）
+## 2. 主参考仓库（按用途分类）
 
-### 学习重点
-- HTTP 边界：传输层与 Agent Runtime 解耦
-- NDJSON 流式协议：事件类型稳定、可消费、可回放
-- 工具工程：参数 schema、输入/输出可见、超时/重试/降级
-- 错误分层：用户/工具/模型/系统
-- 预算控制：max_steps / max_tool_calls / max_time（最小版）
-
-### 验收清单（必须能跑通）
-- `/health`
-- `/api/v1/session/summary`（会话摘要：最后消息预览）
-- `/api/v1/session/{id}/messages`（历史消息可加载）
-- `/api/v1/chat/send`（非流式）
-- `/api/v1/chat/stream_ndjson`（流式，含 tool input/output）
-- `/api/v1/team/execute` 与 `/api/v1/team/stream_ndjson`
+| 用途 | 仓库 | 用法 |
+|---|---|---|
+| **架构对齐**（最重要） | [JoshuaC215/agent-service-toolkit](https://github.com/JoshuaC215/agent-service-toolkit) | 整体结构 + Agent 注册中心 + 客户端 SDK |
+| **生产化** | [wassim249/fastapi-langgraph-agent-production-ready-template](https://github.com/wassim249/fastapi-langgraph-agent-production-ready-template) | JWT/限流/Langfuse/Prometheus |
+| **MCP 入门** | [langchain-ai/langchain-mcp-adapters](https://github.com/langchain-ai/langchain-mcp-adapters) | MCP 工具接入 LangGraph |
+| **MCP Server 例子** | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) | Filesystem / GitHub / Slack 等官方 server |
+| **MCP 工作流** | [lastmile-ai/mcp-agent](https://github.com/lastmile-ai/mcp-agent) | Anthropic 6 种 agent 模式实现 |
+| **前端（成品）** | [langchain-ai/agent-chat-ui](https://github.com/langchain-ai/agent-chat-ui) | Next.js + 流式 + HITL |
+| **前端（带 MCP+HITL）** | [agentailor/fullstack-langgraph-nextjs-agent](https://github.com/agentailor/fullstack-langgraph-nextjs-agent) | Next.js + Prisma + MCP + HITL |
+| **MCP Server 模板** | [oraios/serena](https://github.com/oraios/serena) | 工业级 MCP Server 写法 |
 
 ---
 
-## ✅ M2：Web 前端（对话学习控制台）
+## 3. 学习路线（M4 → M9）
 
-### 学习重点
-- 会话状态管理：列表/选中会话/消息加载/刷新
-- 流式渲染：ReadableStream 按行解析 NDJSON
-- 可观测 UI：Trace→Span→Event、搜索/筛选/导出
-- 工具可视化：tool_calls/tool_result 折叠展示
+### M4：MCP 工具协议（🔴 最高优先级）
 
-### 验收清单
-- 10+ 个会话切换不串扰
-- 日志面板能定位一次请求的关键链路与耗时
-- 导出 JSON/文本可用于复盘
+**为什么先做这个？**
+- MCP 是 2026 工具集成的事实标准（Anthropic 提出 / 已成"AI 的 USB-C"）
+- 只要做了 MCP，你的工具就能被 Claude Desktop / Cursor / Codex / 任何 MCP Host 复用
+- 不做 MCP，你永远只能写"内部工具"，无法对接生态
 
----
+**主参考**：[langchain-mcp-adapters](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-## ✅ M3：日常场景能力（可回归）
+**学习子目标：**
+1. 理解 MCP 三个原语：`tools` / `resources` / `prompts`
+2. 用 `FastMCP` 写一个最简 stdio Server（如计算器、文件读取）
+3. 用 `MultiServerMCPClient` 在你的 SingleAgent 里加载 MCP 工具
+4. 把现有的 `get_weather` 拆成独立 MCP Server（学会"内部工具 → MCP 工具"的迁移）
+5. 加一个 HTTP transport 的 MCP Server（学会远程部署）
 
-### 场景优先级（建议）
-- S1：天气 + 洗车建议（必须先调用 get_weather，再给结论+依据）
-- S2：联网搜索 + 摘要（provider 可替换）
-- S3：计算/解析（强校验与防注入）
+**可验收：**
+- [ ] `apps/api/app/mcp_servers/weather_server.py` 能用 `python -m` 单独跑
+- [ ] `apps/api/app/agents/single/agent.py` 通过 MCP 配置加载工具
+- [ ] 同时挂载 ≥2 个 MCP Server（一个 stdio + 一个 http）
+- [ ] 工具增减只改配置，不改 agent 代码
 
-### 回归体系（最小）
-- 统一用例格式（jsonl/yaml）：id/input/assertions/tags/permissions
-- 断言类型：必须调用/禁止调用某工具、必须包含某关键数据、不得泄露敏感信息
-
----
-
-## ⏳ M4：Skills/MCP（Web-only）
-
-### 学习重点
-- Tool 抽象标准化：name/description/input_schema/permission/timeout/idempotency
-- Skills：manifest + 资源文件 +（可选）prompt/流程
-- MCP：tools/resources/prompts 的标准接口与安全边界
-
-### 验收清单
-- MCP Server（stdio 或 http）至少 2 个只读工具
-- Skills 可安装/启停/版本化，UI 可管理
+**配套阅读：**
+- [LangChain MCP 官方文档](https://docs.langchain.com/oss/python/langchain/mcp)
+- [MCP 规范：Server / Resources](https://modelcontextprotocol.io/specification/2025-06-18/server/resources)
 
 ---
 
-## ⏳ M5：Memory/RAG（长期记忆）
+### M5：Checkpoint 持久化 + 预算控制（🔴 必补）
 
-### 学习重点
-- 会话摘要策略（窗口/摘要/实体）
-- 向量检索与引用可解释（回答中标注来源）
-- 轨迹检索（tool run 复用）
+**为什么必补？**
+- `MemorySaver` 重启就丢全部对话状态，HITL/中断恢复完全没用
+- 没有预算控制 = LLM 死循环烧钱（已知风险）
 
-### 验收清单
-- memory upsert/search API
-- 每次回答可显示“引用了哪些记忆片段”
+**主参考**：[fastapi-langgraph-agent-production-ready-template](https://github.com/wassim249/fastapi-langgraph-agent-production-ready-template) 的 `agent.py`
 
----
+**学习子目标：**
+1. 把 `MemorySaver` 换成 `AsyncSqliteSaver`（SQLite 文件持久化）
+2. 给 `graph.invoke()` 加 `config={"recursion_limit": 25}`（防死循环）
+3. 给 `ChatOpenAI` 加 `max_tokens` + `timeout`
+4. 实现 `max_tool_calls` 限制（在 ToolNode 前加计数器节点）
+5. 用 LangGraph `interrupt()` 在危险工具前介入（HITL）
 
-## ⏳ M6：Evals / Observability / DevOps（上线交付）
-
-### 学习重点
-- Evals：离线回归、失败用例复盘、指标（通过率/延迟/成本）
-- Observability：trace_id 贯通、关键耗时与错误率统计
-- DevOps：Docker Compose、配置与密钥、版本与回滚
-
-### 验收清单
-- eval 一键跑（≥30 用例）输出通过率与失败列表
-- docker compose 一键启动（web + api + db）
-- 最小鉴权/限流与审计日志
+**可验收：**
+- [ ] 重启 API 后能继续上次对话（`thread_id` 复用）
+- [ ] 故意问"无限循环"问题，agent 在 25 步内强制结束
+- [ ] 调用 `dangerous_tool` 时返回 `interrupt`，前端展示确认按钮
 
 ---
 
-## ⏱️ 时间节点（不做“估时”，只给可落地的交付顺序）
+### M6：可观测性 OpenTelemetry + Langfuse（🔴 生产必备）
 
-- T0：目标收敛（Web-only）与 PRD 完成
-- T1：M1 可验收（后端关键路径全通）
-- T2：M2 可验收（前端会话+日志+导出全通）
-- T3：M3 可验收（3 个场景 + 最小回归框架）
-- T4：M4/M5/M6 依次推进（先标准化工具/技能，再做长期记忆，再做交付与回归）
+**为什么用 Langfuse？**
+- 自托管开源（不锁厂商）
+- 原生支持 LangGraph trace
+- 用 OpenTelemetry GenAI semantic conventions（行业标准）
 
----
+**主参考**：[Langfuse OpenTelemetry 集成](https://langfuse.com/docs/opentelemetry/get-started)
 
-*最后更新: 2026-04-10*
+**学习子目标：**
+1. Docker 起一个本地 Langfuse
+2. 给 `ChatOpenAI` 加 `langfuse-callback`，所有 LLM 调用自动上报
+3. 给工具调用加 OTel span（手动 instrumentation）
+4. trace_id 贯穿 Web UI → API → Agent → Tool（HTTP header 传递）
+5. Web UI 加 "查看 trace" 按钮，跳转 Langfuse
 
-### 架构
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    FastAPI Backend                    │
-├─────────────────────────────────────────────────────┤
-│  /api/v1/chat      → Single Agent (LangGraph)       │
-│  /api/v1/team      → Multi-Agent (Crew/Team)       │
-│  /api/v1/session   → Session/Message 管理          │
-├─────────────────────────────────────────────────────┤
-│  SQLite + SQLAlchemy (异步)                         │
-│  MemorySaver (LangGraph Checkpoint)                 │
-└─────────────────────────────────────────────────────┘
-```
-
-### 核心代码
-
-#### 单 Agent (agents/single/agent.py)
-```python
-class SingleAgent:
-    def _build_graph(self):
-        workflow = StateGraph(AgentState)
-        workflow.add_node("agent", self._agent_node)
-        workflow.add_node("tools", self._tools_node)
-        workflow.add_conditional_edges("agent", self._should_continue, 
-                                       {"continue": "tools", "end": END})
-        return workflow.compile(checkpointer=self.checkpointer)
-```
-
-#### Multi-Agent (agents/multi/team.py)
-| 模式 | 说明 | 代码 |
-|------|------|------|
-| Sequential | 顺序执行 A→B→ | `await workerA.execute()` → `await workerB.execute()` |
-| Parallel | 并行执行 A‖B‖C | `asyncio.gather(*tasks)` |
-| Supervisor | 主管分配 | LLM 判断分配给谁 |
-| Crew | 完整团队 | Task + Agent + 迭代优化 |
-
-### SSE 流式响应
-```python
-async def chat_stream(request: ChatRequest):
-    async for chunk in agent.stream(request.message):
-        yield {"event": "message", "data": json.dumps(chunk)}
-```
-
-### 核心概念补全
-- API 边界：将“Agent Runtime”与“HTTP 传输层”解耦，便于接入前端/MCP/A2A
-- 会话与持久化：Session/Message、Checkpoint、幂等请求 id
-- 异步与并发：工具调用的超时、取消、限流；多 agent 的并行编排
-- 认证与限流（最小版）：API Key / JWT / Rate limit（避免被滥用）
-- 可观测：结构化日志、trace id、每步耗时与 token 统计（用于调优）
-
-### 核心功能清单（建议补齐）
-- 统一工具注册中心：描述（schema/权限/超时/重试/可见性）+ 执行器
-- 统一输出协议：SSE chunk 事件类型（token、tool_call、tool_result、final、error）
-- 运行时预算：每次请求最大步数/最大工具次数/最大 token/最大耗时
-- 错误分层：用户错误（参数不合法）/工具错误/模型错误/系统错误
-
-### 实现计划
-- [x] 固定 API 边界：HTTP 层只负责鉴权/参数校验/传输，Agent Runtime 独立
-- [x] 实现会话与持久化：Session/Message + checkpoint（断点续跑）
-- [x] 实现 SSE 协议：事件类型与错误事件统一，前端可直接消费
-- [x] 实现并发治理：超时/取消/限流（每会话与全局）
-- [x] 实现最小安全：API Key 或 JWT（任选其一）+ 基础 Rate limit
-- [x] 统一错误分层与错误码：便于回归统计与告警
-
-### 回归点（Phase 3）
-- API 回归：同一请求在无外部依赖变化时输出结构稳定（事件序列稳定）
-- 数据回归：会话写入/读取一致；断点续跑不丢状态
-- 并发回归：并行请求互不串扰（chatId/session 隔离）
----
-
-## 🌐 Phase 4: MCP/A2A 协议 (待开始)
-
-### 4.1 MCP (Model Context Protocol)
-
-**定位**：把“工具/资源/提示词”以统一协议暴露给模型/Agent，降低工具集成成本。
-
-**协议栈**:
-- Server/Client 架构
-- tools/resources/prompts 标准化接口
-- STDIO / HTTP 传输
-- 生态定位：由 Anthropic 发起并推动的工具标准化协议，用于把“外部能力/上下文”以统一接口提供给模型与 Agent
-
-**实现计划**:
-- [ ] MCP Server 框架（最小可用：stdio transport + tools 列表）
-- [ ] 文件系统工具（读/写/搜索，带权限白名单）
-- [ ] Git 工具（log/diff/status）
-- [ ] 搜索工具（Brave/Tavily/自建）
-
-
-#### MCP 核心概念补全
-- Tools：可调用能力（参数 schema、权限级别、超时、幂等性）
-- Resources：可读取上下文（文件、数据库记录、网页摘要），强调“只读”和可缓存
-- Prompts：可复用的提示词模板（用于一致性与可控性）
-- Transport：STDIO（本地集成）优先于 HTTP（远程部署）；HTTP 需要鉴权与速率控制
-- 安全边界：工具分级（read/write/danger）、用户确认、沙箱与审计
-
-#### MCP 核心功能（建议拆里程碑）
-- M1：STDIO MCP Server + 2 个只读工具（文件读取/简单搜索）
-- M2：加入 Git 只读工具（diff/status/log）+ 参数校验与超时
-- M3：加入远程 HTTP Transport + 鉴权（API Key/JWT）+ Rate limit
-- M4：工具审计与回放：每次 tool call 可记录并可重放（用于调试与回归）
-
-#### Anthropic/Claude 相关能力（建议加入到 Phase 4 实战）
-- Claude Tool Use：以严格 schema 驱动工具调用；配套参数校验、重试与幂等设计
-- Prompt Caching（如使用 Claude API）：缓存稳定系统提示词与上下文，降低成本并提升吞吐
-- Computer Use（如引入浏览器自动化）：把“UI 操作”当作高风险工具，强制确认与审计
-
-### 4.2 Agent Skills（Anthropic）
-
-#### 核心概念
-- Skills：由说明文档、脚本与资源组成的“能力包”，按任务相关性动态加载（progressive disclosure）
-- Skills vs MCP：MCP 负责连接外部工具/数据，Skills 负责固化“如何用这些工具”的流程与规范
-- Skill Schema：输入/输出/权限声明，提升可控性与回归稳定性
-
-#### 实战里程碑（建议）
-- S1：跑通 Anthropic 预置 Skills（pdf/xlsx/docx/pptx 任一）生成产物文件并下载
-- S2：写一个自定义 Skill（如“PR Review 流程/数据集质量检查流程”），内部调用 MCP 工具（文件/Git/搜索）
-- S3：把 Skill 产物与回归体系打通：统计触发率、schema 通过率、失败用例与原因分布
-
-#### 回归点（Agent Skills）
-- 触发回归：该触发时触发、不该触发时不误触发
-- 产物回归：生成文件可打开且内容符合预期（或结构化输出字段齐全）
-- 权限回归：涉及写入/危险操作必须确认并记录审计信息
-### 4.3 A2A (Agent-to-Agent)
-
-
-**协议栈**:
-- Agent Card (能力描述)
-- JSON-RPC 2.0
-- SSE/WebSocket（流式）
-
-**实现计划**:
-- [ ] Agent Card 注册
-- [ ] 任务委托（含进度/取消）
-- [ ] 跨 Agent 通信（鉴权 + 速率限制）
-
-
-#### A2A 核心概念补全
-- Agent Card：能力/输入输出 schema/工具权限/服务端点/版本信息
-- Task Delegation：委托请求（任务、约束、预算）→ 状态查询 → 结果回收
-- 可靠性：超时、重试、幂等、取消（cancel）与进度（progress）
-- 多方协作：一个 supervisor 选择合适的远程 agent（路由/负载/成本）
-
-### 回归点（Phase 4）
-- 协议回归：MCP/A2A 的请求与响应严格符合 schema（反序列化不失败）
-- 工具安全回归：危险工具必须触发确认；未授权请求必须被拒绝
-- 兼容性回归：协议版本升级不破坏旧 client（至少兼容一个前版本）
-
-### 4.4 工具生态
-
-| 工具 | 功能 |
-|------|------|
-| Playwright | Browser 自动化 |
-| Sandbox / Code Interpreter | 安全沙箱代码执行（强隔离） |
-| Search API | 联网搜索（可替换） |
-| Vector DB | RAG 检索（pgvector/Weaviate 等） |
+**可验收：**
+- [ ] Langfuse 控制台能看到完整执行树（agent → tool → LLM）
+- [ ] 失败用例可点 trace_id 直接定位到出错节点
 
 ---
 
-## 💻 Phase 5: Next.js 前端 (待开始)
+### M7：评测体系 DeepEval（🟡 防回退）
 
-### 技术栈
-- Next.js 15 (App Router)
-- Tailwind CSS + shadcn/ui
-- SSE 流式接收
+**为什么用 DeepEval？**
+- pytest 风格 → 直接接 CI
+- 支持 trajectory eval（评估"过程"而非只看"最终输出"）
 
-### 页面规划
-- [ ] 首页/仪表盘
-- [ ] 对话页面 (单 Agent)
-- [ ] 团队页面 (Multi-Agent)
-- [ ] 会话历史
-- [ ] 设置 (API Key)
+**主参考**：[DeepEval](https://github.com/confident-ai/deepeval) + [Anthropic Evals 文档](https://docs.anthropic.com/en/docs/build-with-claude/evaluating-prompts)
 
-### 可视化
-- [ ] Agent 执行流程图
-- [ ] 状态/记忆查看
-- [ ] Token 消耗统计
+**学习子目标：**
+1. 写 30 条最小回归集（`eval/cases.jsonl`）
+2. 实现 4 类断言：必须调用工具、必须包含字段、禁止泄露、JSON Schema 校验
+3. 用 DeepEval 跑回归，输出通过率 + 失败 trace_id 列表
+4. 加到 GitHub Actions（PR 必跑）
 
-
-### 核心概念补全
-- 流式渲染：SSE/EventSource（或 fetch stream）如何驱动 UI 增量更新
-- 前后端协议：与后端对齐事件类型（tool_call/tool_result/final/error）
-- 会话状态：前端 store（会话列表、消息流、选中会话、回放 trace）
-- 可观测 UI：把“每一步发生了什么”可视化，比“聊天窗口好看”更重要
-
-### 核心功能清单（建议补齐）
-- Trace 面板：显示节点序列、工具参数、工具结果摘要、耗时与 token
-- 回放能力：从一次会话的 trace 重放输出（便于复现与调试）
-- Eval Dashboard（最小版）：展示回归用例通过率、失败用例列表与 diff
-
-### 实现计划
-- [ ] 初始化 Next.js 项目（App Router）并对齐后端 API 路径
-- [ ] 实现 SSE 客户端：事件流消费、断线重连、错误展示
-- [ ] 实现会话页：消息流、工具调用可视化、引用 trace 的详情
-- [ ] 实现 Trace 面板：节点序列/耗时/token/工具参数与结果摘要
-- [ ] 实现回放：从存量 trace 重放一次会话（用于复现与分享）
-- [ ] 实现 Eval Dashboard（最小版）：展示通过率与失败用例列表
-
-### 回归点（Phase 5）
-- 流式稳定性：网络抖动/刷新页面后仍能恢复会话与继续流式
-- 渲染一致性：同一条 SSE 事件序列在 UI 中呈现一致
----
-
-## 🚀 Phase 6: 生产化（部署/可观测/评测/安全）(待开始)
-
-### 6.1 Docker Compose
-```yaml
-services:
-  backend:     # FastAPI
-  frontend:    # Next.js
-  postgres:    # 数据库
-  redis:       # 缓存
-  nginx:       # 反向代理
-```
-
-### 6.2 Kubernetes
-- Deployment / Service / Ingress
-- ConfigMap / Secret
-- Helm Chart
-
-### 6.3 可观测性与评测（2026 生产必备）
-- Tracing/Logging/Metrics（OpenTelemetry + 可视化平台）
-- Evals：离线集评测 + 线上 A/B + 回归测试
-- Prompt/配置版本化（可回滚）
-- JWT/OIDC 认证 + RBAC
-- Rate Limiting + 审计日志
-
-
-### 核心概念补全
-- 配置与密钥：环境变量、Secret 管理、轮换策略（不落盘、不进日志）
-- 可观测三件套：Logs / Metrics / Traces；以及告警（latency、error rate、cost）
-- 弹性与可靠性：限流、熔断、重试、超时、队列化（长任务）
-- 成本与配额：按用户/租户的 token、工具调用、并发配额
-- 安全：TLS、CORS、WAF/网关、最小权限、审计日志
-
-### 回归点（Phase 6）
-- 部署回归：升级后接口兼容（前端与 client 不报错）
-- 灾备回归：服务重启后会话/断点可恢复（checkpoint 生效）
-- 性能回归：P95 延迟、错误率、token 成本不劣化
-
-### 实现计划
-- [ ] Docker Compose：后端/前端/数据库/缓存/网关最小可用编排
-- [ ] 配置与密钥：Secret 管理、环境隔离、禁日志泄露
-- [ ] 观测与告警：日志、指标、trace 与关键告警规则
-- [ ] 安全与治理：鉴权、限流、配额、审计、危险工具确认策略落地
-- [ ] 生产演练：重启恢复、回放复现、回归集一键跑通
----
-
-
-## 🧪 测评与回归（贯穿 Phase 1-6）
-
-### 目标
-- 防止能力回退：每次改 prompt / 工具 / 图结构都能快速发现问题
-- 量化迭代收益：看得见的通过率、延迟、成本、工具正确率变化
-
-### 指标（建议最少收集）
-- Schema Valid Rate：结构化输出可解析比例
-- Tool Precision：该调用工具时是否调用、参数是否正确、结果是否被正确使用
-- Task Pass Rate：任务级用例通过率（断言满足）
-- Latency/Cost：P50/P95 耗时、token、外部调用次数
-- Safety：危险工具触发确认/拒绝是否生效；越权调用是否被拦截
-
-### 用例分层
-- Unit：工具函数（参数校验、超时、错误处理）
-- Integration：单 agent 图（节点序列、工具调用、状态变更）
-- E2E：HTTP API（SSE 事件序列）与前端渲染（如已完成 Phase 5）
-
-### 用例格式（建议统一为 jsonl / yaml）
-- 必填字段：`id`, `input`, `assertions`, `tags`, `permissions`
-- 可选字段：`expected_schema`, `max_steps`, `max_cost`, `fixtures`
-- assertions 示例：包含必须字段、禁止字段、必须调用/禁止调用某工具、最终回答必须包含某信息
-
-### 最小回归集（建议从 30 条开始）
-- 10 条：结构化输出（边界值、缺字段、类型错误）
-- 10 条：工具调用（该用工具/不该用工具/参数混淆）
-- 5 条：长对话记忆（窗口/摘要切换）
-- 5 条：安全用例（危险动作确认、拒绝后不执行）
-
-### 实现计划（Evals）
-- [ ] 定义用例规范：id/input/assertions/tags/permissions
-- [ ] 统一断言类型：schema 校验、工具调用断言、关键内容断言、禁止行为断言
-- [ ] 记录评测产物：通过率、失败清单、失败原因（分类）与关键指标（耗时/token）
-- [ ] 接入回放：失败用例可从 trace 复现并定位到节点/工具
-- [ ] 接入 CI（如已有）：PR 必跑最小回归集，防止回退
+**可验收：**
+- [ ] `pytest eval/` 输出每条用例的通过率与耗时
+- [ ] 失败用例可点 trace_id 跳到 Langfuse 看现场
 
 ---
 
-## 📖 学习资源
+### M8：Skills 框架（🟡 借鉴 Anthropic）
 
-### 官方文档
-- [LangChain.js](https://js.langchain.com/)
-- [LangGraph](https://langchain-ai.github.io/langgraph/)
-- [OpenAI Responses API](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
-- [OpenAI Agents SDK（含 MCP）](https://openai.github.io/openai-agents-python/mcp/)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [MCP Spec](https://modelcontextprotocol.io/)
-- [A2A Protocol](https://google.github.io/A2A/)
+**为什么做？**
+- CowAgent 的 plugin 机制思路对，但实现过时
+- Anthropic Skills（SKILL.md + 渐进式加载）才是 2026 标准
 
-### Anthropic/Claude 专题
-- Agent Skills：把流程/规范打包为 Skills，提升一致性与可回归性
-- Claude Tool Use：schema 驱动的工具调用工程实践（参数校验、幂等、重试、权限分级）
-- Constitutional AI / RLAIF：理解安全对齐对工具边界、拒答策略的影响
+**主参考**：[anthropics/skills](https://github.com/anthropics/skills)（如有公开） + [tech-leads-club/agent-skills](https://github.com/tech-leads-club/agent-skills)
 
-### 角色库与协作（可选）
-- agency-agents：开箱即用的“智能体角色库”，每个角色包含身份、规则、流程与交付物，可安装到 Claude Code / Cursor 等工具中作为协作与提示词参考
-- 使用方式：精选 10-20 个常用角色（代码审查/安全审计/后端架构/前端开发等），用于规范化“多角色协作”的输入输出与交接模板
+**学习子目标：**
+1. 定义 Skill manifest 格式（`SKILL.md` + YAML frontmatter）
+2. 实现 SkillLoader：扫描 `apps/api/skills/` 目录，按需加载到 system prompt
+3. UI 增加 "已启用 Skills" 列表 + 启停开关
+4. 写 2 个示例 Skill：`pr-review`（代码审查流程）、`weather-and-carwash`（天气场景固化）
 
-### 项目参考
-- [LangChain AI](https://github.com/langchain-ai)
-- [AutoGen](https://microsoft.github.io/autogen/)
-- [CrewAI](https://docs.crewai.com/)
+**可验收：**
+- [ ] 启停 Skill 不需要重启 API
+- [ ] 一次对话用了哪些 Skill 在 trace 里可见
 
 ---
 
-## ✅ 任务清单
+### M9：长期记忆 + RAG（🟢 进阶）
 
-### 本周任务
-- [ ] 理解 Phase 3 所有核心模块代码
-- [ ] 配置 BRAVE_API_KEY 实现搜索
-- [ ] 实现 Phase 4 MCP Server 基础框架
-- [ ] 建立最小回归集（≥30 条）+ 通过率统计
+**为什么放最后？**
+- 没有可观测和评测，做记忆容易做出"看着像但不可控"的系统
+- 等前面都稳了，再加记忆收益最大
 
-### 下周任务
-- [ ] 实现 A2A 协议
-- [ ] Next.js 前端初始化
-- [ ] Docker Compose 完整编排
-- [ ] 接入 Trace 面板与回放（Phase 5 可视化）
+**主参考**：LangGraph `Store` API + [pgvector](https://github.com/pgvector/pgvector)
+
+**学习子目标：**
+1. 用 LangGraph `Store` 做"用户偏好"记忆（短期）
+2. 引入 pgvector 做语义检索（长期）
+3. 在回答里**显式标注引用来源**（必须可解释）
+
+**可验收：**
+- [ ] "我喜欢喝咖啡" → 下次问推荐饮料时能召回
+- [ ] 每条回答下方显示"引用了 N 条记忆"，点开可见原文
 
 ---
 
-*最后更新: 2026-04-07*
+## 4. CowAgent 思想迁移对照表
+
+CowAgent 仍有值得借鉴的**工程思想**（不是技术）。下面列出每个思想在 2026 主流栈下应该用什么实现：
+
+| CowAgent 思想 | 2026 实现 | 在哪个里程碑做 |
+|---|---|---|
+| Plugin 可安装/启停/优先级 | Skills + MCP Server 配置 | M4 + M8 |
+| Plugin 事件总线（emit_event） | LangGraph 节点 + 条件边 | 已有 |
+| `agent_max_steps` | `recursion_limit` | M5 |
+| `agent_max_context_turns` | LangGraph `pre_model_hook` 修剪历史 | M5 |
+| `agent_workspace`（运行目录） | LangGraph `Store` + 文件型 MCP Server | M9 |
+| 一键运维脚本（cow CLI） | Docker Compose + Makefile | M6 收尾 |
+| 多通道（微信/飞书/钉钉） | **不做**（Web-only 不需要） | - |
+
+---
+
+## 5. 不在本计划范围（明确放弃）
+
+- ❌ A2A 协议：除非要做"多团队 agent 互通"，单项目用不上
+- ❌ 多通道接入：CowAgent 强项，但你的目标是 Web-only
+- ❌ Computer Use（浏览器自动化）：高风险，等基础牢固后再考虑
+- ❌ 自研 agent runtime：LangGraph 已经够好，不重复造轮子
+
+---
+
+## 6. 时间安排建议（不强求）
+
+学习项目不宜定死时间，但可以参考节奏：
+
+- **本周**：M4 完成（MCP 接入）
+- **下周**：M5 完成（Checkpoint + 预算）
+- **后续**：M6/M7 并行推进（可观测和评测互相依赖）
+
+---
+
+## 7. 自检清单
+
+学完每个 M，问自己 3 个问题：
+1. **能不能给一个不熟悉的人讲清楚这个技术解决什么问题？**
+2. **能不能不看任何文档，复现核心代码？**
+3. **能不能在自己的项目里独立用上？**
+
+三个都"能"才算掌握。
+
+---
+
+> 内容根据公开搜索结果做了改写以符合引用规范

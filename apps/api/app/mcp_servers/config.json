@@ -1,0 +1,17 @@
+{
+  "_comment": "MCP Server 注册表。增加/删除工具集只需改这里，不用动 agent 代码。格式参考 Claude Desktop 的 mcpServers 字段。",
+  "mcpServers": {
+    "weather": {
+      "command": "python",
+      "args": ["-m", "app.mcp_servers.weather_server"],
+      "transport": "stdio",
+      "_description": "天气查询（Open-Meteo API）"
+    },
+    "utils": {
+      "command": "python",
+      "args": ["-m", "app.mcp_servers.utils_server"],
+      "transport": "stdio",
+      "_description": "通用工具（计算器、占位搜索）"
+    }
+  }
+}
