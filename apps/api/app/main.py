@@ -46,6 +46,16 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/api/v1/models")
+async def list_models():
+    """返回可用模型列表，供前端下拉选择"""
+    models = [m.strip() for m in settings.AVAILABLE_MODELS.split(",") if m.strip()]
+    return {
+        "models": models,
+        "default": settings.OPENAI_MODEL,
+    }
+
+
 @app.get("/ui", include_in_schema=False)
 async def ui():
     # Web UI 静态页入口（不需要前端工程/打包）

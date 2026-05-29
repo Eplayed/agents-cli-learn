@@ -30,11 +30,13 @@ from app.core.config import settings
 class SingleAgent:
     """单 Agent：LangGraph StateGraph + ToolNode + Checkpoint"""
 
-    def __init__(self, session_id: str, tools: List[BaseTool] | None = None):
+    def __init__(self, session_id: str, tools: List[BaseTool] | None = None, model: str | None = None):
         # session_id 用于绑定 checkpoint 的 thread_id
         self.session_id = session_id
+        # model 参数：前端可传指定模型，不传则用 config 默认值
+        model_name = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
+            model=model_name,
             api_key=settings.OPENAI_API_KEY,
             base_url=settings.OPENAI_BASE_URL,
             temperature=0.7,

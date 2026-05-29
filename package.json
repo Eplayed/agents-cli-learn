@@ -1,31 +1,15 @@
 {
-  "name": "my-agent-cli",
-  "version": "3.0.0",
-  "description": "Agent CLI with LangGraph + Multi-Agent collaboration (Sequential/Parallel/Supervisor/GroupChat/TeamGraph)",
-  "main": "dist/cli.js",
+  "name": "agents-cli-learn",
+  "version": "4.0.0",
+  "description": "Agent learning project - Web-only (FastAPI + LangGraph + MCP)",
+  "private": true,
   "scripts": {
-    "start": "ts-node src/cli.ts",
-    "build": "tsc",
-    "dev": "ts-node src/cli.ts"
+    "start": "cd apps/api && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000",
+    "dev": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "diagrams": "python3 -m http.server 9000",
+    "diagrams:open": "open http://localhost:9000/docs/diagrams.html"
   },
-  "keywords": [
-    "agent",
-    "langgraph",
-    "cli",
-    "llm"
-  ],
+  "keywords": ["agent", "langgraph", "fastapi", "mcp", "learning"],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@langchain/core": "^1.1.38",
-    "@langchain/langgraph": "^1.2.6",
-    "@langchain/langgraph-checkpoint": "^1.0.1",
-    "@langchain/openai": "^1.4.1",
-    "dotenv": "^17.3.1"
-  },
-  "devDependencies": {
-    "@types/node": "^25.5.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.2"
-  }
+  "license": "ISC"
 }

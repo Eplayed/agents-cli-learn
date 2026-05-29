@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
 
+    # 可用模型列表（前端下拉选择用）
+    # 用户可在 .env.dev 中覆盖，逗号分隔
+    AVAILABLE_MODELS: str = "gpt-4o-mini,gpt-4o,gpt-4.1-mini,gpt-4.1,gpt-3.5-turbo"
+
     # =========================
     # Web 配置
     # =========================

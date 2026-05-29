@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>架构图查看器 · agents-cli-learn</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- svg-pan-zoom 是 UMD 包，必须用 <script> 标签加载，不能用 ESM import -->
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --hover: #2563eb;
+    --error: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; background: var(--bg); color: var(--text); }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  select, button {
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  select:hover, button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button.primary:hover { background: var(--hover); border-color: var(--hover); }
+  .hint { color: var(--muted); font-size: 12px; }
+  main {
+    height: calc(100vh - 53px);
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(circle at 1px 1px, #334155 1px, transparent 0),
+      var(--bg);
+    background-size: 24px 24px;
+  }
+  #stage {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #stage svg {
+    width: 100%; height: 100%;
+    background: white; border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+  .controls {
+    position: absolute; bottom: 16px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 4px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px;
+  }
+  .controls button {
+    border: none; background: transparent;
+    width: 36px; height: 36px; padding: 0;
+    font-size: 18px; border-radius: 4px;
+  }
+  .controls button:hover { background: var(--border); }
+  #empty {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    color: var(--muted); font-size: 14px; text-align: center;
+    padding: 32px;
+  }
+  #empty.hidden { display: none; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 4px;
+    background: var(--border); font-size: 11px;
+    margin-left: 6px;
+  }
+  .badge.error { background: var(--error); color: white; }
+  #log {
+    position: absolute; top: 16px; right: 16px;
+    max-width: 360px; max-height: 200px; overflow: auto;
+    background: rgba(0,0,0,.6); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px;
+    font-family: ui-monospace, monospace; font-size: 11px;
+    color: var(--muted); white-space: pre-wrap;
+    pointer-events: none;
+  }
+  #log.hidden { display: none; }
+  #log .err { color: #fca5a5; }
+  #log .ok { color: #86efac; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📐 架构图查看器</h1>
+  <span class="badge" id="badge">加载中…</span>
+  <span class="spacer"></span>
+  <span class="hint">滚轮缩放 · 拖拽平移</span>
+  <select id="picker">
+    <option value="">— 选择图 —</option>
+  </select>
+  <button id="fit" title="适应窗口">⊡ 适应</button>
+  <button id="reset" title="重置">↻ 重置</button>
+  <button id="exportSvg" class="primary">⬇ SVG</button>
+  <button id="exportPng">⬇ PNG</button>
+</header>
+
+<main>
+  <div id="stage"></div>
+  <div id="empty">
+    <div style="font-size: 48px;">📊</div>
+    <div>从右上角下拉选择一张图</div>
+    <div class="hint">数据来源：docs/ARCHITECTURE.md</div>
+  </div>
+  <div id="log" class="hidden"></div>
+  <div class="controls">
+    <button id="zoomIn" title="放大">＋</button>
+    <button id="zoomOut" title="缩小">－</button>
+    <button id="center" title="居中">⊙</button>
+  </div>
+</main>
+
+<script type="module">
+  // ============ 调试日志 ============
+  const logEl = document.getElementById('log');
+  const log = (msg, level = 'info') => {
+    console.log(`[diagrams] ${msg}`);
+    logEl.classList.remove('hidden');
+    const line = document.createElement('div');
+    line.className = level === 'error' ? 'err' : (level === 'ok' ? 'ok' : '');
+    line.textContent = `${new Date().toLocaleTimeString()} ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    // 5 秒后自动隐藏成功日志
+    if (level === 'ok') setTimeout(() => logEl.classList.add('hidden'), 5000);
+  };
+
+  const badge = document.getElementById('badge');
+  const setBadge = (text, isError = false) => {
+    badge.textContent = text;
+    badge.classList.toggle('error', isError);
+  };
+
+  // ============ 加载 mermaid（ESM）============
+  let mermaid;
+  try {
+    log('加载 mermaid…');
+    const mod = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    mermaid = mod.default;
+    log('mermaid 加载成功', 'ok');
+  } catch (e) {
+    log(`mermaid 加载失败: ${e.message}`, 'error');
+    setBadge('mermaid 加载失败', true);
+    throw e;
+  }
+
+  // ============ 等 svg-pan-zoom（UMD 标签加载）============
+  const waitFor = (cond, label, timeout = 5000) => new Promise((res, rej) => {
+    const t0 = Date.now();
+    const tick = () => {
+      if (cond()) return res();
+      if (Date.now() - t0 > timeout) return rej(new Error(`等待 ${label} 超时`));
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+
+  try {
+    await waitFor(() => typeof window.svgPanZoom === 'function', 'svg-pan-zoom');
+    log('svg-pan-zoom 加载成功', 'ok');
+  } catch (e) {
+    log(`svg-pan-zoom 加载失败（CDN 可能被墙）: ${e.message}`, 'error');
+    setBadge('svg-pan-zoom 加载失败', true);
+    // 不强制退出，没有 panZoom 也能渲染图，只是不能拖拽
+  }
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    themeVariables: { fontSize: '18px' },
+    securityLevel: 'loose',
+  });
+
+  // ============ DOM ============
+  const stage = document.getElementById('stage');
+  const empty = document.getElementById('empty');
+  const picker = document.getElementById('picker');
+  let panZoom = null;
+  let currentSvgEl = null;
+
+  // ============ 解析 ARCHITECTURE.md ============
+  async function loadDiagrams() {
+    log('读取 ARCHITECTURE.md…');
+    let md;
+    try {
+      const resp = await fetch('./ARCHITECTURE.md');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      md = await resp.text();
+      log(`读到 ${md.length} 字节`, 'ok');
+    } catch (e) {
+      log(`读取失败: ${e.message}`, 'error');
+      return [];
+    }
+
+    // 用 matchAll 同时拿到位置和内容（更可靠）
+    const blockRe = /```mermaid\n([\s\S]*?)\n```/g;
+    const blocks = [];
+    for (const m of md.matchAll(blockRe)) {
+      blocks.push({ code: m[1], idx: m.index });
+    }
+    log(`找到 ${blocks.length} 个 mermaid 代码块`, blocks.length ? 'ok' : 'error');
+
+    // 收集标题位置
+    const titleRe = /^##\s+(\d+)\.\s+([^\n]+)$/gm;
+    const titles = [];
+    for (const m of md.matchAll(titleRe)) {
+      titles.push({ idx: m.index, num: m[1], name: m[2].trim() });
+    }
+    log(`找到 ${titles.length} 个章节标题`);
+
+    // 给每个块匹配最近的上一个标题
+    return blocks.map((b, i) => {
+      const t = [...titles].reverse().find(t => t.idx < b.idx);
+      return {
+        id: `diagram-${i}`,
+        title: t ? `${t.num}. ${t.name}` : `图 ${i + 1}`,
+        code: b.code,
+      };
+    });
+  }
+
+  // ============ 渲染一张图 ============
+  async function renderDiagram(code, title) {
+    empty.classList.add('hidden');
+    stage.innerHTML = '<div style="color:#64748b">渲染中…</div>';
+
+    try {
+      const id = 'm' + Math.random().toString(36).slice(2, 9);
+      const { svg } = await mermaid.render(id, code);
+      stage.innerHTML = svg;
+
+      const svgEl = stage.querySelector('svg');
+      if (!svgEl) throw new Error('未渲染出 SVG');
+
+      // 让 SVG 充满容器
+      svgEl.style.maxWidth = 'none';
+      svgEl.style.width = '100%';
+      svgEl.style.height = '100%';
+      svgEl.removeAttribute('width');
+      svgEl.removeAttribute('height');
+      currentSvgEl = svgEl;
+
+      // 尝试启用 pan-zoom（如果库加载成功）
+      if (panZoom) { try { panZoom.destroy(); } catch {} }
+      if (typeof window.svgPanZoom === 'function') {
+        panZoom = window.svgPanZoom(svgEl, {
+          zoomEnabled: true,
+          controlIconsEnabled: false,
+          fit: true,
+          center: true,
+          minZoom: 0.2,
+          maxZoom: 10,
+          zoomScaleSensitivity: 0.3,
+        });
+      }
+      log(`渲染成功：${title}`, 'ok');
+    } catch (e) {
+      stage.innerHTML = `<div style="color:#ef4444; padding:32px; font-family:monospace; max-width:80%;">渲染失败：<br>${e.message}</div>`;
+      log(`渲染失败: ${e.message}`, 'error');
+    }
+  }
+
+  // ============ 导出 ============
+  function exportSVG() {
+    if (!currentSvgEl) return;
+    const clone = currentSvgEl.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml' });
+    triggerDownload(blob, `diagram-${Date.now()}.svg`);
+  }
+
+  function exportPNG() {
+    if (!currentSvgEl) return;
+    const clone = currentSvgEl.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const bbox = currentSvgEl.getBBox();
+    const w = Math.ceil(bbox.width + 40);
+    const h = Math.ceil(bbox.height + 40);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    clone.setAttribute('viewBox', `${bbox.x - 20} ${bbox.y - 20} ${w} ${h}`);
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const url = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(b => triggerDownload(b, `diagram-${Date.now()}.png`));
+    };
+    img.src = url;
+  }
+
+  function triggerDownload(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ============ 启动 ============
+  const diagrams = await loadDiagrams();
+  if (diagrams.length === 0) {
+    setBadge('未找到任何图', true);
+    empty.querySelector('div:nth-child(2)').textContent = '没找到 mermaid 代码块';
+  } else {
+    setBadge(`共 ${diagrams.length} 张`);
+    diagrams.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = d.title;
+      picker.appendChild(opt);
+    });
+
+    picker.addEventListener('change', () => {
+      const i = picker.value;
+      if (i === '') return;
+      renderDiagram(diagrams[i].code, diagrams[i].title);
+    });
+
+    // 默认显示第一张
+    picker.value = 0;
+    picker.dispatchEvent(new Event('change'));
+  }
+
+  // ============ 控制按钮 ============
+  document.getElementById('zoomIn').onclick = () => panZoom?.zoomIn();
+  document.getElementById('zoomOut').onclick = () => panZoom?.zoomOut();
+  document.getElementById('center').onclick = () => panZoom?.center();
+  document.getElementById('fit').onclick = () => { panZoom?.resize(); panZoom?.fit(); panZoom?.center(); };
+  document.getElementById('reset').onclick = () => { panZoom?.resetZoom(); panZoom?.center(); };
+  document.getElementById('exportSvg').onclick = exportSVG;
+  document.getElementById('exportPng').onclick = exportPNG;
+
+  // 全局错误捕获
+  window.addEventListener('error', e => log(`未捕获错误: ${e.message}`, 'error'));
+  window.addEventListener('unhandledrejection', e => log(`Promise 拒绝: ${e.reason}`, 'error'));
+</script>
+
+</body>
+</html>

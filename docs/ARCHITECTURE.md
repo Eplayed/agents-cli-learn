@@ -10,11 +10,34 @@
 
 ---
 
+## 📺 怎么看图（推荐顺序）
+
+| 场景 | 用什么 |
+|---|---|
+| **看大图** ⭐ 推荐 | 浏览器打开 [diagrams.html](./diagrams.html) — 全屏 + 滚轮缩放 + 拖拽 + 一键导出 SVG/PNG |
+| 快速浏览 | VSCode 打开本文件，按 `Cmd+Shift+V` 预览 |
+| 临时看一张 | 复制 mermaid 代码到 [mermaid.live](https://mermaid.live) |
+| GitHub 上看 | 直接打开本文件，GitHub 自动渲染（字稍小） |
+
+**启动 diagrams.html：**
+
+```bash
+# 在项目根目录起一个本地静态服务（任选其一）
+python3 -m http.server 9000
+# 或 npx serve .
+
+# 浏览器访问
+open http://localhost:9000/docs/diagrams.html
+```
+
+---
+
 ## 1. 整体架构总览
 
 把整个系统按"层"拆开看，每层标注"现在有什么 / 未来加什么"。
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'18px', 'fontFamily':'-apple-system, sans-serif'}, 'flowchart': {'nodeSpacing': 50, 'rankSpacing': 70, 'curve': 'basis'}}}%%
 graph TB
     subgraph CLIENT["🌐 客户端层"]
         WEB[Web UI<br/>静态 HTML]:::done
@@ -127,6 +150,7 @@ graph TB
 从用户在 Web UI 输入到看到流式输出的端到端数据流。
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}, 'sequence': {'actorFontSize': 16, 'messageFontSize': 14, 'noteFontSize': 14, 'width': 160}}}%%
 sequenceDiagram
     autonumber
     participant U as 用户
@@ -192,6 +216,7 @@ sequenceDiagram
 ## 3. Multi-Agent 4 种协作模式对比
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'18px'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 50}}}%%
 flowchart LR
     subgraph SEQ["1️⃣ Sequential 顺序"]
         direction TB
@@ -244,6 +269,7 @@ flowchart LR
 放大看 MCP 这层的内部结构和数据流。
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'18px'}, 'flowchart': {'nodeSpacing': 50, 'rankSpacing': 70}}}%%
 graph LR
     subgraph AGENT_PROC["Agent 进程"]
         AGENT[SingleAgent]:::done
@@ -302,6 +328,7 @@ graph LR
 ## 5. 学习里程碑路线图（M0-M9）
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}, 'gantt': {'fontSize': 14, 'sectionFontSize': 16, 'barHeight': 24}}}%%
 gantt
     title 学习里程碑（不强求时间，只看顺序）
     dateFormat  YYYY-MM-DD
@@ -329,6 +356,7 @@ gantt
 **依赖关系（哪个不做就阻塞下一个）：**
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'18px'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 60}}}%%
 graph LR
     M0[M0 目录重构]:::done --> M1[M1 后端]:::done
     M1 --> M2[M2 前端]:::done
@@ -357,6 +385,7 @@ graph LR
 这是终态目标，所有里程碑做完后系统应该长这样：
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'17px'}, 'flowchart': {'nodeSpacing': 50, 'rankSpacing': 75}}}%%
 graph TB
     subgraph CLIENT["客户端"]
         N[Next.js Console<br/>对话+Trace+Skills 管理]

@@ -40,6 +40,8 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - ✅ NDJSON 流式协议（更通用，避开 SSE 在内嵌浏览器的兼容问题）
 - ✅ SQLite + SQLAlchemy 异步持久化（Session / Message）
 - ✅ 真实工具调用（`get_weather` 调 Open-Meteo API）
+- ✅ MCP 工具协议（weather_server + utils_server，配置化加载）
+- ✅ 前端模型切换（`/api/v1/models` + UI 下拉选择器）
 
 **对照 2026 主流栈的差距（要补的）：**
 

@@ -490,6 +490,12 @@
           </div>
 
           <div style="height: 12px"></div>
+          <div class="label">AI 模型</div>
+          <select id="modelSelect">
+            <option value="">加载中…</option>
+          </select>
+
+          <div style="height: 12px"></div>
           <div class="label">后端地址（同源即可）</div>
           <input id="apiBase" placeholder="例如：http://localhost:8000" />
 
@@ -569,6 +575,7 @@
       const sessionSearchEl = $("sessionSearch");
       const sessionListEl = $("sessionList");
       const toggleLogBtn = $("toggleLogBtn");
+      const modelSelectEl = $("modelSelect");
       const logCountEl = $("logCount");
       const logPanelEl = $("logPanel");
       const logListEl = $("logList");
@@ -1433,7 +1440,7 @@
               const res = await apiFetch("/api/v1/chat/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text, session_id: currentSessionId, stream: false }),
+                body: JSON.stringify({ message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, stream: false }),
               });
               const data = await res.json();
               emitLog("INFO", "event", "api:/api/v1/chat/send response", data);
@@ -1473,7 +1480,7 @@
               if (!currentSessionId) await createSession();
               const bodyEl = addMessage("assistant", "assistant", "");
               let full = "";
-              await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, stream: true }, (_evt, chunk) => {
+              await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, stream: true }, (_evt, chunk) => {
                 if (chunk.type === "text") {
                   full += chunk.content || "";
                   bodyEl.textContent = full;
@@ -1533,6 +1540,24 @@
 
       (async () => {
         updateHint();
+        // 加载可用模型列表
+        try {
+          const base = apiBaseInput.value.trim() || defaultBase;
+          const res = await fetch(base.replace(/\/$/, "") + "/api/v1/models");
+          if (res.ok) {
+            const data = await res.json();
+            modelSelectEl.innerHTML = "";
+            for (const m of data.models || []) {
+              const opt = document.createElement("option");
+              opt.value = m;
+              opt.textContent = m;
+              if (m === data.default) opt.selected = true;
+              modelSelectEl.appendChild(opt);
+            }
+          }
+        } catch (e) {
+          modelSelectEl.innerHTML = '<option value="">模型加载失败</option>';
+        }
         try {
           loadLogStore();
           try {
