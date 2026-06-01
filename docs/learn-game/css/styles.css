@@ -584,55 +584,48 @@ main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
 }
 .flow-svg {
   width: 100%;
-  min-width: 500px;
+  min-width: 480px;
   height: auto;
   display: block;
 }
 
 /* 节点入场动画 */
-.flow-node {
+.tech-node {
   opacity: 0;
-  animation: flowNodeIn 0.4s ease-out forwards;
+  animation: techNodeIn 0.5s ease-out forwards;
 }
-@keyframes flowNodeIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes techNodeIn {
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 箭头流动动效 */
-.flow-arrow {
-  stroke-dasharray: 6 4;
-  stroke-dashoffset: 20;
-  animation: flowDash 1.5s linear infinite;
+/* 边入场 */
+.tech-edge {
+  opacity: 0;
+  animation: techEdgeIn 0.4s ease-out forwards;
 }
-@keyframes flowDash {
-  from { stroke-dashoffset: 20; }
+@keyframes techEdgeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 箭头流动动效 */
+.tech-flow-line {
+  stroke-dasharray: 8 5;
+  stroke-dashoffset: 26;
+  animation: techFlowDash 2s linear infinite;
+}
+@keyframes techFlowDash {
+  from { stroke-dashoffset: 26; }
   to { stroke-dashoffset: 0; }
 }
 
 /* 箭头头部脉冲 */
-.flow-arrow-head {
-  opacity: 0;
-  animation: flowHeadPulse 1.5s ease-in-out infinite;
+.tech-arrow-head {
+  animation: techHeadPulse 2s ease-in-out infinite;
 }
-@keyframes flowHeadPulse {
-  0%, 40% { opacity: 0.3; }
-  60%, 80% { opacity: 1; }
-  100% { opacity: 0.3; }
-}
-
-/* 图例 */
-.flow-legend {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--border);
-}
-.legend-item {
-  font-size: 11px; color: var(--muted);
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px;
-  background: var(--bg-1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+@keyframes techHeadPulse {
+  0%, 30% { opacity: 0.4; }
+  50%, 70% { opacity: 1; }
+  100% { opacity: 0.4; }
 }
