@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "里程碑完成后同步文档",
+  "description": "每当完成一个里程碑单元（M0-M9）的开发工作后，自动提醒 agent 同步更新 LEARNING-PLAN.md、README.md、docs/ARCHITECTURE.md 的进度标记，并为 docs/learn-game/data/ 新增或更新对应关卡的学习内容，最后 git commit + push 触发 GitHub Pages 重新构建。",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "一个里程碑单元刚刚完成。请执行以下同步操作：\n\n1. 更新 LEARNING-PLAN.md：把刚完成的里程碑的验收清单打勾，差距表状态改为\"已完成\"或\"部分完成\"\n2. 更新 README.md：\"已完成\"能力表加上新完成的能力，路线图表格状态改为\"已完成\"\n3. 更新 docs/ARCHITECTURE.md：把对应的色块从蓝色/黄色改为绿色（已完成）\n4. 更新或新增 docs/learn-game/data/mX.js：如果刚完成的里程碑还没有对应的学习关卡，创建一个完整的多 stage 关卡（story → concept → build → mini-quiz → final-quiz）；如果已有，检查内容是否需要根据实际实现更新\n5. 更新 docs/learn-game/data/levels.js：确保新关卡已注册\n6. git add 相关文件 → commit → push，让 GitHub Pages 自动重建\n\n注意：\n- 学习关卡的 build stage 要贴项目里的真实代码（不是样例），并逐行解读\n- 通关测验的题目要考 Agent 技术原理（70%）+ 项目落地（30%）\n- 每题挂 knowledgeTag 标签，方便后期接面试题库"
+  }
+}
