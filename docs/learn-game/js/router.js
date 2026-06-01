@@ -19,7 +19,7 @@ export function navigate(view) {
   state.view = view;
   save();
   render();
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  window.scrollTo(0, 0);
 }
 
 export function render() {
