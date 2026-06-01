@@ -488,7 +488,45 @@ class Message(Base):
       `,
     },
 
-    // ============ Stage 8: 项目代码 - chat.py ============
+    // ============ Stage 8: Mini-Quiz (DB) ============
+    {
+      kind: 'mini-quiz',
+      title: '小测：DB 与依赖注入',
+      questions: [
+        {
+          id: 'm1s8q1',
+          type: 'single',
+          knowledgeTag: '异步 DB',
+          text: 'SQLAlchemy 的 <code>expire_on_commit=False</code> 在 async 环境下为什么关键？',
+          options: [
+            { text: '让查询更快', value: 'a' },
+            { text: '默认 commit 后对象过期，访问字段会触发新查询；在 async 环境这会导致"协程外访问 DB"崩溃', value: 'b' },
+            { text: '防止 SQL 注入', value: 'c' },
+            { text: '让 ORM 支持 JSON 字段' , value: 'd' }
+          ],
+          answer: 'b',
+          explain: 'SQLAlchemy 默认 commit 后标记对象为"过期"，下次访问属性会隐式发 SQL。在 async 环境这个隐式查询会在错误的协程上下文执行。',
+          deeper: '这是 async SQLAlchemy 最常见的坑之一。设 expire_on_commit=False 让对象 commit 后仍可安全访问。'
+        },
+        {
+          id: 'm1s8q2',
+          type: 'single',
+          knowledgeTag: '设计模式',
+          text: '为什么 chat.py 里"用户消息先落库，再调 Agent"？如果反过来会怎样？',
+          options: [
+            { text: '没区别，顺序不重要', value: 'a' },
+            { text: '先落库 = 就算 Agent 调用失败崩溃，DB 里也能看到"用户问了什么"（日志先行原则）', value: 'b' },
+            { text: '为了让 Agent 能读到用户消息', value: 'c' },
+            { text: '数据库要求必须先写' , value: 'd' }
+          ],
+          answer: 'b',
+          explain: '日志先行（Write-Ahead）是可靠系统的基本原则。先记录"发生了什么"，再执行"可能失败的操作"。',
+          deeper: '同理：支付系统先记录订单再扣款，消息队列先持久化再投递。'
+        }
+      ]
+    },
+
+    // ============ Stage 9: 项目代码 - chat.py ============
     {
       kind: 'build',
       title: '搭建 Step 4：第一个 Agent 路由',
@@ -590,7 +628,7 @@ async def chat_send(
       `,
     },
 
-    // ============ Stage 9: Final Quiz ============
+    // ============ Stage 10: Final Quiz ============
     {
       kind: 'final-quiz',
       title: '通关测验：M1 后端搭建',

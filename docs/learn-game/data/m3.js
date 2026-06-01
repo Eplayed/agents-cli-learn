@@ -359,30 +359,32 @@ class SingleAgent:
         {
           id: 'm3s5q1',
           type: 'single',
-          knowledgeTag: 'Tool Calling',
-          text: '删掉 <code>self.llm.bind_tools(self.tools)</code> 会怎样？',
+          knowledgeTag: 'StateGraph',
+          text: 'LangGraph 的 StateGraph 相比"自己写 while 循环"，最大的工程优势是什么？',
           options: [
-            { text: '什么都不变', value: 'a' },
-            { text: 'agent 仍能跑，但 LLM 不知道有什么工具，永远不输出 tool_calls', value: 'b' },
-            { text: 'LangGraph 立即抛 ValidationError', value: 'c' },
-            { text: '工具被随机调用' , value: 'd' }
+            { text: '跑得更快', value: 'a' },
+            { text: '图结构是显式的：天然支持 checkpoint / 流式 / HITL / 可观测，不用自己实现', value: 'b' },
+            { text: '不需要写 Python', value: 'c' },
+            { text: '自动选择最优模型' , value: 'd' }
           ],
           answer: 'b',
-          explain: '工具 schema 必须 bind 到 LLM，模型才知道"我有什么工具、参数怎么填"。',
+          explain: '显式图 = 每个节点执行后自动存档、自动产出事件、可以在任意节点暂停。这些用 while 循环都得手写。',
+          deeper: '这也是为什么 2025 年起所有主流框架（OpenAI SDK / CrewAI / AutoGen）都走"显式图"路线。'
         },
         {
           id: 'm3s5q2',
           type: 'single',
-          knowledgeTag: 'StateGraph',
-          text: '<code>tools_condition</code> 内置函数怎么决定下一步？',
+          knowledgeTag: 'Checkpoint',
+          text: '如果 checkpointer 每次请求都 new 一个新的 MemorySaver，会发生什么？',
           options: [
-            { text: '看用户消息是否含问号', value: 'a' },
-            { text: '随机', value: 'b' },
-            { text: '检查 state["messages"] 最后一条 AIMessage 是否含 tool_calls', value: 'c' },
-            { text: '看 LLM 的 temperature' , value: 'd' }
+            { text: '没影响，MemorySaver 是全局的', value: 'a' },
+            { text: '同一个 thread_id 的第二次请求拿不到第一次的对话历史，因为新 saver 里是空的', value: 'b' },
+            { text: '会报错', value: 'c' },
+            { text: '性能下降但功能正常' , value: 'd' }
           ],
-          answer: 'c',
-          explain: '内置简单函数。这就是 ReAct 循环"是否继续"的判定。',
+          answer: 'b',
+          explain: '这是本项目早期的真实 bug。修复方案：把 MemorySaver 提到模块级单例，所有请求共享同一个实例。',
+          deeper: '生产环境用 AsyncSqliteSaver / AsyncPostgresSaver 放在 lifespan 里，彻底解决跨进程问题。'
         }
       ]
     },
@@ -456,7 +458,7 @@ class SingleAgent:
           knowledgeTag: '流事件',
           text: '想监听每个 LLM token 和工具开始/结束，用 graph 的哪个方法？（只填方法名）',
           hint: '提示：比 astream 更细粒度',
-          answer: ['astream_events'],
+          answer: ['astream_events', 'graph.astream_events', 'self.graph.astream_events'],
           explain: 'graph.astream_events(input, config, version="v1")。事件包括 on_chat_model_stream / on_tool_start / on_tool_end。',
         }
       ]

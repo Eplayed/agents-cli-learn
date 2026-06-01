@@ -393,29 +393,31 @@ async def chat_stream_ndjson(
           id: 'm2s6q1',
           type: 'single',
           knowledgeTag: '流式协议',
-          text: '为什么本项目选 NDJSON 而不是 SSE？',
+          text: 'Agent 流式输出的核心价值是什么？',
           options: [
-            { text: 'NDJSON 是 W3C 标准', value: 'a' },
-            { text: 'SSE 在某些 Electron/嵌入浏览器有兼容问题，NDJSON 用纯 fetch 兼容更好', value: 'b' },
-            { text: 'NDJSON 比 SSE 快 10 倍', value: 'c' },
-            { text: 'SSE 不能传 JSON' , value: 'd' }
+            { text: '减少服务器带宽消耗', value: 'a' },
+            { text: '把"30 秒空白等待"变成"30 秒持续反馈"，用户能实时看到 Agent 在做什么', value: 'b' },
+            { text: '让模型生成速度更快', value: 'c' },
+            { text: '防止请求超时' , value: 'd' }
           ],
           answer: 'b',
-          explain: 'NDJSON 用纯 fetch + ReadableStream，跨环境更稳，且支持 POST + 自定义 header。',
+          explain: '流式不是为了"快"，是为了"反馈"。用户看到第一个字出现的时间从 30 秒变成 0.5 秒。',
+          deeper: 'ChatGPT / Claude.ai / Cursor 全部流式。这是 Agent 应用的 UX 事实标准。'
         },
         {
           id: 'm2s6q2',
           type: 'single',
           knowledgeTag: '前后端协作',
-          text: '后端忘了在每个 chunk 后加 <code>\\n</code> 会怎样？',
+          text: '前端用 fetch + ReadableStream 解析 NDJSON 时，为什么需要一个 buffer 变量？',
           options: [
-            { text: '前端正常，浏览器自动补换行', value: 'a' },
-            { text: '所有 chunk 粘成一行，前端 JSON.parse 失败', value: 'b' },
-            { text: '会自动报 CORS 错误', value: 'c' },
-            { text: '请求会超时' , value: 'd' }
+            { text: '为了缓存所有数据最后一次性渲染', value: 'a' },
+            { text: '网络数据可能"半行半行"地来，需要累加直到遇到 \\n 才能切出完整 JSON', value: 'b' },
+            { text: '为了实现断点续传', value: 'c' },
+            { text: '浏览器要求必须有 buffer' , value: 'd' }
           ],
           answer: 'b',
-          explain: 'NDJSON 的"分隔"完全靠 \\n。这是 JSONL 同源的格式约定。',
+          explain: 'TCP 不保证按行送达。一次 read() 可能拿到半行，也可能拿到两行半。buffer 累加 + indexOf("\\n") 切分是标准模式。',
+          deeper: '这个 buffer 模式在所有流式解析场景都通用：SSE / WebSocket 消息分帧 / 日志 tail 等。'
         }
       ]
     },
@@ -489,7 +491,7 @@ async def chat_stream_ndjson(
           knowledgeTag: '后端实现',
           text: 'StreamingResponse 的 media_type 应该填什么完整值？（参考你项目代码）',
           hint: '完整 media-type 字符串，含 charset',
-          answer: ['application/x-ndjson; charset=utf-8', 'application/x-ndjson;charset=utf-8', 'application/x-ndjson'],
+          answer: ['application/x-ndjson; charset=utf-8', 'application/x-ndjson;charset=utf-8', 'application/x-ndjson', 'application/x-ndjson;charset=UTF-8'],
           explain: 'application/x-ndjson 告诉客户端这是 NDJSON 流，加 charset=utf-8 防中文乱码。',
         }
       ]

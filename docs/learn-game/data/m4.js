@@ -350,32 +350,33 @@ class SingleAgent:
       questions: [
         {
           id: 'm4s5q1',
-          type: 'multi',
-          knowledgeTag: 'MCP 原语',
-          text: 'MCP 协议有哪三大原语？（多选）',
+          type: 'single',
+          knowledgeTag: 'MCP vs @tool',
+          text: '相比 LangChain 的 <code>@tool</code> 装饰器，MCP 最大的工程优势是什么？',
           options: [
-            { text: 'Tools（可调用函数）', value: 'a' },
-            { text: 'Resources（可读取数据）', value: 'b' },
-            { text: 'Prompts（提示词模板）', value: 'c' },
-            { text: 'Embeddings（向量嵌入）', value: 'd' },
-            { text: 'Sampling（让 server 反向调 LLM）', value: 'e' }
+            { text: 'MCP 工具跑得更快', value: 'a' },
+            { text: 'MCP 工具是独立进程 + 标准协议：可被任何 MCP Host 复用（Claude Desktop / Cursor / 你的 Agent），支持独立部署和权限分级', value: 'b' },
+            { text: '@tool 不支持参数', value: 'c' },
+            { text: 'MCP 不需要写 Python' , value: 'd' }
           ],
-          answer: ['a', 'b', 'c'],
-          explain: '三大核心原语：Tools / Resources / Prompts。Sampling 是高级特性，Embeddings 不属于 MCP。',
+          answer: 'b',
+          explain: '@tool 绑死在你的进程里，只有你的 agent 能用。MCP 是"工具 PaaS"：写一次，整个生态复用。',
+          deeper: '这就是 CowAgent 的 plugin 系统想做但没做到的事——MCP 用行业标准实现了"可启停/可复用/可审计"。'
         },
         {
           id: 'm4s5q2',
           type: 'single',
-          knowledgeTag: 'Transport',
-          text: '"我的 stdio MCP server 启动一次会常驻进程，所有请求复用同一个"——这句话对吗？',
+          knowledgeTag: 'FastMCP',
+          text: 'MCP server 的 <code>@mcp.tool()</code> 装饰器下面的函数 docstring 有什么特殊作用？',
           options: [
-            { text: '对', value: 'a' },
-            { text: '错。MultiServerMCPClient 默认无状态：每次工具调用新建 ClientSession，子进程跑完就退出', value: 'b' },
-            { text: '对，但需配 keepalive=true', value: 'c' },
-            { text: '错，stdio 不能跑 Python' , value: 'd' }
+            { text: '只是给开发者看的注释，运行时被忽略', value: 'a' },
+            { text: 'MCP 把 docstring 作为 tool description 发给 LLM，是模型决定"何时调用"的关键依据', value: 'b' },
+            { text: '用来生成 API 文档', value: 'c' },
+            { text: '用来做单元测试' , value: 'd' }
           ],
           answer: 'b',
-          explain: '这是 MCP 最容易记错的点。要常驻必须显式 async with client.session(name)。',
+          explain: 'docstring 写得越清楚（用途 + 参数说明 + 返回值），LLM 调用准确率越高。删掉 docstring 模型可能不知道工具用途。',
+          deeper: 'OpenAI 官方建议：tool description 要包含"何时调用"和"参数取值范围"。MCP 的 docstring 就是这个。'
         }
       ]
     },
@@ -467,6 +468,8 @@ class SingleAgent:
           answer: [
             'mcp.run(transport="stdio")',
             "mcp.run(transport='stdio')",
+            'mcp.run(transport="stdio");',
+            'mcp.run(transport = "stdio")',
           ],
           explain: 'FastMCP 实例 .run(transport="stdio")。换 "http" 就能远程部署。',
         },
