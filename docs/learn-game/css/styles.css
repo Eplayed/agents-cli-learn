@@ -546,3 +546,93 @@ main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
   border-color: var(--bad);
   background: rgba(239,68,68,0.1);
 }
+
+
+/* ==================== 下一关预览流程图 ==================== */
+.next-level-preview {
+  margin: 28px 0 24px;
+  padding: 20px 24px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-align: left;
+}
+.preview-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 6px;
+}
+.preview-tag {
+  font-size: 11px; padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.preview-title {
+  font-size: 16px; font-weight: 700; color: var(--text);
+}
+.preview-subtitle {
+  font-size: 13px; color: var(--muted); margin-bottom: 16px;
+}
+
+.flow-container {
+  overflow-x: auto;
+  padding: 8px 0;
+}
+.flow-svg {
+  width: 100%;
+  min-width: 500px;
+  height: auto;
+  display: block;
+}
+
+/* 节点入场动画 */
+.flow-node {
+  opacity: 0;
+  animation: flowNodeIn 0.4s ease-out forwards;
+}
+@keyframes flowNodeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 箭头流动动效 */
+.flow-arrow {
+  stroke-dasharray: 6 4;
+  stroke-dashoffset: 20;
+  animation: flowDash 1.5s linear infinite;
+}
+@keyframes flowDash {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* 箭头头部脉冲 */
+.flow-arrow-head {
+  opacity: 0;
+  animation: flowHeadPulse 1.5s ease-in-out infinite;
+}
+@keyframes flowHeadPulse {
+  0%, 40% { opacity: 0.3; }
+  60%, 80% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+/* 图例 */
+.flow-legend {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.legend-item {
+  font-size: 11px; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
