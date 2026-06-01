@@ -7,7 +7,8 @@
     "start": "cd apps/api && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000",
     "dev": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",
     "diagrams": "python3 -m http.server 9000",
-    "diagrams:open": "open http://localhost:9000/docs/diagrams.html"
+    "diagrams:open": "open http://localhost:9000/docs/diagrams.html",
+    "learn": "open http://localhost:9000/docs/learn-game/index.html"
   },
   "keywords": ["agent", "langgraph", "fastapi", "mcp", "learning"],
   "author": "",

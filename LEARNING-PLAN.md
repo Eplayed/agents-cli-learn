@@ -47,15 +47,15 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 | 维度 | 当前实现 | 2026 主流 | 差距优先级 |
 |---|---|---|---|
-| 工具协议 | 写死在 `agents/single/agent.py` | MCP Client/Server | 🔴 高 |
-| Checkpoint | `MemorySaver`（内存，重启丢） | `AsyncSqliteSaver` / `AsyncPostgresSaver` | 🔴 高 |
+| 工具协议 | stdio MCP 已完成（weather/utils），HTTP transport 待完成 | MCP Client/Server（stdio + http 混用） | � 部分完成 |
+| Checkpoint | `MemorySaver`（每次构造都新建，重启即丢；DB 仅保存业务消息，LangGraph 图状态未持久化） | `AsyncSqliteSaver` / `AsyncPostgresSaver`（lifespan 内全局共享） | 🔴 高 |
 | 可观测 | print + DB 落库 | OpenTelemetry GenAI + Langfuse | 🔴 高 |
 | 预算控制 | 无 | `recursion_limit` + max_tokens + timeout | 🔴 高 |
 | 评测 | 无 | DeepEval / pytest + trajectory eval | 🟡 中 |
 | HITL | 无 | `interrupt()` + Web UI 审批 | 🟡 中 |
 | 鉴权/限流 | 无 | JWT + slowapi | 🟡 中 |
 | 长期记忆 | 无 | `Store` API + 向量检索 | 🟢 低 |
-| 前端 | 静态 HTML | Next.js + agent-chat-ui | 🟢 低 |
+| 前端 | 静态 HTML（含模型切换/会话管理/日志面板） | Next.js + agent-chat-ui | 🟢 低 |
 | A2A | 无 | A2A 协议（仅在多团队互通时需要） | 🟢 低 |
 
 ---
@@ -94,10 +94,11 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 5. 加一个 HTTP transport 的 MCP Server（学会远程部署）
 
 **可验收：**
-- [ ] `apps/api/app/mcp_servers/weather_server.py` 能用 `python -m` 单独跑
-- [ ] `apps/api/app/agents/single/agent.py` 通过 MCP 配置加载工具
-- [ ] 同时挂载 ≥2 个 MCP Server（一个 stdio + 一个 http）
-- [ ] 工具增减只改配置，不改 agent 代码
+- [x] `apps/api/app/mcp_servers/weather_server.py` 能用 `python -m` 单独跑
+- [x] `apps/api/app/agents/single/agent.py` 通过 MCP 配置加载工具
+- [x] 同时挂载 ≥2 个 MCP Server（当前两个均为 stdio：weather + utils）
+- [ ] 至少一个 HTTP transport 的 MCP Server（M4 收尾）
+- [x] 工具增减只改 `mcp_servers/config.json`，不改 agent 代码
 
 **配套阅读：**
 - [LangChain MCP 官方文档](https://docs.langchain.com/oss/python/langchain/mcp)

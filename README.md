@@ -1,218 +1,133 @@
-# My Agent CLI (v3.0 - Multi-Agent)
+# agents-cli-learn
 
-> 阶段 3 完成：支持 5 种 Multi-Agent 协作模式
+一个学习型的 Agent 项目，技术栈对齐 2026 主流：**FastAPI + LangGraph 1.x + MCP + Web UI**。
 
----
-
-## 🎯 阶段 3 新增功能
-
-### Multi-Agent 协作模式
-
-| 模式 | 命令 | 说明 |
-|------|------|------|
-| **Sequential** | `/team sequential <主题>` | 顺序执行：研究员 → 作家 → 审稿人 |
-| **Parallel** | `/team parallel <主题>` | 并行执行：多个 Agent 同时处理 |
-| **Supervisor** | `/team supervisor <主题>` | 主管模式：主管分配任务 |
-| **GroupChat** | `/team groupchat <主题>` | 群聊模式：Agent 自由讨论 |
-| **TeamGraph** | `/team graph <主题>` | LangGraph 状态机驱动 |
+> ⚠️ 旧的 TS CLI（Phase 1-2）已归档到 `archive/cli/`，不再作为主线。
+> 现在的入口是 Python FastAPI 服务（`apps/api/`）。
 
 ---
 
-## 🗺️ 核心流程图
+## 快速开始
 
-### Phase 1–3 端到端流程（含代码定位）
-
-详见：[PHASE1-3-FLOW.md](file:///Users/noahadmin/noah/my-agent-cli/PHASE1-3-FLOW.md)
-
-### Multi-Agent 模式对比
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        5 种协作模式                                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  1️⃣ Sequential（顺序执行）                                              │
-│  ────────────────────────────                                           │
-│  START → [研究员] → [作家] → [审稿人] → END                             │
-│           (等上一个) (等上一个)                                          │
-│                                                                         │
-│  2️⃣ Parallel（并行执行）                                                │
-│  ────────────────────────────                                           │
-│  START                                                                    │
-│     │                                                                     │
-│  ┌──┼──┐                                                                │
-│  ▼  ▼  ▼                                                                │
-│ [研究] [写作] [审稿]  ← 同时执行！                                       │
-│  └────┬────┘                                                             │
-│       ▼                                                                  │
-│      END                                                                 │
-│                                                                         │
-│  3️⃣ Supervisor（主管模式）                                               │
-│  ────────────────────────────                                           │
-│        [主管]                                                            │
-│         │ 分配                                                           │
-│    ┌────┼────┐                                                          │
-│    ▼    ▼    ▼                                                          │
-│  [研究] [写作] [审稿]                                                    │
-│    │    │    │                                                          │
-│    └────┼────┘                                                          │
-│         ▼                                                               │
-│     [主管汇总] → END                                                     │
-│                                                                         │
-│  4️⃣ GroupChat（群聊模式）                                               │
-│  ────────────────────────────                                           │
-│  START → Manager 选择发言者 → Agent A 发言 → Manager 判断                │
-│          → Agent B 发言 → ... → Manager 说 END → END                    │
-│                                                                         │
-│  5️⃣ TeamGraph（LangGraph 驱动）                                         │
-│  ────────────────────────────                                           │
-│        ┌──────────┐                                                     │
-│   START┤ Supervisor│ → Router → [研究] → [写作] → [审稿]                │
-│        │  (LLM)   │                │       │       │                    │
-│        └──────────┘                └───────┴───────┘                    │
-│                                      │                                  │
-│                                      ▼                                  │
-│                                  [汇总] → END                            │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Multi-Agent 类比
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          类比：开公司                                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  单 Agent = 一个人开店 (全自己干)                                         │
-│                                                                         │
-│  Multi-Agent = 公司团队                                                 │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  角色                     工作内容                               │  │
-│  ├──────────────────────────────────────────────────────────────────┤  │
-│  │  研究员 (Researcher)    搜索信息、整理数据                      │  │
-│  │  作家 (Writer)          根据素材写文章                          │  │
-│  │  审稿人 (Reviewer)       检查文章质量、润色                     │  │
-│  │  主管 (Supervisor)       分析任务、分配给下属                    │  │
-│  │  经理 (Manager)          主持群聊、决定谁说话                   │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 快速开始
-
-### 1. 安装依赖
+### 1. 装依赖（一次性）
 
 ```bash
-npm install
+cd apps/api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt    # 推荐用 uv 更快：uv pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+### 2. 配置 API Key
+
+在项目根目录创建 `.env.dev`：
 
 ```bash
-cp .env.example .env
-# 编辑 .env，填入你的 OpenAI API Key
+cp .env.example .env.dev
+# 编辑 .env.dev，填真实 OPENAI_API_KEY
 ```
 
-### 3. 运行
+支持自定义 `OPENAI_BASE_URL`（如 SiliconFlow / DeepSeek 等国内代理）。
+
+### 3. 启动
 
 ```bash
-npm start
+npm run dev
+# 或：cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+浏览器打开 **http://localhost:8000/ui**
+
+---
+
+## 主要能力
+
+### 已完成（M0-M4）
+
+| 能力 | 实现位置 |
+|---|---|
+| LangGraph StateGraph + ToolNode + Checkpoint 循环 | `apps/api/app/agents/single/agent.py` |
+| Multi-Agent 4 模式（Sequential/Parallel/Supervisor/GroupChat） | `apps/api/app/agents/multi/team.py` |
+| MCP 工具协议（stdio）+ 配置化加载 | `apps/api/app/mcp_servers/` |
+| NDJSON 流式协议 | `apps/api/app/api/v1/chat.py` `/stream_ndjson` |
+| 会话持久化（SQLite + SQLAlchemy 异步） | `apps/api/app/models/models.py` |
+| 真实工具调用（天气走 Open-Meteo） | `apps/api/app/mcp_servers/weather_server.py` |
+| 前端模型切换（`/api/v1/models` + UI 下拉） | `apps/web/public/ui/index.html` |
+| Web UI（对话 + 会话切换 + Trace 日志面板 + 导出） | `apps/web/public/ui/index.html` |
+
+### 路线图（M5-M9）
+
+详见 [LEARNING-PLAN.md](./LEARNING-PLAN.md)。
+
+| 里程碑 | 主题 | 状态 |
+|---|---|---|
+| M5 | Checkpoint 持久化 + 预算控制 | 待开始 |
+| M6 | OpenTelemetry + Langfuse 可观测 | 待开始 |
+| M7 | DeepEval 评测体系 | 待开始 |
+| M8 | Anthropic Skills 框架 | 待开始 |
+| M9 | 长期记忆 + RAG | 待开始 |
+
+---
+
+## 目录结构
+
+```
+agents-cli-learn/
+├── apps/
+│   ├── api/                       # Python FastAPI 后端
+│   │   ├── app/
+│   │   │   ├── agents/single/     # 单 Agent（LangGraph）
+│   │   │   ├── agents/multi/      # Multi-Agent 4 模式
+│   │   │   ├── api/v1/            # chat / team / session 路由
+│   │   │   ├── core/              # 配置 + DB
+│   │   │   ├── mcp_servers/       # MCP servers（stdio）
+│   │   │   ├── models/            # SQLAlchemy ORM
+│   │   │   ├── schemas/           # Pydantic
+│   │   │   └── main.py            # FastAPI app
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   └── web/public/ui/             # 静态 Web UI（HTML + fetch + NDJSON）
+├── archive/cli/                   # TS CLI（Phase 1-2 学习资产，归档）
+├── docs/
+│   ├── ARCHITECTURE.md            # 6 张架构图（mermaid）
+│   ├── GAP-ANALYSIS.md            # 对照 agent-service-toolkit 的差距分析
+│   ├── MCP-INTEGRATION.md         # M4 MCP 集成实施记录
+│   ├── RUNNING.md                 # 详细运行手册
+│   └── diagrams.html              # 浏览器架构图查看器
+├── LEARNING-PLAN.md               # 学习路线（M0-M9）
+├── README.md
+└── package.json                   # 仅用于 npm run dev / diagrams 等便捷脚本
 ```
 
 ---
 
-## 💬 使用示例
+## 常用入口
 
-### 单 Agent 模式（阶段 1-2）
-
-```
-👤 你: 今天北京天气怎么样？
-🤖 Agent: 🔧 正在调用工具: get_weather
-   北京今天天气晴，温度 15-25°C...
-```
-
-### Multi-Agent 模式（阶段 3）
-
-```
-👤 你: /team sequential AI 的未来发展
-🔄 ===== Sequential 模式 =====
-   主题: AI 的未来发展
-
-👑 [Round 1] Supervisor 分析中...
-   → 分配给: researcher
-🔍 Researcher 开始研究...
-   ✅ 研究完成 (1500 字)
-
-👑 [Round 2] Supervisor 分析中...
-   → 分配给: writer
-✍️ Writer 开始写作...
-   ✅ 写作完成 (2000 字)
-
-👑 [Round 3] Supervisor 分析中...
-   → 分配给: reviewer
-📝 Reviewer 开始审稿...
-   ✅ 审稿完成 (1800 字)
-```
+| 用途 | 地址 / 命令 |
+|---|---|
+| Web 对话界面 | http://localhost:8000/ui |
+| API Swagger 文档 | http://localhost:8000/docs |
+| 健康检查 | http://localhost:8000/health |
+| 模型列表 | http://localhost:8000/api/v1/models |
+| 启动服务 | `npm run dev` |
+| 启动架构图查看器 | `npm run diagrams` → http://localhost:9000/docs/diagrams.html |
+| 详细运行手册 | [docs/RUNNING.md](./docs/RUNNING.md) |
+| 架构图 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
 
 ---
 
-## 📂 项目结构
+## 参考项目
 
-```
-my-agent-cli/
-├── src/
-│   ├── agent/
-│   │   ├── agent.ts      ← 单 Agent 核心（StateGraph + Checkpoint）
-│   │   ├── memory.ts     ← 记忆管理（Window/Summary/Entity）
-│   │   ├── interrupt.ts  ← 中断点（人工确认）
-│   │   ├── subgraph.ts   ← 子图（模块化）
-│   │   └── index.ts      ← 模块导出
-│   ├── multi-agent/                   ← 阶段 3 新增
-│   │   ├── agents.ts      ← Agent 角色定义 + 工厂
-│   │   ├── crew.ts        ← Crew 编排（Sequential/Parallel/Supervisor）
-│   │   ├── groupchat.ts   ← GroupChat 群聊
-│   │   ├── team.ts        ← LangGraph TeamGraph
-│   │   └── index.ts       ← 模块导出
-│   ├── tools/
-│   │   └── index.ts       ← 工具箱（天气/搜索/计算）
-│   └── cli.ts            ← CLI 入口（Multi-Agent 支持）
-```
+按学习用途分类：
+
+- **架构对齐**：[JoshuaC215/agent-service-toolkit](https://github.com/JoshuaC215/agent-service-toolkit)
+- **生产化模板**：[wassim249/fastapi-langgraph-agent-production-ready-template](https://github.com/wassim249/fastapi-langgraph-agent-production-ready-template)
+- **MCP 入门**：[langchain-ai/langchain-mcp-adapters](https://github.com/langchain-ai/langchain-mcp-adapters)
+- **MCP 工作流**：[lastmile-ai/mcp-agent](https://github.com/lastmile-ai/mcp-agent)
+- **Next.js 前端**：[langchain-ai/agent-chat-ui](https://github.com/langchain-ai/agent-chat-ui)
 
 ---
 
-## 📖 学习要点
+## License
 
-### 阶段 1: LangChain 基础
-- [x] OpenAI API 调用
-- [x] 流式响应
-- [x] Prompt Template
-- [x] Tool Calling
-
-### 阶段 2: LangGraph 工作流
-- [x] StateGraph 状态图
-- [x] Checkpoint 状态持久化
-- [x] Memory 记忆管理
-- [x] Interrupt 中断点
-- [x] Subgraph 子图
-
-### 阶段 3: Multi-Agent 协作
-- [x] Agent 角色定义（AgentProfile + AgentFactory）
-- [x] Sequential 顺序执行
-- [x] Parallel 并行执行
-- [x] Supervisor 主管模式
-- [x] GroupChat 群聊（AutoGen 风格）
-- [x] TeamGraph LangGraph 驱动
-
----
-
-## 🔗 参考资料
-
-- [LangChain 文档](https://js.langchain.com/docs/)
-- [LangGraph 文档](https://langchain-ai.github.io/langgraph/)
-- [CrewAI 文档](https://docs.crewai.com/)
-- [AutoGen 文档](https://microsoft.github.io/autogen/)
+ISC

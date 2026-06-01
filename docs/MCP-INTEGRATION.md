@@ -185,11 +185,13 @@ curl -X POST http://localhost:8000/api/v1/chat/stream_ndjson \
     "noah-weather": {
       "command": "/path/to/python",
       "args": ["-m", "app.mcp_servers.weather_server"],
-      "cwd": "/Users/noahadmin/noah/agents-cli-learn/apps/api"
+      "cwd": "<本项目绝对路径>/apps/api"
     }
   }
 }
 ```
+
+> 把 `<本项目绝对路径>` 替换成你机器上的实际路径，可在项目根目录跑 `pwd` 查看。
 
 重启 Claude Desktop，对话框右下角会出现 🔌 图标，点开能看到 `get_weather` 工具——**这就是 MCP 生态的力量**：你写一次工具，Claude / Cursor / 任何 MCP Host 都能用。
 

@@ -20,14 +20,16 @@ python3 --version   # 需要 3.10+
 ### 1.2 创建 venv 并装依赖
 
 ```bash
-cd /Users/noahadmin/noah/agents-cli-learn/apps/api
+# 进入后端目录（路径相对项目根）
+cd apps/api
 
 # 创建 venv（项目本地，不污染全局）
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 装依赖
+# 装依赖（推荐 uv 更快）
 pip install -r requirements.txt
+# 或：uv pip install -r requirements.txt --python .venv/bin/python
 ```
 
 装完看到类似：
@@ -41,7 +43,8 @@ Successfully installed fastapi-0.109.0 langgraph-... langchain-mcp-adapters-... 
 
 ```bash
 # 在项目根目录（不是 apps/api/）
-cd /Users/noahadmin/noah/agents-cli-learn
+# 假设当前在 apps/api，回到根：
+cd ../..
 cp .env.example .env.dev
 
 # 编辑 .env.dev，填入真实 key
@@ -135,11 +138,8 @@ NDJSON 流式响应每行一个 JSON：
 
 ```bash
 # 在项目根目录
-cd /Users/noahadmin/noah/agents-cli-learn
-
 # 用 npm 脚本（本质是 python3 -m http.server）
 npm run diagrams
-# 或直接：python3 -m http.server 9000
 
 # 浏览器打开
 open http://localhost:9000/docs/diagrams.html
@@ -201,11 +201,11 @@ npm run diagrams
 ## 7. 下次启动只要做什么
 
 ```bash
-# 终端 1：起 API
-cd apps/api && source .venv/bin/activate && uvicorn app.main:app --reload
+# 终端 1：起 API（在项目根目录）
+npm run dev
 
 # 终端 2（可选）：起图查看器
-cd /Users/noahadmin/noah/agents-cli-learn && npm run diagrams
+npm run diagrams
 ```
 
 不需要重新装依赖，不需要重新填 .env。

@@ -27,10 +27,33 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from app.core.config import settings
 
 
+# ============================================================
+# 模块级 Checkpointer 单例（M5 之前的临时方案）
+# ============================================================
+# 为什么要单例？
+# - SingleAgent 是按请求构造的（每次 chat API 调用都 new 一个）
+# - 如果 MemorySaver 也跟着 new，那么同一个 thread_id 在两次请求之间
+#   完全拿不到上一轮的对话状态——LangGraph 的 checkpoint 机制就形同虚设
+# - 把 saver 提到模块级，整个进程共享一份，至少能保证「同进程内多次请求」
+#   能用 thread_id 正确续上对话历史
+#
+# 当前局限（M5 待解决）：
+# - 进程重启就丢光（MemorySaver 是纯内存）
+# - 多进程部署时各进程的 checkpoint 不共享
+# - 修复方案：lifespan 里启动 AsyncSqliteSaver，注入到 SingleAgent
+_GLOBAL_CHECKPOINTER = MemorySaver()
+
+
 class SingleAgent:
     """单 Agent：LangGraph StateGraph + ToolNode + Checkpoint"""
 
-    def __init__(self, session_id: str, tools: List[BaseTool] | None = None, model: str | None = None):
+    def __init__(
+        self,
+        session_id: str,
+        tools: List[BaseTool] | None = None,
+        model: str | None = None,
+        checkpointer=None,
+    ):
         # session_id 用于绑定 checkpoint 的 thread_id
         self.session_id = session_id
         # model 参数：前端可传指定模型，不传则用 config 默认值
@@ -51,9 +74,10 @@ class SingleAgent:
         # bind_tools：把工具的 schema 注入 LLM，模型才能输出 tool_calls
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
-        # MemorySaver：内存版 checkpointer。
-        # ⚠️ 重启进程会丢，M5 会替换成 AsyncSqliteSaver
-        self.checkpointer = MemorySaver()
+        # Checkpointer 解析顺序：
+        # 1. 调用方显式传入（M5 之后会从 lifespan 注入 AsyncSqliteSaver）
+        # 2. 模块级单例 _GLOBAL_CHECKPOINTER（同进程跨请求复用）
+        self.checkpointer = checkpointer if checkpointer is not None else _GLOBAL_CHECKPOINTER
         self.graph = self._build_graph()
 
     def _build_graph(self):

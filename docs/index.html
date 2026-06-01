@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>agents-cli-learn · AI Agent 学习站</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="2026 主流栈 AI Agent 学习项目：FastAPI + LangGraph + MCP，附带可玩的关卡式学习" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E⚡%3C/text%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg-0: #050816;
+      --bg-1: #0a0f24;
+      --bg-2: #131a35;
+      --border: #2a3358;
+      --text: #e8ecf5;
+      --muted: #7d8aa9;
+      --accent: #6366f1;
+      --accent-2: #8b5cf6;
+      --good: #10b981;
+      --gold: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+    body {
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,0.18), transparent 60%),
+        radial-gradient(1000px 500px at 100% 0%, rgba(139,92,246,0.15), transparent 60%),
+        var(--bg-0);
+      color: var(--text);
+      font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+    }
+    header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px;
+      max-width: 980px; margin: 0 auto;
+    }
+    .logo {
+      font-weight: 800; font-size: 18px; letter-spacing: 0.5px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .spacer { flex: 1; }
+    .gh-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 8px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px; text-decoration: none;
+    }
+    .gh-btn:hover { border-color: var(--accent); }
+
+    main { max-width: 980px; margin: 0 auto; padding: 48px 20px 80px; }
+
+    .hero { text-align: center; margin-bottom: 56px; }
+    .hero h1 {
+      font-size: 40px; margin: 0 0 12px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p { font-size: 16px; color: var(--muted); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+    .badges { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .badge {
+      font-size: 12px; padding: 4px 12px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--border); color: var(--muted);
+    }
+
+    .cards {
+      display: grid; gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      margin-bottom: 48px;
+    }
+    .card {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 24px;
+      text-decoration: none; color: var(--text);
+      display: flex; flex-direction: column; gap: 8px;
+      transition: transform .15s, border-color .2s, box-shadow .2s;
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent, transparent 50%, rgba(99,102,241,0.08));
+      pointer-events: none;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent);
+      box-shadow: 0 20px 40px rgba(99,102,241,0.15);
+    }
+    .card .icon { font-size: 32px; margin-bottom: 4px; }
+    .card h3 { margin: 0; font-size: 17px; font-weight: 700; }
+    .card p { margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .card.featured {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+      border-color: rgba(99,102,241,0.4);
+    }
+    .card.featured .icon { font-size: 40px; }
+    .card.featured h3 { font-size: 22px; }
+    .card.featured p { font-size: 14px; }
+    .card .arrow { color: var(--accent); margin-top: 8px; font-size: 13px; font-weight: 600; }
+
+    .section-title {
+      font-size: 13px; color: var(--muted); margin: 32px 0 12px;
+      text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;
+    }
+
+    footer {
+      max-width: 980px; margin: 0 auto;
+      padding: 32px 20px; text-align: center;
+      color: var(--muted); font-size: 12px;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ agents-cli-learn</div>
+  <div class="spacer"></div>
+  <a class="gh-btn" href="https://github.com/Eplayed/agents-cli-learn" target="_blank" rel="noopener">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.6-4.04-1.6a3.18 3.18 0 0 0-1.33-1.76c-1.09-.74.08-.73.08-.73a2.52 2.52 0 0 1 1.84 1.24 2.55 2.55 0 0 0 3.5 1 2.56 2.56 0 0 1 .76-1.6c-2.67-.3-5.47-1.33-5.47-5.93a4.64 4.64 0 0 1 1.24-3.22 4.32 4.32 0 0 1 .12-3.18s1-.32 3.3 1.23a11.4 11.4 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23a4.32 4.32 0 0 1 .12 3.18 4.64 4.64 0 0 1 1.24 3.22c0 4.6-2.8 5.62-5.48 5.92a2.86 2.86 0 0 1 .82 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 12 0z"/></svg>
+    GitHub
+  </a>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>AI Agent 学习站</h1>
+    <p>从 0 到 1 学习 2026 主流栈：FastAPI + LangGraph 1.x + MCP 协议。<br>
+       附带交互式学习游戏、架构图查看器、完整开发文档。</p>
+    <div class="badges">
+      <span class="badge">FastAPI</span>
+      <span class="badge">LangGraph 1.x</span>
+      <span class="badge">MCP Protocol</span>
+      <span class="badge">Python 3.10+</span>
+      <span class="badge">Web-only</span>
+    </div>
+  </section>
+
+  <div class="section-title">🎮 互动学习</div>
+  <div class="cards">
+    <a class="card featured" href="./learn-game/">
+      <div class="icon">🎯</div>
+      <h3>关卡式学习游戏</h3>
+      <p>5 个关卡（M0-M4）共 30+ 个学习阶段。从"故事"到"概念"到"项目代码"，再到"测验"——边玩边掌握 Agent 工程化的全部核心。无需登录，进度自动保存。</p>
+      <span class="arrow">开始闯关 →</span>
+    </a>
+  </div>
+
+  <div class="section-title">📐 工具与可视化</div>
+  <div class="cards">
+    <a class="card" href="./diagrams.html">
+      <div class="icon">📊</div>
+      <h3>架构图查看器</h3>
+      <p>项目所有 Mermaid 图集中浏览。支持滚轮缩放、拖拽、SVG/PNG 导出。</p>
+      <span class="arrow">查看架构图 →</span>
+    </a>
+  </div>
+
+  <div class="section-title">📚 学习文档</div>
+  <div class="cards">
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/LEARNING-PLAN.md" target="_blank">
+      <div class="icon">🗺</div>
+      <h3>学习路线图</h3>
+      <p>M0-M9 完整路线，对照 2026 主流栈差距分析，每个里程碑挂参考仓库。</p>
+      <span class="arrow">查看路线 →</span>
+    </a>
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/ARCHITECTURE.md" target="_blank">
+      <div class="icon">🏛</div>
+      <h3>架构设计</h3>
+      <p>整体架构、请求流程、Multi-Agent 模式对比、未来终态架构。</p>
+      <span class="arrow">查看架构 →</span>
+    </a>
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/MCP-INTEGRATION.md" target="_blank">
+      <div class="icon">🔌</div>
+      <h3>MCP 集成实施记录</h3>
+      <p>M4 里程碑实操：从 0 写一个 MCP server，并接入 LangGraph。</p>
+      <span class="arrow">查看记录 →</span>
+    </a>
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/GAP-ANALYSIS.md" target="_blank">
+      <div class="icon">🔬</div>
+      <h3>差距分析</h3>
+      <p>本项目 vs agent-service-toolkit 的 5 大差距 + 改造步骤。</p>
+      <span class="arrow">查看分析 →</span>
+    </a>
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/RUNNING.md" target="_blank">
+      <div class="icon">🚀</div>
+      <h3>本地运行手册</h3>
+      <p>装依赖、配 API Key、启动后端、常见问题排查。</p>
+      <span class="arrow">查看手册 →</span>
+    </a>
+    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/README.md" target="_blank">
+      <div class="icon">📖</div>
+      <h3>README</h3>
+      <p>项目能力清单、目录结构、参考仓库。</p>
+      <span class="arrow">查看 README →</span>
+    </a>
+  </div>
+</main>
+
+<footer>
+  Made for learning · MIT-style license · 
+  <a href="https://github.com/Eplayed/agents-cli-learn" target="_blank">GitHub</a>
+</footer>
+
+</body>
+</html>

@@ -37,11 +37,26 @@ def _load_config() -> dict:
 
 async def get_mcp_tools() -> List[BaseTool]:
     """获取所有 MCP Server 暴露的工具，转成 LangChain Tool。
-    
+
     使用 MultiServerMCPClient 的好处：
     - 一次配置多个 server（stdio + http 混用都行）
-    - 自动 round-robin 调度
-    - get_tools() 是无状态的：每次调用工具时新建 ClientSession（默认行为）
+    - 自动处理 transport（stdio 子进程 / http 长连接）
+
+    ⚠️ 关于"缓存"的边界（容易误解的点）：
+    - 我们这里缓存的是【LangChain Tool 包装对象列表】，不是 stdio 子进程
+    - MultiServerMCPClient 默认是【无状态模式】：每次调用工具会新建一个
+      ClientSession，spawn 新的 stdio 子进程跑一次工具就退出
+    - 这意味着：单次工具调用结束后，进程是被回收的；不存在"永久复用"
+    - 如果工具需要长连接/共享上下文（比如长事务、流式工具），需要显式
+      使用 client.session(name) 上下文管理器来管理持久化 Session：
+        async with client.session("weather") as session:
+            tools = await load_mcp_tools(session)
+            # 在这个 with 块内，session 是同一个，子进程也是同一个
+    - 对当前项目的简单天气/计算工具来说，无状态模式已经够用，性能也可接受
+    - 后续 M5/M6 改造时，会把 client 移到 lifespan 里全局共享，避免重复
+      建立连接的开销
+
+    参考：https://docs.langchain.com/oss/python/langchain/mcp
     """
     global _TOOLS_CACHE, _CLIENT
 
@@ -55,10 +70,12 @@ async def get_mcp_tools() -> List[BaseTool]:
         return _TOOLS_CACHE
 
     _CLIENT = MultiServerMCPClient(config)
-    # get_tools() 会：
-    # 1. 启动每个 server（stdio 进程或连接 http endpoint）
-    # 2. 调 list_tools() 拿 schema
-    # 3. 把每个 MCP tool 包装成 LangChain BaseTool
+    # get_tools() 在【无状态模式】下：
+    # 1. 短暂启动每个 server（stdio 子进程或连接 http endpoint）
+    # 2. 调 list_tools() 拿到 schema
+    # 3. 把每个 MCP tool 包装成 LangChain BaseTool 后返回
+    # 4. 这次拿 schema 用的连接随之关闭
+    # 实际工具执行时，每次调用会重新建立一次 ClientSession
     _TOOLS_CACHE = await _CLIENT.get_tools()
     return _TOOLS_CACHE
 
