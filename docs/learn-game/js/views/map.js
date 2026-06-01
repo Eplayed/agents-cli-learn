@@ -1,16 +1,16 @@
 // 地图页：显示所有关卡 + 进度
 import { LEVELS } from '../../data/levels.js';
-import { state, save, levelStars, isUnlocked } from '../store.js';
+import { state, save, levelStars, isUnlocked, levelCompleted } from '../store.js';
 import { toast } from '../utils.js';
 
 export function renderMap(navigate) {
   const app = document.getElementById('app');
-  const completed = LEVELS.filter(l => state.progress[l.id]?.completed).length;
+  const completedCount = LEVELS.filter(l => state.progress[l.id]?.completed).length;
   const total = LEVELS.length;
 
   let html = `
     <h1 class="map-title">学习地图</h1>
-    <p class="map-subtitle">已完成 ${completed} / ${total} 关 · 总 XP ${state.xp} · 最佳连击 ${state.bestStreak}</p>
+    <p class="map-subtitle">已完成 ${completedCount} / ${total} 关 · 总 XP ${state.xp} · 最佳连击 ${state.bestStreak}</p>
 
     <div class="section-divider">阶段一 · Agent 基础与 Runtime</div>
     <div class="level-track">
@@ -19,8 +19,8 @@ export function renderMap(navigate) {
   LEVELS.forEach((lvl, idx) => {
     const unlocked = isUnlocked(LEVELS, idx);
     const prog = state.progress[lvl.id];
-    const stars = levelStars(lvl.id);
     const completed = prog?.completed;
+    const stars = levelStars(lvl.id);
     const starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
 
     let nodeClass = 'level-node ';
@@ -40,15 +40,20 @@ export function renderMap(navigate) {
     const progressBar = `
       <div class="progress">
         <div class="progress-bar"><div style="width: ${studyPct}%"></div></div>
-        <span>已学 ${stageStudied}/${totalStages}${prog?.completed ? ` · 通关 ${scorePct}%` : ''}</span>
+        <span>已学 ${stageStudied}/${totalStages}${completed ? ` · 通关 ${scorePct}%` : ''}</span>
       </div>
     `;
+
+    // 已完成的关卡显示"重新学习"按钮
+    const restartBtn = completed
+      ? `<button class="restart-btn" data-restart-idx="${idx}" title="从第一步重新学习">🔄 重新学习</button>`
+      : '';
 
     html += `
       <div class="level-row">
         <div class="${nodeClass}" data-level-idx="${idx}">${nodeContent}</div>
         <div class="level-info">
-          <h3>${lvl.id} · ${lvl.title}</h3>
+          <h3>${lvl.id} · ${lvl.title} ${restartBtn}</h3>
           <p>${lvl.subtitle}</p>
           ${progressBar}
         </div>
@@ -79,6 +84,7 @@ export function renderMap(navigate) {
 
   app.innerHTML = html;
 
+  // 点击关卡节点：进入（已完成的从上次位置继续）
   app.querySelectorAll('.level-node').forEach(el => {
     el.addEventListener('click', () => {
       const idx = +el.dataset.levelIdx;
@@ -86,18 +92,38 @@ export function renderMap(navigate) {
         toast('🔒 通关上一关才能解锁', 'bad');
         return;
       }
-      state.currentLevel = idx;
-      // 跳到上次学到的 stage（如果有），否则从头开始
-      const lvl = LEVELS[idx];
-      const lastIdx = state.progress[lvl.id]?.stageIndex ?? 0;
-      // 限制不超出范围
-      state.currentStageIndex = Math.min(lastIdx, (lvl.stages?.length || 1) - 1);
-      // final-quiz 状态复位
-      state.currentQuestionIndex = 0;
-      state.currentHp = 3;
-      state.currentAnswers = [];
-      save();
-      navigate('lesson');
+      enterLevel(idx, false, navigate);
     });
   });
+
+  // 点击"重新学习"按钮：从头开始
+  app.querySelectorAll('.restart-btn').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation(); // 不触发父级 level-node 的 click
+      const idx = +el.dataset.restartIdx;
+      enterLevel(idx, true, navigate);
+      toast('📖 从头开始学习', 'good');
+    });
+  });
+}
+
+function enterLevel(idx, fromStart, navigate) {
+  const lvl = LEVELS[idx];
+  state.currentLevel = idx;
+
+  if (fromStart) {
+    // 从头开始：stage 归零
+    state.currentStageIndex = 0;
+  } else {
+    // 继续上次：跳到上次学到的 stage
+    const lastIdx = state.progress[lvl.id]?.stageIndex ?? 0;
+    state.currentStageIndex = Math.min(lastIdx, (lvl.stages?.length || 1) - 1);
+  }
+
+  // quiz 状态总是重置（不管从头还是继续）
+  state.currentQuestionIndex = 0;
+  state.currentHp = 3;
+  state.currentAnswers = [];
+  save();
+  navigate('lesson');
 }
