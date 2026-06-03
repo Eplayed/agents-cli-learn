@@ -92,6 +92,8 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 3. 用 `MultiServerMCPClient` 在你的 SingleAgent 里加载 MCP 工具
 4. 把现有的 `get_weather` 拆成独立 MCP Server（学会"内部工具 → MCP 工具"的迁移）
 5. 加一个 HTTP transport 的 MCP Server（学会远程部署）
+6. 给每个工具配置 **annotations 四字段**：`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`
+7. 工具 **description 按规范写**：说明目的（what）+ 使用场景（when）+ 输出内容（output），参数描述放 inputSchema 里
 
 **可验收：**
 - [x] `apps/api/app/mcp_servers/weather_server.py` 能用 `python -m` 单独跑
@@ -99,10 +101,13 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - [x] 同时挂载 ≥2 个 MCP Server（当前两个均为 stdio：weather + utils）
 - [ ] 至少一个 HTTP transport 的 MCP Server（M4 收尾）
 - [x] 工具增减只改 `mcp_servers/config.json`，不改 agent 代码
+- [ ] 每个工具都有 annotations 标注 + 规范的 description
 
 **配套阅读：**
 - [LangChain MCP 官方文档](https://docs.langchain.com/oss/python/langchain/mcp)
 - [MCP 规范：Server / Resources](https://modelcontextprotocol.io/specification/2025-06-18/server/resources)
+- [MCP Tool Annotations 规范](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#annotations)
+- ToolHive 托管 MCP 接入开发指南 §5（annotations 最佳实践 + 五类工具标注速查表）
 
 ---
 
@@ -120,11 +125,23 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 3. 给 `ChatOpenAI` 加 `max_tokens` + `timeout`
 4. 实现 `max_tool_calls` 限制（在 ToolNode 前加计数器节点）
 5. 用 LangGraph `interrupt()` 在危险工具前介入（HITL）
+6. 实现 **Bearer Token 鉴权中间件**（参考 ToolHive 模式）：
+   - 用 `ContextVar` 做协程级用户上下文隔离（不能用全局变量，并发会覆盖）
+   - JWT 解析客户端必须是**模块级单例**（避免每请求重建缓存触发限流）
+   - 验签失败返回 `None`（不抛异常），由 `get_current_user()` 统一返回 401
+   - 没设 `AUTH_SECRET` 时放开鉴权（开发友好）
+7. 理解**工具敏感度分级**（PUB / LOW / MED / HIGH / 黑名单），为危险工具加 `elicitInput` 二次确认
 
 **可验收：**
 - [ ] 重启 API 后能继续上次对话（`thread_id` 复用）
 - [ ] 故意问"无限循环"问题，agent 在 25 步内强制结束
 - [ ] 调用 `dangerous_tool` 时返回 `interrupt`，前端展示确认按钮
+- [ ] 设了 `AUTH_SECRET` 后，无 Bearer Token 的请求返回 401
+- [ ] 并发 10 个请求，每个请求拿到的 user_id 互不干扰
+
+**配套阅读：**
+- ToolHive 托管 MCP 接入开发指南 §4（ContextVar + JWKS 单例 + 中间件实现）
+- ToolHive 托管 MCP 接入开发指南 §6（Cedar Policy + 敏感度分级 + elicitInput）
 
 ---
 
@@ -222,6 +239,21 @@ CowAgent 仍有值得借鉴的**工程思想**（不是技术）。下面列出�
 | `agent_workspace`（运行目录） | LangGraph `Store` + 文件型 MCP Server | M9 |
 | 一键运维脚本（cow CLI） | Docker Compose + Makefile | M6 收尾 |
 | 多通道（微信/飞书/钉钉） | **不做**（Web-only 不需要） | - |
+
+### ToolHive 企业级 MCP 实践借鉴
+
+ToolHive 是企业级 MCP 托管平台的落地案例，其设计思想对本项目未来生产化有直接参考价值：
+
+| ToolHive 思想 | 对本项目的启示 | 在哪个里程碑做 |
+|---|---|---|
+| MCP Server 只做业务，认证全部剥离给网关 | 用 Bearer Token 中间件替代应用内认证 | M5 |
+| ContextVar 协程级隔离用户上下文 | 替代全局变量，解决 FastAPI 并发串用户 | M5 |
+| JWKS 客户端必须模块级单例（避免限流雪崩） | 和我们的 `_GLOBAL_CHECKPOINTER` 同一设计理念 | M5 |
+| Tool annotations 四字段（readOnly/destructive/idempotent/openWorld） | 让客户端（Claude Desktop 等）正确判断工具风险等级 | M4 收尾 |
+| Tool description 编写规范（what + when + output） | 提高 LLM 工具调用准确率 | M4 收尾 |
+| 敏感度分级（PUB/LOW/MED/HIGH/黑名单） | 为不同工具配不同审批策略 | M5（HITL） |
+| `elicitInput` 二次确认（MCP 2025 spec） | 比 `destructiveHint` 更可靠的用户确认，不可绕过 | M5（HITL） |
+| Cedar Policy 工具粒度权限（forbid 优先） | 学习项目暂不实现，但理解"默认拒绝"原则 | 了解即可 |
 
 ---
 

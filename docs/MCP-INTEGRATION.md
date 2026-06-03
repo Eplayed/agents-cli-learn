@@ -241,4 +241,64 @@ MCP 跑通后，你下一步该做的是：
 
 ---
 
+## 7. 工具 Annotations + Description 最佳实践（借鉴 ToolHive）
+
+> 本节内容借鉴自 ToolHive 托管 MCP 接入开发指南 §5，是企业级 MCP 落地的行业最佳实践。
+
+### 7.1 为什么 annotations 重要
+
+MCP 协议规定：**未写 annotations 的工具默认 `readOnlyHint=false`、`destructiveHint=true`**，
+即客户端视其为"高风险写入操作"，每次调用都需用户确认。写好 annotations 直接影响 UX。
+
+### 7.2 四字段速查
+
+| 字段 | 默认值 | 含义 | 设为 true 的时机 |
+|---|---|---|---|
+| `readOnlyHint` | false | 工具是否只读 | 纯查询，无任何副作用 |
+| `destructiveHint` | true | 修改是否不可逆 | 删除、清空、不可回滚 |
+| `idempotentHint` | false | 重复调用是否幂等 | 重试不会产生额外副作用 |
+| `openWorldHint` | true | 是否调用外部系统 | 请求第三方 API / 外部 DB |
+
+**注意**：`readOnlyHint=true` 时其他两个 hint 自动不适用（只读则无破坏性、天然幂等）。
+
+### 7.3 五类工具标注速查
+
+| 工具类型 | 示例 | readOnly | destructive | idempotent | openWorld |
+|---|---|---|---|---|---|
+| 纯查询 | 查客户信息 | True | — | — | False |
+| 查询外部 | 查汇率 / 查天气 | True | — | — | **True** |
+| 幂等写入 | 更新标签 | False | False | True | False |
+| 新增操作 | 创建订单 | False | False | False | False |
+| 删除/不可逆 | 删除记录 | False | **True** | True | False |
+
+**我们的 `get_weather` 应该标注为**：`readOnlyHint=True, openWorldHint=True`（只读 + 调外部 API）。
+
+### 7.4 description 编写规范
+
+description 是 AI 模型选择工具的**主要依据**。规范：
+
+1. **说明目的（what）**：一句话说清楚工具做什么
+2. **说明场景（when）**：什么情况下该用
+3. **说明输出（output）**：返回什么格式/类型
+4. **参数描述放 inputSchema**：不要堆在 description 里
+
+❌ 不推荐：
+```python
+description="查询天气"  # 太短，模型不知道何时调
+```
+
+✅ 推荐：
+```python
+description="查询指定城市的实时天气信息（气温、降水概率、风速）。适用于需要天气数据来给出出行/洗车/穿衣建议的场景。返回天气摘要字符串。"
+```
+
+### 7.5 TODO：待实施的改动
+
+M4 收尾时需要做：
+- [ ] 给 `weather_server.py` 的 `get_weather` 加 `annotations={"readOnlyHint": True, "openWorldHint": True}`
+- [ ] 给 `utils_server.py` 的 `calculator` 加 `annotations={"readOnlyHint": True, "openWorldHint": False}`
+- [ ] 重写 description 按 what + when + output 规范
+
+---
+
 > 内容根据公开搜索结果做了改写以符合引用规范
