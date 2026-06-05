@@ -1,5 +1,5 @@
 // 地图页：显示所有关卡 + 进度
-import { LEVELS } from '../../data/levels.js';
+import { LEVELS_ALL as LEVELS } from '../../data/levels.js';
 import { state, save, levelStars, isUnlocked, levelCompleted } from '../store.js';
 import { toast } from '../utils.js';
 

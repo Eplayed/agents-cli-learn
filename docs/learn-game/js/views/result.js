@@ -1,5 +1,5 @@
 // 结算页 + 下一关技术架构预览（带流动动效箭头）
-import { LEVELS } from '../../data/levels.js';
+import { LEVELS_ALL as LEVELS } from '../../data/levels.js';
 import { TECH_FLOWS } from '../../data/techFlows.js';
 import { state, save, applyLevelResult } from '../store.js';
 import { refreshHeader } from '../components/header.js';

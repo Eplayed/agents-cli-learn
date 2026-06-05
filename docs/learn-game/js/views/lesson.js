@@ -1,5 +1,5 @@
 // 关卡 lesson 页：按 stage 顺序学习（故事 / 概念 / 代码 / 小测 / 通关测验）
-import { LEVELS } from '../../data/levels.js';
+import { LEVELS_ALL as LEVELS } from '../../data/levels.js';
 import { state, save, markStageVisited } from '../store.js';
 import { renderStage } from './stages/stageView.js';
 

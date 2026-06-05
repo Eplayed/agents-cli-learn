@@ -9,6 +9,13 @@ import m4 from './m4.js';
 
 export const LEVELS = [m0, m1, m2, m3, m4];
 
+// ===== 面试题库（M0-M4 通关后可直接进入） =====
+import interviewAgent from './interview-agent.js';
+
+// 面试关卡和学习关卡合并在同一个数组，排在学习关卡后面
+// 通关条件：前面关卡全部完成才解锁（和学习关卡一样的解锁制）
+export const LEVELS_ALL = [...LEVELS, interviewAgent];
+
 // ===== 面试题库（计划中，M0-M4 通关后解锁） =====
 // 面试关卡特殊设计：
 // - 每题带 interviewTip（面试时怎么答能加分）
