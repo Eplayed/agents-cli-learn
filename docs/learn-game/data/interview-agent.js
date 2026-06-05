@@ -208,7 +208,7 @@ export default {
           answer: 'b',
           explain: '选模式的关键看"子任务之间有没有依赖"。有依赖 → Sequential；无依赖 → Parallel；需要动态路由 → Supervisor。',
           deeper: '面试加分：能补充"GroupChat 适合需要多角色讨论/头脑风暴的场景"和"LangGraph 的 Send API 能实现更灵活的并行"。',
-          interviewTip: '举你项目的例子："我项目里 Sequential 用于'研究员→作家→审稿人'的内容生产流水线，Parallel 用于多角度分析同一个话题。"',
+          interviewTip: '举你项目的例子："我项目里 Sequential 用于 研究员→作家→审稿人 的内容生产流水线，Parallel 用于多角度分析同一个话题。"',
           projectMapping: 'apps/api/app/agents/multi/team.py — execute_sequential / execute_parallel / execute_supervisor',
         },
         {

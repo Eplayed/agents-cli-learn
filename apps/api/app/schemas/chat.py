@@ -10,6 +10,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     session_id: Optional[str] = None
     model: Optional[str] = Field(None, description="指定 LLM 模型名称，不传则用服务端默认值")
+    agent_key: Optional[str] = Field(None, description="指定 Agent 类型（如 basic-chatbot / tool-agent / mcp-agent），不传则用默认 MCP Agent")
     stream: bool = True
 
 

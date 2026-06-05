@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.models.models import Session, Message
-from app.agents.single.agent import SingleAgent
+from app.agents.registry import get_agent, get_default_key
 
 router = APIRouter()
 
@@ -52,7 +52,7 @@ async def chat_send(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(user_msg)
     await db.commit()
 
-    agent = SingleAgent(session_id=session.id, model=request.model)
+    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
     full_response = ""
     async for chunk in agent.stream(request.message):
         if chunk["type"] == "text":
@@ -94,7 +94,7 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         return EventSourceResponse(event_generator())
 
-    agent = SingleAgent(session_id=session.id, model=request.model)
+    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
 
     async def event_generator():
         full_response = ""
@@ -149,7 +149,7 @@ async def chat_stream_ndjson(request: ChatRequest, db: AsyncSession = Depends(ge
             yield (json.dumps({"type": "done", "content": ""}) + "\n").encode("utf-8")
             return
 
-        agent = SingleAgent(session_id=session.id, model=request.model)
+        agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
         full_response = ""
         sid = session.id
 

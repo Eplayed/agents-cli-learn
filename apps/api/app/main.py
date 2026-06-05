@@ -11,6 +11,10 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1 import chat, team, session
 
+# 导入 catalog 触发所有 Agent 注册（必须在路由之前）
+import app.agents.catalog  # noqa: F401
+from app.agents.registry import list_agents, get_default_key
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,6 +57,15 @@ async def list_models():
     return {
         "models": models,
         "default": settings.OPENAI_MODEL,
+    }
+
+
+@app.get("/api/v1/agents")
+async def list_agents_endpoint():
+    """返回可用 Agent 列表，供前端下拉切换不同能力等级"""
+    return {
+        "agents": list_agents(),
+        "default": get_default_key(),
     }
 
 
