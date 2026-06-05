@@ -28,24 +28,48 @@ from app.core.config import settings
 
 
 # ============================================================
-# 模块级 Checkpointer 单例（M5 之前的临时方案）
+# M5 Checkpointer 策略
 # ============================================================
-# 为什么要单例？
-# - SingleAgent 是按请求构造的（每次 chat API 调用都 new 一个）
-# - 如果 MemorySaver 也跟着 new，那么同一个 thread_id 在两次请求之间
-#   完全拿不到上一轮的对话状态——LangGraph 的 checkpoint 机制就形同虚设
-# - 把 saver 提到模块级，整个进程共享一份，至少能保证「同进程内多次请求」
-#   能用 thread_id 正确续上对话历史
+# 优先级：
+# 1. 从 app.state.checkpointer 获取（lifespan 注入的 AsyncSqliteSaver）
+# 2. 回退到模块级 MemorySaver（兼容没跑 lifespan 的场景，如单元测试）
 #
-# 当前局限（M5 待解决）：
-# - 进程重启就丢光（MemorySaver 是纯内存）
-# - 多进程部署时各进程的 checkpoint 不共享
-# - 修复方案：lifespan 里启动 AsyncSqliteSaver，注入到 SingleAgent
-_GLOBAL_CHECKPOINTER = MemorySaver()
+# AsyncSqliteSaver 的好处：
+# - 重启进程后 thread_id 对应的对话历史仍在（持久化到 checkpoints.db）
+# - 相比 MemorySaver：从"进程内有效"升级到"跨重启有效"
+_FALLBACK_CHECKPOINTER = MemorySaver()
+
+
+def _get_checkpointer(explicit=None):
+    """获取 checkpointer，优先用 lifespan 注入的持久化版本"""
+    if explicit is not None:
+        return explicit
+    # 尝试从 FastAPI app.state 获取（需要在请求上下文中）
+    try:
+        from fastapi import Request
+        # 这里不能直接拿 app.state，因为不在请求上下文
+        # 所以调用方（chat.py）会显式传入 request.app.state.checkpointer
+        pass
+    except Exception:
+        pass
+    return _FALLBACK_CHECKPOINTER
+
+
+# ============================================================
+# 预算控制常量（M5）
+# ============================================================
+# recursion_limit：图最多执行多少步节点就强制停止（防 LLM 死循环）
+RECURSION_LIMIT = 25
+
+# max_tokens：单次 LLM 生成最大 token 数（防超长输出烧钱）
+MAX_TOKENS = 4096
+
+# request_timeout：单次 LLM API 调用超时（秒），防卡死
+REQUEST_TIMEOUT = 60
 
 
 class SingleAgent:
-    """单 Agent：LangGraph StateGraph + ToolNode + Checkpoint"""
+    """单 Agent：LangGraph StateGraph + ToolNode + Checkpoint + 预算控制"""
 
     def __init__(
         self,
@@ -64,6 +88,8 @@ class SingleAgent:
             base_url=settings.OPENAI_BASE_URL,
             temperature=0.7,
             streaming=True,
+            max_tokens=MAX_TOKENS,          # M5：限制单次生成长度
+            request_timeout=REQUEST_TIMEOUT,  # M5：超时保护
         )
 
         # 工具来源（按优先级）：
@@ -74,10 +100,8 @@ class SingleAgent:
         # bind_tools：把工具的 schema 注入 LLM，模型才能输出 tool_calls
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
-        # Checkpointer 解析顺序：
-        # 1. 调用方显式传入（M5 之后会从 lifespan 注入 AsyncSqliteSaver）
-        # 2. 模块级单例 _GLOBAL_CHECKPOINTER（同进程跨请求复用）
-        self.checkpointer = checkpointer if checkpointer is not None else _GLOBAL_CHECKPOINTER
+        # Checkpointer：优先用调用方传入的（从 lifespan 注入的 AsyncSqliteSaver）
+        self.checkpointer = checkpointer if checkpointer is not None else _FALLBACK_CHECKPOINTER
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -100,7 +124,10 @@ class SingleAgent:
 
     async def stream(self, message: str, thread_id: str | None = None) -> AsyncGenerator[dict, None]:
         thread_id = thread_id or self.session_id
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": RECURSION_LIMIT,  # M5：防 LLM 死循环
+        }
         sys = SystemMessage(
             content=(
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"

@@ -4,6 +4,7 @@ Chat API - Single Agent endpoints
 import json
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.requests import Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -15,6 +16,14 @@ from app.models.models import Session, Message
 from app.agents.registry import get_agent, get_default_key
 
 router = APIRouter()
+
+
+def _get_checkpointer_from_request(raw_request):
+    """从 FastAPI Request 获取 lifespan 注入的 checkpointer"""
+    try:
+        return raw_request.app.state.checkpointer
+    except AttributeError:
+        return None
 
 
 async def get_or_create_session(session_id: str | None, db: AsyncSession):
@@ -37,7 +46,7 @@ async def get_or_create_session(session_id: str | None, db: AsyncSession):
 
 
 @router.post("/send")
-async def chat_send(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
     # 非流式：等模型完全生成完，返回一次性 JSON（适合简单前端/调试）
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
         raise HTTPException(
@@ -52,7 +61,7 @@ async def chat_send(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(user_msg)
     await db.commit()
 
-    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
+    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
     full_response = ""
     async for chunk in agent.stream(request.message):
         if chunk["type"] == "text":
@@ -69,7 +78,7 @@ async def chat_send(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/stream")
-async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
     # SSE 流式：以 text/event-stream 连续推送事件
     # 注意：某些 Electron/内嵌浏览器环境用 fetch 读 SSE 可能出现 net::ERR_ABORTED
     # 若遇到该问题，建议前端改用 /stream_ndjson（更通用）
@@ -94,7 +103,7 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         return EventSourceResponse(event_generator())
 
-    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
+    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
 
     async def event_generator():
         full_response = ""
@@ -129,12 +138,12 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/stream")
-async def chat_stream_get(message: str, session_id: str | None = None, db: AsyncSession = Depends(get_db)):
-    return await chat_stream(ChatRequest(message=message, session_id=session_id, stream=True), db)
+async def chat_stream_get(message: str, raw_request: FastAPIRequest, session_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    return await chat_stream(ChatRequest(message=message, session_id=session_id, stream=True), raw_request, db)
 
 
 @router.post("/stream_ndjson")
-async def chat_stream_ndjson(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
     # NDJSON 流式：每一行是一个 JSON（application/x-ndjson）
     # 适配性更强，前端可以用 fetch + ReadableStream 按行解析
     session, _ = await get_or_create_session(request.session_id, db)
@@ -149,7 +158,7 @@ async def chat_stream_ndjson(request: ChatRequest, db: AsyncSession = Depends(ge
             yield (json.dumps({"type": "done", "content": ""}) + "\n").encode("utf-8")
             return
 
-        agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model)
+        agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
         full_response = ""
         sid = session.id
 

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.checkpointer import create_checkpointer
 from app.api.v1 import chat, team, session
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
@@ -19,12 +20,20 @@ from app.agents.registry import list_agents, get_default_key
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # FastAPI 生命周期钩子：
-    # - 启动：初始化数据库（建表）
-    # - 关闭：打印日志
+    # - 启动：初始化数据库 + Checkpointer
+    # - 关闭：Checkpointer 连接自动通过 contextmanager 释放
     print("Starting Noah Agent Platform...")
     await init_db()
     print("Database initialized")
-    yield
+
+    # M5 核心：用 AsyncSqliteSaver 替代 MemorySaver
+    # 这样 thread_id 对应的对话状态会持久化到 checkpoints.db
+    # 重启 API 后，同一个 session_id 的对话能续上
+    async with create_checkpointer() as checkpointer:
+        app.state.checkpointer = checkpointer
+        print(f"Checkpointer initialized (AsyncSqliteSaver)")
+        yield
+
     print("Shutting down...")
 
 

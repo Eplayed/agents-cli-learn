@@ -46,12 +46,12 @@ def register(key: str, name: str, description: str, milestone: str):
     return decorator
 
 
-def get_agent(key: str, session_id: str, model: str | None = None):
+def get_agent(key: str, session_id: str, model: str | None = None, checkpointer=None):
     """根据 key 创建 Agent 实例"""
     if key not in _REGISTRY:
         raise KeyError(f"Agent not found: {key}. Available: {list(_REGISTRY.keys())}")
     entry = _REGISTRY[key]
-    return entry.factory(session_id=session_id, model=model)
+    return entry.factory(session_id=session_id, model=model, checkpointer=checkpointer)
 
 
 def list_agents() -> list[dict]:

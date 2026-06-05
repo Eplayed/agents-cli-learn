@@ -32,7 +32,7 @@ from app.core.config import settings
     description="纯 LLM 对话，不调用任何工具。体验 Chatbot 和 Agent 的区别。",
     milestone="M0",
 )
-def create_basic_chatbot(session_id: str, model: str | None = None):
+def create_basic_chatbot(session_id: str, model: str | None = None, checkpointer=None):
     """最简单的 Chatbot：只有 LLM，没有工具，没有循环。
 
     用来演示"没有工具的 LLM 只能瞎编"——和 Agent 形成对比。
@@ -77,7 +77,7 @@ class BasicChatbot:
     description="带内嵌工具的 Agent（天气/计算/搜索），使用 LangGraph ReAct 循环。",
     milestone="M3",
 )
-def create_tool_agent(session_id: str, model: str | None = None):
+def create_tool_agent(session_id: str, model: str | None = None, checkpointer=None):
     """内嵌工具版 Agent：用 @tool 装饰器定义工具，不走 MCP。
 
     演示 LangGraph 的 StateGraph + ToolNode + tools_condition 循环。
@@ -87,6 +87,7 @@ def create_tool_agent(session_id: str, model: str | None = None):
         session_id=session_id,
         model=model,
         tools=_get_fallback_tools(),
+        checkpointer=checkpointer,
     )
 
 
@@ -100,13 +101,13 @@ def create_tool_agent(session_id: str, model: str | None = None):
     description="通过 MCP 协议加载工具（天气/计算/搜索），工具和 Agent 完全解耦。",
     milestone="M4",
 )
-def create_mcp_agent(session_id: str, model: str | None = None):
+def create_mcp_agent(session_id: str, model: str | None = None, checkpointer=None):
     """MCP 版 Agent：工具通过 config.json 配置化加载。
 
     和 tool-agent 的区别：工具是独立进程，可被 Claude Desktop 等复用。
     """
     # 默认行为就是 MCP 优先 + fallback
-    return SingleAgent(session_id=session_id, model=model)
+    return SingleAgent(session_id=session_id, model=model, checkpointer=checkpointer)
 
 
 # ============================================================
@@ -119,7 +120,7 @@ def create_mcp_agent(session_id: str, model: str | None = None):
     description="多 Agent 团队协作（Sequential/Parallel/Supervisor/GroupChat）。",
     milestone="M4",
 )
-def create_multi_agent(session_id: str, model: str | None = None):
+def create_multi_agent(session_id: str, model: str | None = None, checkpointer=None):
     """Multi-Agent 模式：多个 worker 协作完成任务。
 
     前端发消息时会自动用 Sequential 模式（研究员→作家→审稿人）。
