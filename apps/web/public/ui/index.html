@@ -1587,10 +1587,10 @@
 
         // Agent 切换时在聊天区显示体验提示
         const agentTips = {
-          "basic-chatbot": "💬 当前：M0 基础对话模式\n• 纯 LLM 对话，不调用任何工具\n• 试试问"上海天气怎么样"——你会发现它只能瞎编\n• 这就是 Chatbot 的局限：没有工具就没有真实数据",
-          "tool-agent": "🔧 当前：M3 Tool Calling 模式\n• 内嵌工具版 Agent（天气/计算/搜索）\n• 试试问"上海天气怎么样"——Agent 会调用 get_weather 获取真实数据\n• 对比 M0：这就是 Agent 比 Chatbot 强在哪",
-          "mcp-agent": "🔌 当前：M4 MCP Agent 模式\n• 通过 MCP 协议加载工具，工具和 Agent 完全解耦\n• 功能和 M3 一样，但架构更先进：工具可被 Claude Desktop/Cursor 复用\n• 试试问天气、做计算，感受和 M3 的体验一致但底层不同",
-          "multi-agent": "👥 当前：M4 Multi-Agent 团队协作模式\n• 输入一个话题，3 个 Agent 依次工作：研究员→作家→审稿人\n• 试试输入"AI Agent 的未来发展"\n• 你会看到每个 Agent 的思考过程和最终汇总",
+          "basic-chatbot": `💬 当前：M0 基础对话模式\n• 纯 LLM 对话，不调用任何工具\n• 试试问「上海天气怎么样」——你会发现它只能瞎编\n• 这就是 Chatbot 的局限：没有工具就没有真实数据`,
+          "tool-agent": `🔧 当前：M3 Tool Calling 模式\n• 内嵌工具版 Agent（天气/计算/搜索）\n• 试试问「上海天气怎么样」——Agent 会调用 get_weather 获取真实数据\n• 对比 M0：这就是 Agent 比 Chatbot 强在哪`,
+          "mcp-agent": `🔌 当前：M4 MCP Agent 模式\n• 通过 MCP 协议加载工具，工具和 Agent 完全解耦\n• 功能和 M3 一样，但架构更先进：工具可被 Claude Desktop/Cursor 复用\n• 试试问天气、做计算，感受和 M3 的体验一致但底层不同`,
+          "multi-agent": `👥 当前：M4 Multi-Agent 团队协作模式\n• 输入一个话题，3 个 Agent 依次工作：研究员→作家→审稿人\n• 试试输入「AI Agent 的未来发展」\n• 你会看到每个 Agent 的思考过程和最终汇总`,
         };
         agentSelectEl.addEventListener("change", () => {
           const tip = agentTips[agentSelectEl.value];
