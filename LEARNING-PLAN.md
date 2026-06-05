@@ -266,17 +266,87 @@ ToolHive 是企业级 MCP 托管平台的落地案例，其设计思想对本项
 
 ---
 
-## 6. 时间安排建议（不强求）
+## 6. 面试题库规划（面试反推知识）
+
+> 核心思路：**面试题反推知识 → 知识对应项目代码**。每道面试题都标注"在你项目里对应什么"。
+
+### 6.1 参考题库来源
+
+| 来源 | 定位 | 借鉴点 |
+|---|---|---|
+| [adongwanai/AgentGuide](https://github.com/adongwanai/AgentGuide) | AI Agent 开发 × 面试求职一站式，区分算法岗/开发岗 | 分层学习路径 + 1000+ 题 + 项目落地方法 |
+| [guocong-bincai/ai-interview-guide](https://github.com/guocong-bincai/ai-interview-guide) | AI 应用开发工程师面试宝典 | LLM / RAG / Agent / MCP / 安全 / 部署 |
+| [didilili/ai-agents-from-zero](https://github.com/didilili/ai-agents-from-zero) | AI 智能体开发面试题库 | 偏 RAG / Agent / MCP / LangGraph / 工程落地 |
+
+### 6.2 面试知识分类（对应项目实际代码）
+
+| 面试方向 | 典型考题 | 你项目里的对应 | 所属里程碑 |
+|---|---|---|---|
+| **Agent 核心** | ReAct 循环怎么实现？和 Function Calling 什么关系？ | `agent.py::_build_graph` 的 tools_condition 循环 | M0/M3 |
+| **LangGraph** | StateGraph vs Chain 区别？Checkpoint 怎么跨请求恢复？ | `_build_graph` + `_GLOBAL_CHECKPOINTER` 单例 | M3 |
+| **MCP 协议** | MCP 三原语？stdio vs http？无状态 session 含义？ | `mcp_servers/` 全套 + `loader.py` docstring | M4 |
+| **流式协议** | SSE vs NDJSON 区别？前端怎么解析流？ | `chat.py::chat_stream_ndjson` + `index.html::streamNDJSON` | M2 |
+| **工具工程** | 工具 description 怎么写？annotations 四字段含义？ | `weather_server.py` docstring + ToolHive 最佳实践 | M4 |
+| **异步并发** | 为什么 LLM 调用必须 async？依赖注入怎么隔离请求？ | `chat.py` 的 `Depends(get_db)` + `database.py` | M1 |
+| **鉴权安全** | Bearer Token 中间件怎么写？ContextVar 为什么不能用全局变量？ | M5 待实现（参考 ToolHive §4） | M5 |
+| **可观测** | trace_id 怎么贯穿全链路？Langfuse vs LangSmith？ | M6 待实现 | M6 |
+| **评测** | trajectory eval 是什么？怎么防止 prompt 改了能力退化？ | M7 待实现 | M7 |
+| **RAG** | 向量检索 + 引用可解释？chunking 策略？ | M9 待实现 | M9 |
+| **Multi-Agent** | Sequential / Parallel / Supervisor 适用场景？ | `agents/multi/team.py` 四种模式实现 | M3 |
+| **系统设计** | 设计一个支持 10w QPS 的 Agent 服务？ | 整体架构图（docs/ARCHITECTURE.md） | 综合 |
+
+### 6.3 学习游戏接入规划
+
+面试题将以新关卡类型接入 learn-game：
+
+```
+docs/learn-game/data/
+  ├── m0.js ... m4.js          ← 学习关卡（已有）
+  ├── interview-agent.js       ← 面试题：Agent 核心（计划中）
+  ├── interview-langgraph.js   ← 面试题：LangGraph（计划中）
+  ├── interview-mcp.js         ← 面试题：MCP 协议（计划中）
+  ├── interview-rag.js         ← 面试题：RAG（计划中）
+  ├── interview-system.js      ← 面试题：系统设计（计划中）
+  └── levels.js                ← 注册所有关卡
+```
+
+**面试关卡的独特设计**：
+- 每题带 `interviewTip` 字段：面试时怎么答能加分
+- 每题带 `projectMapping` 字段：对应你项目的哪行代码
+- 难度标注：⭐（入门）/ ⭐⭐（中级）/ ⭐⭐⭐（高级/系统设计）
+- 支持"模拟面试模式"：随机抽题 + 计时 + 评分
+
+### 6.4 优先级
+
+M0-M4 学习关卡做完后（当前），下一步：
+1. **先做 interview-agent.js**（Agent 核心 15 题）— 最高频
+2. **再做 interview-mcp.js**（MCP 10 题）— 2026 热点
+3. **再做 interview-langgraph.js**（LangGraph 10 题）— 和项目代码直接对应
+4. 其他方向等 M5-M9 实现后再加
+
+---
+
+## 7. 不在本计划范围（明确放弃）
+
+- ❌ A2A 协议：除非要做"多团队 agent 互通"，单项目用不上
+- ❌ 多通道接入：CowAgent 强项，但你的目标是 Web-only
+- ❌ Computer Use（浏览器自动化）：高风险，等基础牢固后再考虑
+- ❌ 自研 agent runtime：LangGraph 已经够好，不重复造轮子
+
+---
+
+## 8. 时间安排建议（不强求）
 
 学习项目不宜定死时间，但可以参考节奏：
 
 - **本周**：M4 完成（MCP 接入）
 - **下周**：M5 完成（Checkpoint + 预算）
 - **后续**：M6/M7 并行推进（可观测和评测互相依赖）
+- **面试题库**：学习关卡和里程碑推进过程中，穿插做面试题（不单独排时间）
 
 ---
 
-## 7. 自检清单
+## 9. 自检清单
 
 学完每个 M，问自己 3 个问题：
 1. **能不能给一个不熟悉的人讲清楚这个技术解决什么问题？**
