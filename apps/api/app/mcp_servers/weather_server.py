@@ -28,15 +28,20 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("Weather")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,      # 只读：查天气不修改任何状态
+        "openWorldHint": True,     # 调用外部系统：Open-Meteo API
+    },
+)
 def get_weather(city: str) -> str:
-    """获取指定城市的天气信息。
-    
+    """查询指定城市的实时天气信息（气温、降水概率、风速）。
+
+    适用于需要天气数据来给出出行/洗车/穿衣建议的场景。
+    返回包含气温区间、降雨概率、风速和洗车建议的天气摘要字符串。
+
     Args:
-        city: 城市名称，支持中文（如"上海"）或拼音（如"Shanghai"）
-    
-    Returns:
-        包含气温、降雨概率、风速和洗车建议的天气摘要字符串
+        city: 城市名称，支持中文（如"上海"）或英文（如"Shanghai"）
     """
     # ↑ 这段 docstring 非常重要！
     # MCP 协议会把 docstring 作为工具描述发给 LLM。

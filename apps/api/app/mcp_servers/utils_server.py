@@ -12,15 +12,20 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("Utils")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,      # 只读：纯计算不修改状态
+        "openWorldHint": False,    # 无外部调用：纯本地计算
+    },
+)
 def calculator(expr: str) -> str:
     """执行简单数学表达式计算。
-    
+
+    适用于需要精确计算数字的场景（加减乘除、括号运算）。
+    返回计算结果字符串；如果表达式含非法字符则返回错误信息。
+
     Args:
-        expr: 数学表达式字符串。仅允许数字与 +-*/.() 空格。
-    
-    Returns:
-        计算结果字符串；如果表达式非法则返回错误信息。
+        expr: 数学表达式，仅允许数字与 +-*/.() 空格，例如 "(3+5)*12"
     """
     # 安全：白名单字符 + eval（仅允许纯数学）
     # 警告：生产环境不要用 eval，应该用 ast.literal_eval 或专用解析器
@@ -33,15 +38,20 @@ def calculator(expr: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,      # 只读：搜索不修改状态
+        "openWorldHint": True,     # 调用外部系统：搜索 API
+    },
+)
 def search_web(query: str) -> str:
-    """联网搜索（占位实现）。
-    
+    """联网搜索信息并返回摘要结果。
+
+    适用于需要获取实时信息、新闻、知识的场景。
+    当前为占位实现，配置 BRAVE_API_KEY 后可接入真实搜索。
+
     Args:
-        query: 搜索关键词
-    
-    Returns:
-        搜索结果摘要。当前是占位符，需要配置 BRAVE_API_KEY 才能真实搜索。
+        query: 搜索关键词，例如 "2026 AI Agent 框架对比"
     """
     # TODO：M4 之后接入真实搜索
     # 推荐：Brave Search API / Tavily / SerpAPI

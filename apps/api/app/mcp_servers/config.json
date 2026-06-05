@@ -5,13 +5,18 @@
       "command": "python",
       "args": ["-m", "app.mcp_servers.weather_server"],
       "transport": "stdio",
-      "_description": "天气查询（Open-Meteo API）"
+      "_description": "天气查询（Open-Meteo API）· readOnly + openWorld"
     },
     "utils": {
       "command": "python",
       "args": ["-m", "app.mcp_servers.utils_server"],
       "transport": "stdio",
-      "_description": "通用工具（计算器、占位搜索）"
+      "_description": "通用工具（计算器 + 占位搜索）· readOnly"
+    },
+    "time": {
+      "url": "http://localhost:8001/mcp",
+      "transport": "http",
+      "_description": "时间工具（HTTP transport 演示）· readOnly · 需要先手动启动 time_server"
     }
   }
 }

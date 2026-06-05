@@ -292,12 +292,13 @@ description="查询天气"  # 太短，模型不知道何时调
 description="查询指定城市的实时天气信息（气温、降水概率、风速）。适用于需要天气数据来给出出行/洗车/穿衣建议的场景。返回天气摘要字符串。"
 ```
 
-### 7.5 TODO：待实施的改动
+### 7.5 TODO：已完成的改动
 
-M4 收尾时需要做：
-- [ ] 给 `weather_server.py` 的 `get_weather` 加 `annotations={"readOnlyHint": True, "openWorldHint": True}`
-- [ ] 给 `utils_server.py` 的 `calculator` 加 `annotations={"readOnlyHint": True, "openWorldHint": False}`
-- [ ] 重写 description 按 what + when + output 规范
+M4 收尾已完成：
+- [x] 给 `weather_server.py` 的 `get_weather` 加 `annotations={"readOnlyHint": True, "openWorldHint": True}`
+- [x] 给 `utils_server.py` 的 `calculator` 加 `annotations={"readOnlyHint": True, "openWorldHint": False}`
+- [x] 重写 description 按 what + when + output 规范
+- [x] 新增 `time_server.py`（HTTP transport 演示），配置已加入 config.json
 
 ---
 

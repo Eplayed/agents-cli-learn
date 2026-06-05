@@ -99,9 +99,9 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - [x] `apps/api/app/mcp_servers/weather_server.py` 能用 `python -m` 单独跑
 - [x] `apps/api/app/agents/single/agent.py` 通过 MCP 配置加载工具
 - [x] 同时挂载 ≥2 个 MCP Server（当前两个均为 stdio：weather + utils）
-- [ ] 至少一个 HTTP transport 的 MCP Server（M4 收尾）
+- [x] 至少一个 HTTP transport 的 MCP Server（`time_server.py` 在 8001 端口）
 - [x] 工具增减只改 `mcp_servers/config.json`，不改 agent 代码
-- [ ] 每个工具都有 annotations 标注 + 规范的 description
+- [x] 每个工具都有 annotations 标注 + 规范的 description
 
 **配套阅读：**
 - [LangChain MCP 官方文档](https://docs.langchain.com/oss/python/langchain/mcp)
