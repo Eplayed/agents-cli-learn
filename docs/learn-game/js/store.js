@@ -3,17 +3,19 @@
 
 const STORE_KEY = 'agents_cli_learn_game_v3';
 
-function defaultState() {
+export function defaultState() {
   return {
     xp: 0,
     streak: 0,
     bestStreak: 0,
     progress: {},        // levelId -> { stars, completed, score, attempts, stageIndex }
     wrongBook: [],
+    // 答题统计：questionId -> { correct: number, wrong: number, lastSeen: timestamp, knowledgeTag: string }
+    questionStats: {},
     view: 'map',
     currentLevel: null,
-    currentStageIndex: 0,    // 当前 stage（0-based）
-    currentQuestionIndex: 0, // 仅 final-quiz 使用
+    currentStageIndex: 0,
+    currentQuestionIndex: 0,
     currentHp: 3,
     currentAnswers: [],
   };
@@ -85,15 +87,26 @@ export function applyAnswer(question, correct, level, formattedUser, formattedCo
   if (opts.recordIntoCurrentRun !== false) {
     state.currentAnswers.push({ qid: question.id, correct });
   }
+
+  // 更新答题统计
+  const qid = question.id;
+  if (!state.questionStats[qid]) {
+    state.questionStats[qid] = { correct: 0, wrong: 0, lastSeen: 0, knowledgeTag: question.knowledgeTag || '' };
+  }
+  const qs = state.questionStats[qid];
   if (correct) {
+    qs.correct += 1;
     state.streak += 1;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
     state.xp += opts.xpOnCorrect ?? 10;
   } else {
+    qs.wrong += 1;
     state.streak = 0;
     if (opts.deductHp !== false) state.currentHp -= 1;
     recordWrong(question, level, formattedUser, formattedCorrect);
   }
+  qs.lastSeen = Date.now();
+  qs.knowledgeTag = question.knowledgeTag || qs.knowledgeTag;
   save();
 }
 

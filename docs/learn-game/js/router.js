@@ -4,6 +4,7 @@ import { renderMap } from './views/map.js';
 import { renderLesson } from './views/lesson.js';
 import { renderResult } from './views/result.js';
 import { renderWrongBook } from './views/wrongBook.js';
+import { renderStats } from './views/stats.js';
 import { refreshHeader } from './components/header.js';
 
 const views = {
@@ -13,6 +14,7 @@ const views = {
   quiz: renderLesson,
   result: renderResult,
   wrongBook: renderWrongBook,
+  stats: renderStats,
 };
 
 export function navigate(view) {
