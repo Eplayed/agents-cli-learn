@@ -18,7 +18,7 @@ from langgraph.graph.message import MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agents.registry import register
-from app.agents.single.agent import SingleAgent, _GLOBAL_CHECKPOINTER, _get_fallback_tools
+from app.agents.single.agent import SingleAgent, _FALLBACK_CHECKPOINTER, _get_fallback_tools
 from app.core.config import settings
 
 
