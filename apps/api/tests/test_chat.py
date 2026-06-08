@@ -35,13 +35,13 @@ async def test_chat_stream_ndjson_returns_ndjson_type(client):
 
 @pytest.mark.asyncio
 async def test_chat_with_invalid_agent_key(client):
-    """无效的 agent_key 应该报错"""
+    """无效的 agent_key 返回 400"""
     resp = await client.post(
         "/api/v1/chat/send",
         json={"message": "hello", "agent_key": "nonexistent-agent"},
     )
-    # 应该是 500（KeyError）或 400
-    assert resp.status_code in (400, 500)
+    assert resp.status_code == 400
+    assert "Invalid agent_key" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio

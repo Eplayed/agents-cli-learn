@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.models.models import Session, Message
-from app.agents.registry import get_agent, get_default_key
+from app.agents.registry import get_agent, get_default_key, list_agents
 
 router = APIRouter()
 
@@ -24,6 +24,18 @@ def _get_checkpointer_from_request(raw_request):
         return raw_request.app.state.checkpointer
     except AttributeError:
         return None
+
+
+def _resolve_agent(request, raw_request, session_id):
+    """解析并创建 Agent 实例，无效 key 抛 400"""
+    agent_key = request.agent_key or get_default_key()
+    available = [a["key"] for a in list_agents()]
+    if agent_key not in available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid agent_key: '{agent_key}'. Available: {available}",
+        )
+    return get_agent(agent_key, session_id=session_id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
 
 
 async def get_or_create_session(session_id: str | None, db: AsyncSession):
@@ -61,7 +73,7 @@ async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: Async
     db.add(user_msg)
     await db.commit()
 
-    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
+    agent = _resolve_agent(request, raw_request, session.id)
     full_response = ""
     async for chunk in agent.stream(request.message):
         if chunk["type"] == "text":
@@ -103,7 +115,7 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
 
         return EventSourceResponse(event_generator())
 
-    agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
+    agent = _resolve_agent(request, raw_request, session.id)
 
     async def event_generator():
         full_response = ""
@@ -158,7 +170,7 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
             yield (json.dumps({"type": "done", "content": ""}) + "\n").encode("utf-8")
             return
 
-        agent = get_agent(request.agent_key or get_default_key(), session_id=session.id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
+        agent = _resolve_agent(request, raw_request, session.id)
         full_response = ""
         sid = session.id
 
