@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
+from app.core.auth import AuthMiddleware
 from app.api.v1 import chat, team, session
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
@@ -42,6 +43,10 @@ app = FastAPI(title="Noah Agent Platform", description="Enterprise AI Agent Back
 
 # 允许 Web UI/前端跨域调用（学习项目直接全放开 methods/headers）
 app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# M5：Bearer Token 鉴权中间件
+# AUTH_SECRET 为空时完全放开（开发模式），设值后必须带 Bearer token
+app.add_middleware(AuthMiddleware)
 
 # 路由挂载：Phase 3 的 HTTP API 入口都从这里开始
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Single Agent"])

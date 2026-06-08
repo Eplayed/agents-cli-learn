@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     # =========================
     SECRET_KEY: str = "dev-secret-key-change-in-production"
 
+    # =========================
+    # 鉴权配置（M5）
+    # =========================
+    # AUTH_SECRET 为空 → 不鉴权（开发友好）
+    # AUTH_SECRET 有值 → 请求必须带 Authorization: Bearer <AUTH_SECRET>
+    AUTH_SECRET: str = ""
+
     class Config:
         # 读取环境变量的优先级：
         # 1) apps/api/.env
