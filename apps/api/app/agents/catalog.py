@@ -152,3 +152,26 @@ class MultiAgentWrapper:
             yield {"type": "error", "content": str(e)}
 
         yield {"type": "done", "content": ""}
+
+
+# ============================================================
+# M5 · HITL Agent（人工确认 + 预算控制演示）
+# ============================================================
+
+@register(
+    key="hitl-agent",
+    name="M5 · HITL Agent",
+    description="带人工确认的 Agent：危险工具调用前会暂停等待用户确认，演示 interrupt 机制。",
+    milestone="M5",
+)
+def create_hitl_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """HITL Agent：包含危险工具（删除/转账），调用前需确认。
+
+    演示 LangGraph 的 interrupt() + recursion_limit 预算控制。
+    危险工具定义在 dangerous_server.py（MCP）。
+    """
+    return SingleAgent(
+        session_id=session_id,
+        model=model,
+        checkpointer=checkpointer,
+    )

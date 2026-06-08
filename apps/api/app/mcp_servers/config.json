@@ -1,5 +1,5 @@
 {
-  "_comment": "MCP Server 注册表。增加/删除工具集只需改这里，不用动 agent 代码。格式参考 Claude Desktop 的 mcpServers 字段。",
+  "_comment": "MCP Server 注册表。增加/删除工具集只需改这里，不用动 agent 代码。",
   "mcpServers": {
     "weather": {
       "command": "python",
@@ -11,12 +11,13 @@
       "command": "python",
       "args": ["-m", "app.mcp_servers.utils_server"],
       "transport": "stdio",
-      "_description": "通用工具（计算器 + 占位搜索）· readOnly"
+      "_description": "通用工具（计算器 + 搜索）· readOnly"
     },
-    "time": {
-      "url": "http://localhost:8001/mcp",
-      "transport": "http",
-      "_description": "时间工具（HTTP transport 演示）· readOnly · 需要先手动启动 time_server"
+    "dangerous": {
+      "command": "python",
+      "args": ["-m", "app.mcp_servers.dangerous_server"],
+      "transport": "stdio",
+      "_description": "危险工具（删除/转账）· M5 HITL 演示 · destructive"
     }
   }
 }
