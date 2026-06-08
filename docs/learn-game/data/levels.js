@@ -1,13 +1,14 @@
 // 关卡注册中心：增加新关卡只需在这里 import 并加入数组
 
-// ===== 学习关卡（M0-M4） =====
+// ===== 学习关卡（M0-M5） =====
 import m0 from './m0.js';
 import m1 from './m1.js';
 import m2 from './m2.js';
 import m3 from './m3.js';
 import m4 from './m4.js';
+import m5 from './m5.js';
 
-export const LEVELS = [m0, m1, m2, m3, m4];
+export const LEVELS = [m0, m1, m2, m3, m4, m5];
 
 // ===== 面试题库（M0-M4 通关后可直接进入） =====
 import interviewAgent from './interview-agent.js';

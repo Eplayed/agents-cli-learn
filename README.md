@@ -48,12 +48,17 @@ npm run dev
 |---|---|
 | LangGraph StateGraph + ToolNode + Checkpoint 循环 | `apps/api/app/agents/single/agent.py` |
 | Multi-Agent 4 模式（Sequential/Parallel/Supervisor/GroupChat） | `apps/api/app/agents/multi/team.py` |
-| MCP 工具协议（stdio）+ 配置化加载 | `apps/api/app/mcp_servers/` |
+| MCP 工具协议（stdio + HTTP）+ 配置化加载 + annotations | `apps/api/app/mcp_servers/` |
 | NDJSON 流式协议 | `apps/api/app/api/v1/chat.py` `/stream_ndjson` |
 | 会话持久化（SQLite + SQLAlchemy 异步） | `apps/api/app/models/models.py` |
 | 真实工具调用（天气走 Open-Meteo） | `apps/api/app/mcp_servers/weather_server.py` |
 | 前端模型切换（`/api/v1/models` + UI 下拉） | `apps/web/public/ui/index.html` |
+| Agent 注册中心 + 多能力切换（M0/M3/M4/M5） | `apps/api/app/agents/registry.py` + `catalog.py` |
 | Web UI（对话 + 会话切换 + Trace 日志面板 + 导出） | `apps/web/public/ui/index.html` |
+| **AsyncSqliteSaver Checkpoint 持久化（重启不丢）** | `apps/api/app/core/checkpointer.py` |
+| **预算控制（recursion_limit + max_tokens + timeout）** | `apps/api/app/agents/single/agent.py` |
+| **Bearer Token 鉴权中间件（ContextVar 协程隔离）** | `apps/api/app/core/auth.py` |
+| **危险工具 + HITL 确认机制** | `apps/api/app/mcp_servers/dangerous_server.py` |
 
 ### 路线图（M5-M9）
 
@@ -61,7 +66,7 @@ npm run dev
 
 | 里程碑 | 主题 | 状态 |
 |---|---|---|
-| M5 | Checkpoint 持久化 + 预算控制 | 待开始 |
+| M5 | Checkpoint 持久化 + 预算控制 + 鉴权 | ✅ 已完成 |
 | M6 | OpenTelemetry + Langfuse 可观测 | 待开始 |
 | M7 | DeepEval 评测体系 | 待开始 |
 | M8 | Anthropic Skills 框架 | 待开始 |

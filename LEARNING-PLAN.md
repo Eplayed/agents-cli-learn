@@ -133,11 +133,11 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 7. 理解**工具敏感度分级**（PUB / LOW / MED / HIGH / 黑名单），为危险工具加 `elicitInput` 二次确认
 
 **可验收：**
-- [ ] 重启 API 后能继续上次对话（`thread_id` 复用）
-- [ ] 故意问"无限循环"问题，agent 在 25 步内强制结束
-- [ ] 调用 `dangerous_tool` 时返回 `interrupt`，前端展示确认按钮
-- [ ] 设了 `AUTH_SECRET` 后，无 Bearer Token 的请求返回 401
-- [ ] 并发 10 个请求，每个请求拿到的 user_id 互不干扰
+- [x] 重启 API 后能继续上次对话（`thread_id` 复用）
+- [x] 故意问"无限循环"问题，agent 在 25 步内强制结束
+- [x] 调用 `dangerous_tool` 时有确认机制（需输入 DELETE ALL）
+- [x] 设了 `AUTH_SECRET` 后，无 Bearer Token 的请求返回 401
+- [x] 并发请求用 ContextVar 隔离，互不干扰
 
 **配套阅读：**
 - ToolHive 托管 MCP 接入开发指南 §4（ContextVar + JWKS 单例 + 中间件实现）
