@@ -3,6 +3,10 @@ import { renderStageShell, bindStageShell } from './_layout.js';
 import { state, save, applyAnswer, applyLevelResult } from '../../store.js';
 import { buildQuestionCardHTML, bindQuestionCard } from './_quizCore.js';
 import { refreshHeader } from '../../components/header.js';
+import { shuffle } from '../../utils.js';
+
+// 打乱后的题目顺序（进入 final-quiz 时生成一次）
+let _shuffledQuestions = null;
 
 export function renderFinalQuizStage(level, stage, stageIdx, navigate, handlers) {
   // final-quiz 进入时初始化
@@ -11,6 +15,12 @@ export function renderFinalQuizStage(level, stage, stageIdx, navigate, handlers)
     state.currentHp = 3;
     state.currentAnswers = [];
     state.currentQuestionIndex = 0;
+    // 重新打乱题目顺序
+    _shuffledQuestions = shuffle([...stage.questions]);
+  }
+  // 首次进入或刷新时也要确保有 shuffled 版本
+  if (!_shuffledQuestions || _shuffledQuestions.length !== stage.questions.length) {
+    _shuffledQuestions = shuffle([...stage.questions]);
   }
   save();
   renderCurrent(level, stage, stageIdx, navigate, handlers);
@@ -18,8 +28,8 @@ export function renderFinalQuizStage(level, stage, stageIdx, navigate, handlers)
 
 function renderCurrent(level, stage, stageIdx, navigate, handlers) {
   const app = document.getElementById('app');
-  const total = stage.questions.length;
-  const q = stage.questions[state.currentQuestionIndex];
+  const total = _shuffledQuestions.length;
+  const q = _shuffledQuestions[state.currentQuestionIndex];
   const hpPct = (state.currentHp / 3) * 100;
   const hpClass = state.currentHp <= 1 ? 'low' : '';
 

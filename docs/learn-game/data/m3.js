@@ -389,7 +389,51 @@ class SingleAgent:
       ]
     },
 
-    // ============ Stage 6: Final Quiz ============
+    // ============ Stage 6: 动手挑战 ============
+    {
+      kind: 'concept',
+      title: '🏋️ 动手挑战：给 Agent 加一个新工具',
+      content: `
+        <div class="story-box">
+          🎯 <strong>挑战目标</strong>：不看文档，给你的 Agent 加一个 <code>get_time</code> 工具。
+        </div>
+
+        <h3>📌 步骤提示（尽量先自己试，再看提示）</h3>
+        <ol>
+          <li>打开 <code>apps/api/app/mcp_servers/utils_server.py</code></li>
+          <li>仿照 <code>calculator</code> 的写法，加一个 <code>get_time</code> 函数</li>
+          <li>给它写好 docstring（what + when + output）和 annotations</li>
+          <li>重启 API（<code>npm run dev</code>）</li>
+          <li>在 Web UI 里问"现在几点了"，看 Agent 是否调用了你的新工具</li>
+        </ol>
+
+        <h3>📌 验证成功的标志</h3>
+        <ul>
+          <li>NDJSON 流式输出里出现 <code>{"type":"tool_calls","data":{"name":"get_time",...}}</code></li>
+          <li>Agent 回答里有真实的当前时间</li>
+        </ul>
+
+        <h3>📌 如果卡住了</h3>
+        <details>
+          <summary>点击展开参考代码</summary>
+          <pre><code>from datetime import datetime
+
+@mcp.tool(
+    annotations={"readOnlyHint": True, "openWorldHint": False},
+)
+def get_time() -> str:
+    """获取当前系统时间。适用于需要知道现在几点的场景。返回格式化的日期时间字符串。"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")</code></pre>
+        </details>
+
+        <div class="callout">
+          💡 <strong>这个挑战的意义</strong>：如果你能不看文档加工具，说明你真正掌握了 M3 的 Tool Calling 机制。
+          面试时被问到"怎么加新工具"，你能自信说"我项目里试过，就改一个文件加一个函数"。
+        </div>
+      `,
+    },
+
+    // ============ Stage 7: Final Quiz ============
     {
       kind: 'final-quiz',
       title: '通关测验：M3 LangGraph',

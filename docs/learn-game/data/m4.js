@@ -381,7 +381,74 @@ class SingleAgent:
       ]
     },
 
-    // ============ Stage 6: Final Quiz ============
+    // ============ Stage 6: 动手挑战 ============
+    {
+      kind: 'concept',
+      title: '🏋️ 动手挑战：新建一个 MCP Server',
+      content: `
+        <div class="story-box">
+          🎯 <strong>挑战目标</strong>：新建一个独立的 MCP Server，让 Agent 能用它，
+          <strong>不改 agent.py</strong>。
+        </div>
+
+        <h3>📌 步骤提示</h3>
+        <ol>
+          <li>新建 <code>apps/api/app/mcp_servers/joke_server.py</code></li>
+          <li>用 <code>FastMCP("Jokes")</code> 创建 server</li>
+          <li>写一个 <code>tell_joke(topic: str)</code> 工具（返回一个固定的笑话就行）</li>
+          <li>给它加 annotations（只读 + 无外部调用）和规范 description</li>
+          <li>末尾加 <code>mcp.run(transport="stdio")</code></li>
+          <li>在 <code>config.json</code> 注册这个新 server</li>
+          <li>重启 API，问"讲个关于程序员的笑话"</li>
+        </ol>
+
+        <h3>📌 验证成功的标志</h3>
+        <ul>
+          <li>NDJSON 里出现 <code>tool_calls: tell_joke</code></li>
+          <li>你<strong>没改过 agent.py</strong>——这就是 MCP 配置化加载的价值</li>
+        </ul>
+
+        <h3>📌 如果卡住了</h3>
+        <details>
+          <summary>点击展开 joke_server.py 参考</summary>
+          <pre><code>from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Jokes")
+
+@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+def tell_joke(topic: str) -> str:
+    """讲一个指定主题的笑话。适用于用户想放松的场景。返回笑话文本。
+
+    Args:
+        topic: 笑话主题，如"程序员""产品经理""AI"
+    """
+    jokes = {
+        "程序员": "为什么程序员总是分不清万圣节和圣诞节？因为 Oct 31 = Dec 25。",
+        "AI": "AI 面试官：你最大的缺点是什么？候选人：我太诚实了。AI：我不认为这是缺点。候选人：我不在乎你怎么想。",
+    }
+    return jokes.get(topic, f"关于{topic}的笑话：还在学习中...")
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")</code></pre>
+        </details>
+
+        <details>
+          <summary>点击展开 config.json 修改</summary>
+          <pre><code>"jokes": {
+  "command": "python",
+  "args": ["-m", "app.mcp_servers.joke_server"],
+  "transport": "stdio"
+}</code></pre>
+        </details>
+
+        <div class="callout">
+          💡 <strong>这个挑战证明了 MCP 的核心价值</strong>：加新工具 = 新建文件 + 改配置。
+          Agent 代码完全不动。面试时说"我项目里加工具不用改 agent"很有说服力。
+        </div>
+      `,
+    },
+
+    // ============ Stage 7: Final Quiz ============
     {
       kind: 'final-quiz',
       title: '通关测验：M4 MCP 协议',

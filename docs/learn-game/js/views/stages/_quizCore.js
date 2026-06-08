@@ -5,7 +5,9 @@ let userSelection = null;
 
 export function renderQuestionInputHTML(q) {
   if (q.type === 'single' || q.type === 'multi') {
-    return `<div class="options">${q.options.map((opt, i) => `
+    // 打乱选项顺序（每次渲染都随机）
+    const shuffledOptions = shuffle([...q.options]);
+    return `<div class="options">${shuffledOptions.map((opt, i) => `
       <div class="option" data-value="${escapeHtml(opt.value)}">
         <div class="opt-mark">${String.fromCharCode(65 + i)}</div>
         <div>${opt.text}</div>

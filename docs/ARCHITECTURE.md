@@ -505,3 +505,32 @@ graph TB
 ---
 
 > 内容根据公开搜索结果做了改写以符合引用规范
+
+
+---
+
+## 9. Agent Harness 七层模型映射
+
+> 参考 [AgentGuide](https://github.com/adongwanai/AgentGuide) 的 Harness Engineering 体系。
+> "模型是大脑，Harness 是身体。Claude Code 90% 的代码是 Harness。"
+
+本项目各层对应实现：
+
+| 层 | 职责 | 本项目实现 | 文件 |
+|---|---|---|---|
+| **L1 模型层** | Provider 抽象 + 多模型切换 | ✅ ChatOpenAI + AVAILABLE_MODELS + UI 下拉 | `config.py` + `agent.py` |
+| **L2 循环层** | Agent Loop / interrupt / resume | ✅ LangGraph StateGraph + tools_condition 循环 | `agent.py::_build_graph` |
+| **L3 工具层** | Tools / Skills / MCP | ✅ MCP Servers（stdio+http）+ config 配置化 | `mcp_servers/` |
+| **L4 记忆层** | Checkpoint / Vector Store | ✅ AsyncSqliteSaver（checkpoints.db）| `core/checkpointer.py` |
+| **L5 人格层** | System Prompt / Policy | ✅ SystemMessage 在 stream() 里定义 | `agent.py::stream` |
+| **L6 通道层** | CLI / Web / IM | ✅ Web UI（NDJSON 流式）| `apps/web/public/ui/` |
+| **L7 可靠性层** | Timeout / Retry / Cost Guard / Permission | ✅ recursion_limit + max_tokens + timeout + auth | `agent.py` + `core/auth.py` |
+
+### 尚未实现（未来里程碑）
+
+| 层 | 缺失能力 | 计划 |
+|---|---|---|
+| L4 | 向量检索（长期记忆） | M9 |
+| L7 | OpenTelemetry trace | M6 |
+| L7 | 评测回归 CI | M7 |
+| L3 | Skills 渐进加载 | M8 |
