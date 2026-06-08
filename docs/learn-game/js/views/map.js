@@ -80,6 +80,14 @@ export function renderMap(navigate) {
       🎯 系统设计题（如何设计支持百万 QPS 的 Agent 服务）<br>
       🐛 实战 Debug 题（基于真实 issue 改编）
     </div>
+
+    <div class="section-divider">🏢 公司定向刷题（外部资源）</div>
+    <div class="coming-soon-card" style="cursor: pointer;" onclick="window.open('https://adongwanai.github.io/AgentGuide/interview/companies/', '_blank')">
+      <strong>→ AgentGuide 公司定向题库</strong>（点击跳转）<br><br>
+      覆盖 28 家公司 · 12960 道题 · 444 道高频题<br>
+      字节跳动 / 美团 / 腾讯 / 百度 / 阿里 / 小红书 / 华为 / 京东 ...<br><br>
+      <span style="font-size: 11px; color: var(--muted);">来源：adongwanai/AgentGuide · 算法 + 编程题为主</span>
+    </div>
   `;
 
   app.innerHTML = html;
