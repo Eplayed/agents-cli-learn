@@ -167,7 +167,7 @@ export default {
           type: 'single',
           knowledgeTag: '12-Factor Agent',
           difficulty: '⭐⭐⭐',
-          text: '面试官问：<strong>"你认为生产级 Agent 系统最重要的 3 个'因子'是什么？"</strong>',
+          text: `面试官问：<strong>"你认为生产级 Agent 系统最重要的 3 个'因子'是什么？"</strong>`,
           options: [
             { text: '好的模型 + 好的 prompt + 好的数据', value: 'a' },
             { text: '可观测性（trace 贯穿全链路）+ 可恢复性（checkpoint 不丢状态）+ 可控性（预算/权限/HITL）', value: 'b' },
