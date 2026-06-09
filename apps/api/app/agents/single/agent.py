@@ -128,6 +128,13 @@ class SingleAgent:
             "configurable": {"thread_id": thread_id},
             "recursion_limit": RECURSION_LIMIT,  # M5：防 LLM 死循环
         }
+
+        # M6：注入 Langfuse tracing（如果配置了的话）
+        from app.core.tracing import get_tracing_config
+        tracing = get_tracing_config(session_id=thread_id)
+        if tracing:
+            config.update(tracing)
+
         sys = SystemMessage(
             content=(
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"

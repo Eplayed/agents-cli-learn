@@ -1592,6 +1592,7 @@
           "mcp-agent": `🔌 当前：M4 MCP Agent 模式\n• 通过 MCP 协议加载工具，工具和 Agent 完全解耦\n• 功能和 M3 一样，但架构更先进：工具可被 Claude Desktop/Cursor 复用\n• 试试问天气、做计算，感受和 M3 的体验一致但底层不同`,
           "multi-agent": `👥 当前：M4 Multi-Agent 团队协作模式\n• 输入一个话题，3 个 Agent 依次工作：研究员→作家→审稿人\n• 试试输入「AI Agent 的未来发展」\n• 你会看到每个 Agent 的思考过程和最终汇总`,
           "hitl-agent": `🛡 当前：M5 HITL Agent 模式（人工确认）\n• 含危险工具：删除数据、转账\n• 试试说「帮我删除所有数据」或「转账 5000 给 user_001」\n• Agent 会调用工具，但工具内置了确认机制（需输入 DELETE ALL）\n• 演示预算控制：最多 25 步循环就会强制停止`,
+          "traced-agent": `🔭 当前：M6 Traced Agent 模式（可观测）\n• 功能和 MCP Agent 一样，但所有调用自动上报 Langfuse\n• 需要在 .env.dev 配置 LANGFUSE_PUBLIC_KEY 和 LANGFUSE_SECRET_KEY\n• 配置后每次对话在 Langfuse 控制台能看到完整执行树\n• 试试问天气，然后去 Langfuse 看 trace`,
         };
         agentSelectEl.addEventListener("change", () => {
           const tip = agentTips[agentSelectEl.value];

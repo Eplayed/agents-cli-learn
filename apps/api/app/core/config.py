@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # AUTH_SECRET 有值 → 请求必须带 Authorization: Bearer <AUTH_SECRET>
     AUTH_SECRET: str = ""
 
+    # =========================
+    # 可观测配置（M6 - Langfuse）
+    # =========================
+    # 配置后自动追踪所有 LLM 调用 + 工具执行
+    # 不配置 = 不追踪（不影响功能）
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
+    LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+
     class Config:
         # 读取环境变量的优先级：
         # 1) apps/api/.env

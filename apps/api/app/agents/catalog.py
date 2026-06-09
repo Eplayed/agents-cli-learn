@@ -175,3 +175,26 @@ def create_hitl_agent(session_id: str, model: str | None = None, checkpointer=No
         model=model,
         checkpointer=checkpointer,
     )
+
+
+# ============================================================
+# M6 · Traced Agent（带 Langfuse 追踪）
+# ============================================================
+
+@register(
+    key="traced-agent",
+    name="M6 · Traced Agent",
+    description="带 Langfuse 可观测追踪的 Agent：每次调用自动记录 trace，可在 Langfuse 控制台查看完整执行树。",
+    milestone="M6",
+)
+def create_traced_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """Traced Agent：和 MCP Agent 功能一样，但所有 LLM 调用和工具执行都会上报 Langfuse。
+
+    需要配置 LANGFUSE_PUBLIC_KEY 和 LANGFUSE_SECRET_KEY 才能看到 trace。
+    未配置时功能正常但不追踪。
+    """
+    return SingleAgent(
+        session_id=session_id,
+        model=model,
+        checkpointer=checkpointer,
+    )
