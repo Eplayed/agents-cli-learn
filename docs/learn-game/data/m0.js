@@ -307,7 +307,39 @@ apps/api/                        ← Python FastAPI 后端</pre>
       `,
     },
 
-    // ============ Stage 7: Final Quiz ============
+    // ============ Stage 7: 常见疑问 ============
+    {
+      kind: 'concept',
+      title: '❓ 小白常见疑问（FAQ）',
+      content: `
+        <h3>Q1：Agent 有 10 个工具，它怎么知道该调哪个？</h3>
+        <p><strong>靠 description（描述），不是关键字匹配。</strong></p>
+        <p>你给每个工具写了描述（如"查询城市天气"），LLM 每次收到用户消息时，
+        会同时看到所有工具的描述，用<strong>语义理解</strong>判断"用户意图和哪个工具最相关"。</p>
+        <p>这不是 <code>if "天气" in 消息</code> 这种规则匹配，而是模型层面的语义匹配。
+        所以 description 写得好非常重要——写不好模型就选错工具。</p>
+
+        <h3>Q2：如果没有匹配的工具呢？Agent 会怎样？</h3>
+        <p><strong>直接用自己的知识回答，不调工具。</strong></p>
+        <p>比如用户说"帮我写首诗"，没有任何工具和写诗相关 → LLM 不输出 tool_calls
+        → 图走 END → 直接返回 LLM 生成的文本。此时 Agent 退化为普通 Chatbot。</p>
+
+        <h3>Q3：Chatbot 和 Agent 的区别，能不能用一个最简单的比喻？</h3>
+        <p><strong>Chatbot = 只会说的人（瞎编天气），Agent = 会查手机再告诉你的人（查了 App 再说）。</strong></p>
+        <p>区别在"有没有做一个动作（调工具）"。在你项目里，切到 M0 模式问天气会瞎编，切到 M4 模式会真查 API。</p>
+
+        <h3>Q4：Agent 是不是就是比 Chatbot 多了"调 API"这一步？</h3>
+        <p>不只是"多调一个 API"。Agent 的关键是<strong>循环</strong>：</p>
+        <ul>
+          <li>调一个工具还不够？再调一个</li>
+          <li>第一个结果不满意？换个方式再试</li>
+          <li>多步推理：先查天气 → 再查降雨 → 最后综合给建议</li>
+        </ul>
+        <p>Chatbot 一次生成就结束了，Agent 可以自主决定"还要再做什么"直到任务完成。</p>
+      `,
+    },
+
+    // ============ Stage 8: Final Quiz ============
     {
       kind: 'final-quiz',
       title: '通关测验：5 题验证你已经掌握 M0',

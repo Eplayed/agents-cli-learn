@@ -389,7 +389,53 @@ class SingleAgent:
       ]
     },
 
-    // ============ Stage 6: 动手挑战 ============
+    // ============ Stage 6: 常见疑问 ============
+    {
+      kind: 'concept',
+      title: '❓ 小白常见疑问（FAQ）',
+      content: `
+        <h3>Q1："显式的图"是给 AI 看的吗？AI 能看懂图？</h3>
+        <p><strong>不是。图是给框架（LangGraph）和开发者（你）看的。</strong></p>
+        <p>LLM 不知道自己在图里跑。它每次被调用就是"收到消息 → 给回复"，仅此而已。</p>
+        <p><strong>图的作用是告诉框架</strong>："LLM 回复后，下一步该干什么"——该执行工具？还是结束？还是暂停等确认？</p>
+        <p>可以理解为：LLM 是"只会回答问题的专家"，图是"调度员"告诉专家什么时候发言、什么时候执行动作。</p>
+
+        <h3>Q2：tool_calls 是 LangGraph 框架生成的吗？</h3>
+        <p><strong>不是。tool_calls 是 LLM（如 GPT-4o）输出的。</strong></p>
+        <p>完整链路：</p>
+        <ol>
+          <li>你通过 <code>bind_tools</code> 把工具 schema 发给 OpenAI API</li>
+          <li>LLM 看到工具描述 + 用户问题，<strong>自己决定</strong>要不要调工具</li>
+          <li>如果决定调 → 输出 <code>tool_calls</code>（工具名 + 参数）</li>
+          <li>LangGraph 看到 <code>tool_calls</code> → 执行工具 → 把结果给回 LLM</li>
+        </ol>
+        <p>类比：厨师（LLM）写了领料单（tool_calls），仓库管理员（ToolNode）按单拿食材。领料单格式是餐厅规范（OpenAI Function Calling 协议）定的。</p>
+
+        <h3>Q3：一次对话里图会循环几次？谁决定的？</h3>
+        <p><strong>LLM 决定的。</strong>它觉得还需要调工具就继续循环，觉得够了就停。</p>
+        <table class="compare-table">
+          <thead><tr><th>情况</th><th>循环次数</th></tr></thead>
+          <tbody>
+            <tr><td>LLM 一次输出 2 个 tool_calls</td><td>1 次（ToolNode 并行执行）</td></tr>
+            <tr><td>LLM 先查上海天气，看完觉得还要查北京</td><td>2 次</td></tr>
+            <tr><td>LLM 直接回答不调工具</td><td>0 次（直接 END）</td></tr>
+          </tbody>
+        </table>
+        <p><code>recursion_limit=25</code> 是安全网：防止 LLM 永远觉得"还不够"无限循环。</p>
+
+        <h3>Q4：Schema 是什么？</h3>
+        <p><strong>Schema = 工具的"说明书"（JSON 格式）。</strong></p>
+        <p>告诉 LLM：这个工具叫什么名字、做什么事、需要什么参数、参数是什么类型。</p>
+        <p>你不需要手写 schema——写好函数签名 + docstring，框架自动生成：</p>
+        <ul>
+          <li>函数名 → <code>"name"</code></li>
+          <li>docstring → <code>"description"</code></li>
+          <li>参数类型注解 <code>city: str</code> → <code>"parameters": {"city": {"type": "string"}}</code></li>
+        </ul>
+      `,
+    },
+
+    // ============ Stage 7: 动手挑战 ============
     {
       kind: 'concept',
       title: '🏋️ 动手挑战：给 Agent 加一个新工具',
