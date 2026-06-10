@@ -52,6 +52,9 @@ export function levelStageIndex(levelId) {
 
 export function isUnlocked(levels, idx) {
   if (idx === 0) return true;
+  // 面试关卡（id 以 INT- 开头）始终解锁，不需要通关前置
+  const level = levels[idx];
+  if (level && level.id && level.id.startsWith('INT-')) return true;
   return levelCompleted(levels[idx - 1].id);
 }
 
