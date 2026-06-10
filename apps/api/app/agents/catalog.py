@@ -198,3 +198,98 @@ def create_traced_agent(session_id: str, model: str | None = None, checkpointer=
         model=model,
         checkpointer=checkpointer,
     )
+
+
+# ============================================================
+# M8 · Skills Agent（按需加载能力包）
+# ============================================================
+
+@register(
+    key="skills-agent",
+    name="M8 · Skills Agent",
+    description="按需加载 Skills 能力包：根据用户消息自动匹配相关 Skill 注入 prompt。试试问天气或让它审查代码。",
+    milestone="M8",
+)
+def create_skills_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """Skills Agent：根据对话内容动态加载匹配的 Skill 到 system prompt。
+
+    Skills 定义在 skills/ 目录下：
+    - skills/weather-advisor/SKILL.md（天气相关问题自动激活）
+    - skills/code-reviewer/SKILL.md（代码相关问题自动激活）
+    """
+    return SkillsAgentWrapper(session_id=session_id, model=model, checkpointer=checkpointer)
+
+
+class SkillsAgentWrapper:
+    """带 Skills 的 Agent 包装器"""
+
+    def __init__(self, session_id: str, model: str | None = None, checkpointer=None):
+        self.session_id = session_id
+        self.model = model
+        self.checkpointer = checkpointer
+
+    async def stream(self, message: str, thread_id: str | None = None):
+        from app.core.skills import load_skills, match_skills, skills_to_prompt
+
+        # 加载所有 skills 并匹配
+        all_skills = load_skills()
+        matched = match_skills(message, all_skills)
+        skill_prompt = skills_to_prompt(matched)
+
+        # 创建带 skill prompt 的 agent
+        agent = SingleAgent(
+            session_id=self.session_id,
+            model=self.model,
+            checkpointer=self.checkpointer,
+        )
+
+        # 如果有匹配到的 skill，先 yield 一个提示事件
+        if matched:
+            skill_names = [s.name for s in matched]
+            yield {"type": "tool_calls", "data": {"name": f"[Skills 激活: {', '.join(skill_names)}]", "input": None}}
+
+        # 注入 skill 到消息（修改 system prompt）
+        from langchain_core.messages import SystemMessage, HumanMessage
+
+        original_stream = agent.stream
+        # 重写 stream 的消息构造
+        thread_id = thread_id or self.session_id
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 25,
+        }
+        from app.core.tracing import get_tracing_config
+        tracing = get_tracing_config(session_id=thread_id)
+        if tracing:
+            config.update(tracing)
+
+        sys_content = (
+            "你是一个可调用工具的中文助手。"
+            + skill_prompt
+        )
+        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+
+        try:
+            async for event in agent.graph.astream_events(
+                {"messages": messages}, config=config, version="v1"
+            ):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield {"type": "text", "content": content}
+                elif kind == "on_tool_start":
+                    tool_input = event.get("data", {}).get("input")
+                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
+                elif kind == "on_tool_end":
+                    tool_output = event.get("data", {}).get("output")
+                    if tool_output is not None:
+                        try:
+                            tool_output = tool_output.content
+                        except Exception:
+                            tool_output = str(tool_output)
+                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+        except Exception as e:
+            yield {"type": "error", "content": str(e)}
+
+        yield {"type": "done", "content": ""}
