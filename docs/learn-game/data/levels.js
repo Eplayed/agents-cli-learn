@@ -8,8 +8,9 @@ import m3 from './m3.js';
 import m4 from './m4.js';
 import m5 from './m5.js';
 import m6 from './m6.js';
+import m7 from './m7.js';
 
-export const LEVELS = [m0, m1, m2, m3, m4, m5, m6];
+export const LEVELS = [m0, m1, m2, m3, m4, m5, m6, m7];
 
 // ===== 面试题库（M0-M4 通关后可直接进入） =====
 import interviewAgent from './interview-agent.js';

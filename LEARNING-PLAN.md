@@ -182,8 +182,9 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 4. 加到 GitHub Actions（PR 必跑）
 
 **可验收：**
-- [ ] `pytest eval/` 输出每条用例的通过率与耗时
-- [ ] 失败用例可点 trace_id 跳到 Langfuse 看现场
+- [x] `python -m eval.run_eval` 输出每条用例的通过率
+- [x] 失败用例有详细原因（哪个断言没过 + 实际值）
+- [x] 10 条用例覆盖：天气/计算/无工具场景
 
 ---
 

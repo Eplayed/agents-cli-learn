@@ -1,0 +1,10 @@
+{"id": "eval_001", "input": "上海天气怎么样", "assertions": {"must_call_tool": "get_weather", "must_contain": ["上海", "°C"]}, "tags": ["weather", "tool-calling"]}
+{"id": "eval_002", "input": "3+5等于几", "assertions": {"must_call_tool": "calculator", "must_contain": ["8"]}, "tags": ["math", "tool-calling"]}
+{"id": "eval_003", "input": "帮我写首诗", "assertions": {"must_not_call_tool": true, "min_length": 20}, "tags": ["no-tool", "creative"]}
+{"id": "eval_004", "input": "北京天气适合洗车吗", "assertions": {"must_call_tool": "get_weather", "must_contain": ["北京"]}, "tags": ["weather", "tool-calling"]}
+{"id": "eval_005", "input": "100除以3等于多少", "assertions": {"must_call_tool": "calculator", "must_contain": ["33"]}, "tags": ["math", "tool-calling"]}
+{"id": "eval_006", "input": "你好", "assertions": {"must_not_call_tool": true, "min_length": 2}, "tags": ["no-tool", "greeting"]}
+{"id": "eval_007", "input": "深圳明天会下雨吗", "assertions": {"must_call_tool": "get_weather", "must_contain": ["深圳"]}, "tags": ["weather", "tool-calling"]}
+{"id": "eval_008", "input": "(10+5)*3 等于多少", "assertions": {"must_call_tool": "calculator", "must_contain": ["45"]}, "tags": ["math", "tool-calling"]}
+{"id": "eval_009", "input": "介绍一下什么是AI Agent", "assertions": {"must_not_call_tool": true, "min_length": 50}, "tags": ["no-tool", "knowledge"]}
+{"id": "eval_010", "input": "杭州现在适合出门吗", "assertions": {"must_call_tool": "get_weather", "must_contain": ["杭州"]}, "tags": ["weather", "tool-calling"]}
