@@ -582,6 +582,29 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
+
+      // 简单 Markdown 渲染（不引入外部库）
+      function renderMarkdown(text) {
+        if (!text) return '';
+        return text
+          // 代码块
+          .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          // 行内代码
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          // 粗体
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          // 标题
+          .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+          .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+          .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+          // 列表
+          .replace(/^- (.+)$/gm, '<li>$1</li>')
+          .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+          // 分隔线
+          .replace(/^---$/gm, '<hr>')
+          // 换行
+          .replace(/\n/g, '<br>');
+      }
       const apiBaseInput = $("apiBase");
       const backendUrlEl = $("backendUrl");
       const sessionIdEl = $("sessionId");
@@ -1510,7 +1533,7 @@
                 if (chunk.type === "text") {
                   if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
                   full += chunk.content || "";
-                  bodyEl.textContent = full;
+                  bodyEl.innerHTML = renderMarkdown(full);
                 } else if (chunk.type === "tool_calls") {
                   if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
                   const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
