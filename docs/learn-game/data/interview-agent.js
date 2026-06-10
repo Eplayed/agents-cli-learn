@@ -236,17 +236,17 @@ export default {
           type: 'single',
           knowledgeTag: 'NDJSON',
           difficulty: '⭐⭐',
-          text: '面试官问：<strong>"你的 Agent 流式输出用的什么协议？为什么不用 SSE？"</strong>',
+          text: '面试官问：<strong>"你的 Agent 流式输出用的什么协议？为什么选它？"</strong>',
           options: [
             { text: '用 WebSocket，因为它支持双向通信', value: 'a' },
-            { text: '用 NDJSON（每行一个 JSON），因为 SSE 的 EventSource 不支持 POST、不支持自定义 header，在 Electron 等环境兼容差', value: 'b' },
-            { text: '用 SSE，因为它是标准', value: 'c' },
+            { text: '用 NDJSON（每行一个 JSON），因为格式比 SSE 简单（无需解析 event:/data: 前缀），且浏览器 EventSource API 在部分嵌入环境不可靠', value: 'b' },
+            { text: '用 SSE，因为它是唯一能流式的协议', value: 'c' },
             { text: '用 gRPC streaming', value: 'd' }
           ],
           answer: 'b',
-          explain: 'NDJSON 用纯 fetch + ReadableStream 实现，支持 POST + 自定义 header（鉴权），跨环境兼容性最好。SSE 虽然是标准，但 EventSource API 限制太多。',
-          deeper: '面试加分：能说出"Vercel AI SDK 也用类似方案"和"OpenAI Responses API 的流式也是类 NDJSON"。',
-          interviewTip: '先说选型，再说实现："我用 NDJSON，后端 StreamingResponse yield 每行 JSON+\\n，前端 fetch + ReadableStream 按行切分解析。"',
+          explain: 'NDJSON 比 SSE 格式更简单：每行就是完整 JSON+\\n。SSE 协议本身支持 POST 和自定义 header（这不是限制），但浏览器的 EventSource API 只支持 GET 且在部分 Electron/WebView 环境表现不稳定。用 fetch 读两者都行，但 NDJSON 解析逻辑更简洁。',
+          deeper: '面试加分：能说出"SSE 协议本身不限 POST，限制的是 EventSource API"——这说明你区分了协议层和 API 层。Vercel AI SDK 和 OpenAI 都倾向 NDJSON 风格。',
+          interviewTip: '先说选型再说原因："我用 NDJSON，格式最简单（每行一个 JSON），用 fetch + ReadableStream 解析，不依赖 EventSource API。"',
           projectMapping: 'apps/api/app/api/v1/chat.py::chat_stream_ndjson — yield (json.dumps(chunk) + "\\n").encode("utf-8")',
         },
         {
