@@ -16,7 +16,14 @@ export function renderMap(navigate) {
     <div class="level-track">
   `;
 
+  let interviewDividerAdded = false;
+
   LEVELS.forEach((lvl, idx) => {
+    // 面试关卡前加分隔标题
+    if (!interviewDividerAdded && lvl.id.startsWith('INT-')) {
+      html += `</div><div class="section-divider">📝 面试题库（随时可刷）</div><div class="level-track">`;
+      interviewDividerAdded = true;
+    }
     const unlocked = isUnlocked(LEVELS, idx);
     const prog = state.progress[lvl.id];
     const completed = prog?.completed;
@@ -26,10 +33,11 @@ export function renderMap(navigate) {
     let nodeClass = 'level-node ';
     if (!unlocked) nodeClass += 'locked';
     else if (completed) nodeClass += 'completed';
+    else if (lvl.id.startsWith('INT-')) nodeClass += 'interview';
     else nodeClass += 'unlocked';
 
     const nodeContent = unlocked
-      ? `<div class="num">${lvl.id}</div><div class="topic">${lvl.topic}</div><div class="stars">${starStr}</div>`
+      ? `<div class="num">${lvl.id.length > 4 ? lvl.id.replace('INT-', '📝') : lvl.id}</div><div class="topic">${lvl.topic}</div><div class="stars">${starStr}</div>`
       : `<div class="lock-icon">🔒</div>`;
 
     const totalStages = lvl.stages?.length || 1;
