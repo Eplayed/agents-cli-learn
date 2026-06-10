@@ -453,6 +453,23 @@
         gap: 10px;
         flex-wrap: wrap;
       }
+      .typing-indicator {
+        color: var(--muted);
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .typing-indicator .dots::after {
+        content: '';
+        animation: typingDots 1.4s infinite;
+      }
+      @keyframes typingDots {
+        0% { content: ''; }
+        25% { content: '.'; }
+        50% { content: '..'; }
+        75% { content: '...'; }
+      }
     </style>
   </head>
   <body>
@@ -1486,12 +1503,16 @@
             if (uiModeEl.value === "single") {
               if (!currentSessionId) await createSession();
               const bodyEl = addMessage("assistant", "assistant", "");
+              bodyEl.innerHTML = '<span class="typing-indicator">AI 思考中<span class="dots"></span></span>';
               let full = "";
+              let firstToken = true;
               await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: true }, (_evt, chunk) => {
                 if (chunk.type === "text") {
+                  if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
                   full += chunk.content || "";
                   bodyEl.textContent = full;
                 } else if (chunk.type === "tool_calls") {
+                  if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
                   const toolName = (chunk.data && chunk.data.name) || chunk.name || "";
                   const toolInput = chunk.data && chunk.data.input ? chunk.data.input : null;
                   if (toolName) emitLog("INFO", "event", "tool:call", { name: toolName, input: toolInput });
