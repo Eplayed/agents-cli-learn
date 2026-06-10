@@ -390,3 +390,117 @@ class RAGAgentWrapper:
 
 
 from pathlib import Path
+
+
+# ============================================================
+# Full · 全功能 Agent（MCP + Skills + RAG + Tracing + 预算）
+# ============================================================
+
+@register(
+    key="full-agent",
+    name="Full · 全功能 Agent",
+    description="整合所有能力：MCP 工具 + Skills 能力包 + RAG 知识库检索 + Langfuse 追踪 + 预算控制。这是 M0-M9 全部完成后的最终形态。",
+    milestone="Full",
+)
+def create_full_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """全功能 Agent：M0-M9 所有能力集于一身。
+
+    - MCP 工具（天气/计算/搜索）
+    - Skills 按需加载（天气顾问/代码审查）
+    - RAG 知识库检索（docs/*.md）
+    - Langfuse 追踪（如果配了 key）
+    - 预算控制（recursion_limit + max_tokens + timeout）
+    - Checkpoint 持久化（重启不丢对话）
+    """
+    return FullAgentWrapper(session_id=session_id, model=model, checkpointer=checkpointer)
+
+
+class FullAgentWrapper:
+    """全功能 Agent：Skills + RAG + MCP + Tracing"""
+
+    def __init__(self, session_id: str, model: str | None = None, checkpointer=None):
+        self.session_id = session_id
+        self.model = model
+        self.checkpointer = checkpointer
+
+    async def stream(self, message: str, thread_id: str | None = None):
+        from app.core.skills import load_skills, match_skills, skills_to_prompt
+        from app.core.rag import get_rag_retriever, format_rag_context
+        from app.core.tracing import get_tracing_config
+        from langchain_core.messages import SystemMessage, HumanMessage
+
+        thread_id = thread_id or self.session_id
+
+        # 1. Skills 匹配
+        all_skills = load_skills()
+        matched_skills = match_skills(message, all_skills)
+        skill_prompt = skills_to_prompt(matched_skills)
+        if matched_skills:
+            skill_names = [s.name for s in matched_skills]
+            yield {"type": "tool_calls", "data": {"name": f"[Skills 激活: {', '.join(skill_names)}]", "input": None}}
+
+        # 2. RAG 检索
+        rag_context = ""
+        retriever = get_rag_retriever()
+        if retriever:
+            try:
+                docs = await retriever.ainvoke(message)
+                rag_context = format_rag_context(docs)
+                if docs:
+                    sources = [Path(d.metadata.get("source", "")).name for d in docs]
+                    yield {"type": "tool_calls", "data": {"name": f"[RAG 检索: {len(docs)} 片段]", "input": sources}}
+            except Exception as e:
+                yield {"type": "tool_calls", "data": {"name": "[RAG]", "input": f"检索失败: {e}"}}
+
+        # 3. 构建 system prompt（Skills + RAG 都注入）
+        sys_content = (
+            "你是一个全功能的中文 AI 助手。你同时具备：\n"
+            "- 工具调用能力（天气查询、计算器、搜索）\n"
+            "- 知识库检索能力（基于检索结果回答时请标注引用 [1][2]）\n"
+            "- 专业 Skill 指导（按激活的 Skill 流程回答）\n\n"
+            "优先使用工具获取实时数据，参考知识库补充背景知识。"
+            + skill_prompt
+            + ("\n\n" + rag_context if rag_context else "")
+        )
+
+        # 4. 创建 Agent 并执行
+        agent = SingleAgent(
+            session_id=self.session_id,
+            model=self.model,
+            checkpointer=self.checkpointer,
+        )
+
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 25,
+        }
+        tracing = get_tracing_config(session_id=thread_id)
+        if tracing:
+            config.update(tracing)
+
+        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+
+        try:
+            async for event in agent.graph.astream_events(
+                {"messages": messages}, config=config, version="v1"
+            ):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield {"type": "text", "content": content}
+                elif kind == "on_tool_start":
+                    tool_input = event.get("data", {}).get("input")
+                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
+                elif kind == "on_tool_end":
+                    tool_output = event.get("data", {}).get("output")
+                    if tool_output is not None:
+                        try:
+                            tool_output = tool_output.content
+                        except Exception:
+                            tool_output = str(tool_output)
+                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+        except Exception as e:
+            yield {"type": "error", "content": str(e)}
+
+        yield {"type": "done", "content": ""}
