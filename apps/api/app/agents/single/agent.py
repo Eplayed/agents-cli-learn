@@ -135,6 +135,14 @@ class SingleAgent:
         if tracing:
             config.update(tracing)
 
+        # M10：Token 统计
+        from app.core.token_tracker import TokenTracker
+        model_name = self.llm.model_name if hasattr(self.llm, 'model_name') else settings.OPENAI_MODEL
+        self._token_tracker = TokenTracker(model=model_name)
+        if "callbacks" not in config:
+            config["callbacks"] = []
+        config["callbacks"].append(self._token_tracker)
+
         sys = SystemMessage(
             content=(
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
@@ -166,6 +174,12 @@ class SingleAgent:
                     yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
         except Exception as e:
             yield {"type": "error", "content": str(e)}
+
+        # M10：返回 token 统计（如果有）
+        if hasattr(self, '_token_tracker') and self._token_tracker:
+            from app.core.token_tracker import format_token_stats
+            stats = self._token_tracker.get_stats()
+            yield {"type": "token_stats", "data": format_token_stats(stats)}
 
         yield {"type": "done", "content": ""}
 

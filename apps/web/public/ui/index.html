@@ -1510,6 +1510,11 @@
                   }
                 } else if (chunk.type === "error") {
                   addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
+                } else if (chunk.type === "token_stats") {
+                  // M10：显示 token 消耗统计
+                  const s = chunk.data || {};
+                  const statsText = `📊 Token: ${s.total_tokens || 0} (入${s.input_tokens || 0}/出${s.output_tokens || 0}) · 模型: ${s.model || '?'} · 费用: ${s.cost_display || '?'} · LLM调用: ${s.llm_calls || 0}次`;
+                  addMessage("event", "token_stats", statsText);
                 } else if (chunk.type === "done") {
                   return;
                 } else {
