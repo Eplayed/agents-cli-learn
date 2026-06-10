@@ -293,3 +293,100 @@ class SkillsAgentWrapper:
             yield {"type": "error", "content": str(e)}
 
         yield {"type": "done", "content": ""}
+
+
+# ============================================================
+# M9 · RAG Agent（知识库检索增强）
+# ============================================================
+
+@register(
+    key="rag-agent",
+    name="M9 · RAG Agent",
+    description="带知识库检索的 Agent：回答前先从项目文档中检索相关内容，基于真实知识回答并标注来源。",
+    milestone="M9",
+)
+def create_rag_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """RAG Agent：先检索项目 docs/ 里的知识，再回答。
+
+    适合问项目相关的技术问题（如"什么是 MCP""LangGraph 怎么用"）。
+    """
+    return RAGAgentWrapper(session_id=session_id, model=model, checkpointer=checkpointer)
+
+
+class RAGAgentWrapper:
+    """RAG Agent：检索 + 生成"""
+
+    def __init__(self, session_id: str, model: str | None = None, checkpointer=None):
+        self.session_id = session_id
+        self.model = model
+        self.checkpointer = checkpointer
+
+    async def stream(self, message: str, thread_id: str | None = None):
+        from app.core.rag import get_rag_retriever, format_rag_context
+        from langchain_core.messages import SystemMessage, HumanMessage
+
+        # 1. 检索相关文档
+        retriever = get_rag_retriever()
+        rag_context = ""
+        if retriever:
+            try:
+                docs = await retriever.ainvoke(message)
+                rag_context = format_rag_context(docs)
+                if docs:
+                    sources = [Path(d.metadata.get("source", "")).name for d in docs]
+                    yield {"type": "tool_calls", "data": {"name": "[RAG 检索]", "input": f"找到 {len(docs)} 个相关片段: {sources}"}}
+            except Exception as e:
+                yield {"type": "tool_calls", "data": {"name": "[RAG 检索失败]", "input": str(e)}}
+
+        # 2. 构建带 RAG 上下文的 agent
+        agent = SingleAgent(
+            session_id=self.session_id,
+            model=self.model,
+            checkpointer=self.checkpointer,
+        )
+
+        thread_id = thread_id or self.session_id
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 25,
+        }
+        from app.core.tracing import get_tracing_config
+        tracing = get_tracing_config(session_id=thread_id)
+        if tracing:
+            config.update(tracing)
+
+        sys_content = (
+            "你是一个可调用工具的中文助手。你有一个知识库可以参考。"
+            "请基于知识库的内容回答，并在回答中标注引用编号如 [1][2]。"
+            "如果知识库没有相关内容，就用你自己的知识回答并说明。"
+            + rag_context
+        )
+        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+
+        try:
+            async for event in agent.graph.astream_events(
+                {"messages": messages}, config=config, version="v1"
+            ):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield {"type": "text", "content": content}
+                elif kind == "on_tool_start":
+                    tool_input = event.get("data", {}).get("input")
+                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
+                elif kind == "on_tool_end":
+                    tool_output = event.get("data", {}).get("output")
+                    if tool_output is not None:
+                        try:
+                            tool_output = tool_output.content
+                        except Exception:
+                            tool_output = str(tool_output)
+                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+        except Exception as e:
+            yield {"type": "error", "content": str(e)}
+
+        yield {"type": "done", "content": ""}
+
+
+from pathlib import Path

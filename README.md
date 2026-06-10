@@ -70,7 +70,7 @@ npm run dev
 | M6 | OpenTelemetry + Langfuse 可观测 | ✅ 已完成 |
 | M7 | 评测体系（10 条回归用例 + 4 种断言） | ✅ 已完成 |
 | M8 | Skills 框架（渐进式加载能力包） | ✅ 已完成 |
-| M9 | 长期记忆 + RAG | 待开始 |
+| M9 | RAG 知识库检索（ChromaDB + 引用标注） | ✅ 已完成 |
 
 ---
 
