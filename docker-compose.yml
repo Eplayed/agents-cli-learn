@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  # Python FastAPI 后端（Agent 服务）
+  api:
+    build: ./apps/api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    volumes:
+      # 持久化 checkpoint 和 RAG 数据库
+      - ./data/checkpoints:/app/checkpoints.db
+      - ./data/rag_db:/app/rag_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Vue 3 前端（如果已构建）
+  # web:
+  #   build: ./apps/web
+  #   ports:
+  #     - "3000:80"
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped

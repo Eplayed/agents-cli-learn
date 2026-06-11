@@ -26,3 +26,15 @@ npm-debug.log*
 
 # Test
 coverage/
+
+
+# Docker persistent data
+data/
+
+# RAG vector database
+apps/api/rag_db/
+
+# Checkpoint database
+apps/api/checkpoints.db
+apps/api/checkpoints.db-shm
+apps/api/checkpoints.db-wal

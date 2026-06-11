@@ -136,3 +136,69 @@ agents-cli-learn/
 ## License
 
 ISC
+
+
+---
+
+## 🐳 Docker 部署
+
+```bash
+# 一键启动（需要先配好 .env.dev）
+docker compose up --build
+
+# 后台运行
+docker compose up -d
+
+# 查看日志
+docker compose logs -f api
+
+# 停止
+docker compose down
+```
+
+访问 http://localhost:8000/ui
+
+---
+
+## 🧪 自动化测试
+
+```bash
+# 本地运行
+cd apps/api
+.venv/bin/python -m pytest tests/ -v
+
+# 运行评测（需要 OpenAI Key）
+.venv/bin/python -m eval.run_eval
+```
+
+CI 自动跑（GitHub Actions）：每次 push/PR 自动执行测试。
+
+---
+
+## 🤝 如何贡献
+
+1. Fork 本仓库
+2. 创建功能分支：`git checkout -b feat/my-feature`
+3. 提交改动：`git commit -m "feat: add xxx"`
+4. 推送并创建 PR
+
+### 代码规范
+- Python：遵循项目现有风格，函数有 docstring
+- 前端：Vue 3 Composition API + TypeScript
+- 提交信息：遵循 [Conventional Commits](https://www.conventionalcommits.org/)（feat/fix/docs/test）
+
+### 加新工具
+1. 新建 `apps/api/app/mcp_servers/xxx_server.py`
+2. 在 `mcp_servers/config.json` 注册
+3. 重启 API 即可（不需要改 agent 代码）
+
+### 加新 Skill
+1. 新建 `apps/api/skills/my-skill/SKILL.md`
+2. 写好 frontmatter（triggers）和正文
+3. 重启 API 即可
+
+---
+
+## 📄 License
+
+MIT
