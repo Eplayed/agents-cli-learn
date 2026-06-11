@@ -47,7 +47,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 | 维度 | 当前实现 | 2026 主流 | 差距优先级 |
 |---|---|---|---|
-| 工具协议 | stdio MCP 已完成（weather/utils），HTTP transport 待完成 | MCP Client/Server（stdio + http 混用） | � 部分完成 |
+| 工具协议 | stdio MCP 已完成（weather/utils），HTTP transport 待完成 | MCP Client/Server（stdio + http 混用） | 🟡 部分完成 |
 | Checkpoint | `MemorySaver`（每次构造都新建，重启即丢；DB 仅保存业务消息，LangGraph 图状态未持久化） | `AsyncSqliteSaver` / `AsyncPostgresSaver`（lifespan 内全局共享） | 🔴 高 |
 | 可观测 | print + DB 落库 | OpenTelemetry GenAI + Langfuse | 🔴 高 |
 | 预算控制 | 无 | `recursion_limit` + max_tokens + timeout | 🔴 高 |
