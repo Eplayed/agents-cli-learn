@@ -17,6 +17,36 @@ from app.agents.registry import get_agent, get_default_key, list_agents
 
 router = APIRouter()
 
+# API Key 占位符列表（这些值说明用户还没配置真实 key）
+_PLACEHOLDER_KEYS = {"", "sk-your-key", "sk-xxx", "sk-your-api-key-here"}
+
+
+def _is_api_key_missing() -> bool:
+    """检查 API key 是否缺失或为占位符"""
+    key = (settings.OPENAI_API_KEY or "").strip()
+    return key in _PLACEHOLDER_KEYS
+
+
+def _config_error_payload() -> dict:
+    """生成友好的配置错误信息（供前端渲染为引导卡片）"""
+    return {
+        "type": "config_error",
+        "content": "🔑 API Key 未配置",
+        "details": {
+            "title": "需要配置 OpenAI API Key",
+            "steps": [
+                "编辑项目根目录的 .env.dev 文件",
+                "设置 OPENAI_API_KEY=sk-your-real-key",
+                "保存后重启服务 (npm run dev)",
+            ],
+            "hint": "国内用户可同时设置 OPENAI_BASE_URL 使用 SiliconFlow/DeepSeek 等代理服务",
+            "link": {
+                "text": "获取 OpenAI API Key",
+                "url": "https://platform.openai.com/api-keys",
+            },
+        },
+    }
+
 
 def _get_checkpointer_from_request(raw_request):
     """从 FastAPI Request 获取 lifespan 注入的 checkpointer"""
@@ -60,11 +90,8 @@ async def get_or_create_session(session_id: str | None, db: AsyncSession):
 @router.post("/send")
 async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
     # 非流式：等模型完全生成完，返回一次性 JSON（适合简单前端/调试）
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
-        raise HTTPException(
-            status_code=400,
-            detail="OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
-        )
+    if _is_api_key_missing():
+        raise HTTPException(status_code=400, detail=_config_error_payload())
 
     session, _ = await get_or_create_session(request.session_id, db)
 
@@ -100,16 +127,11 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     db.add(user_msg)
     await db.commit()
 
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
+    if _is_api_key_missing():
         async def event_generator():
             yield {
                 "event": "message",
-                "data": json.dumps(
-                    {
-                        "type": "error",
-                        "content": "OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。",
-                    }
-                ),
+                "data": json.dumps(_config_error_payload()),
             }
             yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
 
@@ -165,8 +187,8 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
     await db.commit()
 
     async def gen():
-        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() in {"sk-your-key", "sk-xxx"}:
-            yield (json.dumps({"type": "error", "content": "OPENAI_API_KEY 未配置或仍为占位符。请在 phase3-backend/.env 或项目根目录 .env.dev 中设置 OPENAI_API_KEY。"}) + "\n").encode("utf-8")
+        if _is_api_key_missing():
+            yield (json.dumps(_config_error_payload()) + "\n").encode("utf-8")
             yield (json.dumps({"type": "done", "content": ""}) + "\n").encode("utf-8")
             return
 

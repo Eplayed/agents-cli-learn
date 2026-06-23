@@ -323,9 +323,13 @@ class RAGAgentWrapper:
 
     async def stream(self, message: str, thread_id: str | None = None):
         from app.core.rag import get_rag_retriever, format_rag_context
+        from app.core.config import settings
         from langchain_core.messages import SystemMessage, HumanMessage
 
         # 1. 检索相关文档
+        if not settings.ENABLE_RAG:
+            yield {"type": "text", "content": "⚠️ RAG 知识库检索当前已关闭。\n\n如需启用，请在 `.env.dev` 中设置：\n```\nENABLE_RAG=true\n```\n然后重启服务。首次启用会下载约 90MB 的 embedding 模型。\n\n以下使用普通模式回答你的问题：\n\n"}
+
         retriever = get_rag_retriever()
         rag_context = ""
         if retriever:

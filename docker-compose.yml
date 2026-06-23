@@ -1,17 +1,42 @@
 version: "3.8"
 
+# ============================================================
+# Noah Agent Platform - Docker Compose
+# ============================================================
+# 两种使用方式：
+#
+# 方式 A：环境变量直接传入（推荐，无需 .env.dev 文件）
+#   export OPENAI_API_KEY=sk-xxx
+#   docker compose up
+#
+# 方式 B：使用 .env.dev 文件
+#   cp .env.example .env.dev  # 填入 API key
+#   docker compose up
+#
+# 环境变量优先级：environment > env_file > Dockerfile 默认值
+# ============================================================
+
 services:
   # Python FastAPI 后端（Agent 服务）
   api:
     build: ./apps/api
     ports:
       - "8000:8000"
+    environment:
+      # 从宿主机环境变量读取（未设置时为空，不会覆盖 env_file 的值）
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-}
+      - AUTH_SECRET=${AUTH_SECRET:-}
+      - ENABLE_RAG=${ENABLE_RAG:-false}
     env_file:
-      - .env.dev
+      # 可选：如果 .env.dev 存在则加载，不存在也不报错
+      - path: .env.dev
+        required: false
     volumes:
-      # 持久化 checkpoint 和 RAG 数据库
-      - ./data/checkpoints:/app/checkpoints.db
-      - ./data/rag_db:/app/rag_db
+      # 持久化 checkpoint 和 RAG 数据库（容器重启不丢数据）
+      - checkpoint_data:/app/checkpoints.db
+      - rag_data:/app/rag_db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -19,7 +44,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # Vue 3 前端（如果已构建）
+  # Vue 3 前端（如果需要单独部署前端）
   # web:
   #   build: ./apps/web
   #   ports:
@@ -27,3 +52,7 @@ services:
   #   depends_on:
   #     - api
   #   restart: unless-stopped
+
+volumes:
+  checkpoint_data:
+  rag_data:

@@ -94,24 +94,50 @@ def build_vectorstore():
 
 def _get_embedding_function():
     """获取 embedding 函数（使用 ChromaDB 内置的免费模型，不需要 OpenAI key）"""
+    import signal
     from langchain_chroma import Chroma
-    from langchain.embeddings import HuggingFaceEmbeddings
 
     # 用本地小模型做 embedding（不花钱，不需要 API key）
     # 首次运行会下载模型（约 90MB）
     try:
-        return HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
-        )
-    except Exception:
-        # 如果 HuggingFace 模型下载失败，用 Chroma 默认的
+        from langchain.embeddings import HuggingFaceEmbeddings
+
+        # Timeout protection: 首次下载最多等 120 秒
+        class _DownloadTimeout(Exception):
+            pass
+
+        def _timeout_handler(signum, frame):
+            raise _DownloadTimeout("Embedding model download timed out (120s)")
+
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(120)  # 120 秒超时
+        try:
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={"device": "cpu"},
+            )
+        finally:
+            signal.alarm(0)  # 取消超时
+            signal.signal(signal.SIGALRM, old_handler)
+
+        return embeddings
+    except Exception as e:
+        # 下载超时或其他失败，用 Chroma 默认的（精度低但不需要下载）
+        print(f"[RAG] Embedding 模型加载失败，使用默认（{e}）")
         from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
         return DefaultEmbeddingFunction()
 
 
 def get_rag_retriever(top_k: int = 3):
-    """获取 RAG 检索器（单例）"""
+    """获取 RAG 检索器（单例）。
+
+    当 ENABLE_RAG=False 时直接返回 None（不加载模型、不初始化向量库）。
+    """
+    from app.core.config import settings
+
+    if not settings.ENABLE_RAG:
+        return None
+
     global _RETRIEVER
     if _RETRIEVER is not None:
         return _RETRIEVER
@@ -123,7 +149,7 @@ def get_rag_retriever(top_k: int = 3):
         _RETRIEVER = vectorstore.as_retriever(search_kwargs={"k": top_k})
         return _RETRIEVER
     except Exception as e:
-        print(f"[RAG] 构建向量库失败: {e}")
+        print(f"[RAG] 构建向量库失败（不影响其他功能）: {e}")
         return None
 
 

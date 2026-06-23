@@ -9,6 +9,7 @@ MCP Tools Loader
 3. 可测试：测试时换一份 mock config 即可
 """
 import json
+import sys
 from pathlib import Path
 from typing import List
 
@@ -21,17 +22,59 @@ _TOOLS_CACHE: List[BaseTool] | None = None
 _CLIENT: MultiServerMCPClient | None = None
 
 
+def _resolve_venv_python() -> str:
+    """动态解析 venv 的 Python 路径。
+
+    策略：
+    1. 优先用当前运行的 Python 解释器（sys.executable）
+       — 如果是通过 .venv/bin/python 启动的，这就是正确路径
+    2. 回退：从 loader.py 的位置反推 apps/api/.venv/bin/python
+    3. 最终回退：裸 "python"（系统默认）
+
+    为什么这样设计？
+    - `npm run dev` 从项目根启动时 cwd 是根目录，但 sys.executable 指向 venv
+    - `cd apps/api && .venv/bin/uvicorn` 时 sys.executable 同样指向 venv
+    - Docker 容器内没有 venv，sys.executable 就是系统 python，也能工作
+    """
+    # 方式 1：当前解释器（最可靠 — 如果项目是通过 venv 启动的）
+    current_python = sys.executable
+    if current_python and Path(current_python).exists():
+        return current_python
+
+    # 方式 2：从本文件位置反推 venv 路径
+    # loader.py 位于 apps/api/app/mcp_servers/loader.py
+    # venv 位于 apps/api/.venv/bin/python
+    api_root = Path(__file__).resolve().parent.parent.parent  # apps/api/
+    venv_python = api_root / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        return str(venv_python)
+
+    # 方式 3：回退到系统 python
+    print("[MCP Loader] ⚠️ 未找到 venv Python，使用系统 'python'。建议先运行 ./setup.sh 创建虚拟环境。")
+    return "python"
+
+
 def _load_config() -> dict:
-    """读 mcp_servers/config.json 并去掉以 _ 开头的注释字段"""
+    """读 mcp_servers/config.json 并去掉以 _ 开头的注释字段，同时修正 python 路径"""
     cfg_path = Path(__file__).resolve().parent / "config.json"
     raw = json.loads(cfg_path.read_text(encoding="utf-8"))
     servers = raw.get("mcpServers", {})
 
+    # 解析 venv python 路径（一次性，所有 server 共用）
+    venv_python = _resolve_venv_python()
+
     # 把 _description / _comment 这类注释字段过滤掉
-    # MultiServerMCPClient 只认识规范字段（command/args/transport/url 等）
+    # 同时将 command 为 "python" 的替换为 venv python 路径
     clean = {}
     for name, spec in servers.items():
-        clean[name] = {k: v for k, v in spec.items() if not k.startswith("_")}
+        server_conf = {k: v for k, v in spec.items() if not k.startswith("_")}
+
+        # 动态替换 python 命令为 venv 路径
+        if server_conf.get("command") == "python":
+            server_conf["command"] = venv_python
+
+        clean[name] = server_conf
+
     return clean
 
 

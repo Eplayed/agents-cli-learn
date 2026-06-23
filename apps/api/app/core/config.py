@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     AUTH_SECRET: str = ""
 
     # =========================
+    # RAG 配置（M9）
+    # =========================
+    # False = 不加载 embedding 模型（首次启动快，默认关闭）
+    # True = 启用 RAG 知识库检索（首次会下载 ~90MB 模型）
+    ENABLE_RAG: bool = False
+
+    # =========================
     # 可观测配置（M6 - Langfuse）
     # =========================
     # 配置后自动追踪所有 LLM 调用 + 工具执行

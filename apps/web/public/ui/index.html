@@ -470,6 +470,44 @@
         50% { content: '..'; }
         75% { content: '...'; }
       }
+
+      .config-guide {
+        background: linear-gradient(135deg, rgba(124, 92, 255, 0.08), rgba(45, 212, 191, 0.08));
+        border: 1px solid rgba(124, 92, 255, 0.3);
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin: 4px 0;
+      }
+      .config-guide h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+        color: var(--accent);
+      }
+      .config-guide ol {
+        margin: 0;
+        padding-left: 20px;
+        line-height: 1.8;
+        font-size: 13px;
+      }
+      .config-guide .hint-text {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .config-guide a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .config-guide a:hover {
+        text-decoration: underline;
+      }
+      .config-guide code {
+        background: rgba(124, 92, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -604,6 +642,27 @@
           .replace(/^---$/gm, '<hr>')
           // 换行
           .replace(/\n/g, '<br>');
+      }
+
+      function renderConfigGuide(chunk) {
+        const details = chunk.details || {};
+        const steps = details.steps || ["编辑 .env.dev", "设置 OPENAI_API_KEY", "重启服务"];
+        const hint = details.hint || "";
+        const link = details.link || { text: "获取 API Key", url: "https://platform.openai.com/api-keys" };
+
+        const div = document.createElement("div");
+        div.className = "msg assistant";
+        const guide = document.createElement("div");
+        guide.className = "config-guide";
+        guide.innerHTML = `
+          <h3>🔑 ${details.title || "需要配置 API Key"}</h3>
+          <ol>${steps.map(s => `<li>${s}</li>`).join("")}</ol>
+          ${hint ? `<div class="hint-text">💡 ${hint}</div>` : ""}
+          ${link ? `<div class="hint-text"><a href="${link.url}" target="_blank">${link.text} →</a></div>` : ""}
+        `;
+        div.appendChild(guide);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }
       const apiBaseInput = $("apiBase");
       const backendUrlEl = $("backendUrl");
@@ -1506,7 +1565,20 @@
             }
           });
         } catch (e) {
-          addMessage("event", "error", String(e && e.message ? e.message : e));
+          const msg = String(e && e.message ? e.message : e);
+          if (msg.includes("config_error") || msg.includes("API Key 未配置")) {
+            try {
+              const jsonMatch = msg.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                const detail = parsed.detail || parsed;
+                if (detail.type === "config_error") { renderConfigGuide(detail); }
+                else { addMessage("event", "error", msg); }
+              } else { addMessage("event", "error", msg); }
+            } catch { addMessage("event", "error", msg); }
+          } else {
+            addMessage("event", "error", msg);
+          }
         } finally {
           setRunning(false);
         }
@@ -1552,6 +1624,10 @@
                   } else {
                     addMessage("event", "tool_result", JSON.stringify(chunk.data || chunk, null, 2));
                   }
+                } else if (chunk.type === "config_error") {
+                  if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
+                  bodyEl.remove();
+                  renderConfigGuide(chunk);
                 } else if (chunk.type === "error") {
                   addMessage("event", "error", chunk.content || JSON.stringify(chunk, null, 2));
                 } else if (chunk.type === "token_stats") {
@@ -1588,7 +1664,20 @@
             }
           });
         } catch (e) {
-          addMessage("event", "error", String(e && e.message ? e.message : e));
+          const msg = String(e && e.message ? e.message : e);
+          if (msg.includes("config_error") || msg.includes("API Key 未配置")) {
+            try {
+              const jsonMatch = msg.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                const detail = parsed.detail || parsed;
+                if (detail.type === "config_error") { renderConfigGuide(detail); }
+                else { addMessage("event", "error", msg); }
+              } else { addMessage("event", "error", msg); }
+            } catch { addMessage("event", "error", msg); }
+          } else {
+            addMessage("event", "error", msg);
+          }
         } finally {
           setRunning(false);
         }
