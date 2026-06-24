@@ -75,8 +75,8 @@ class RunTracker:
             event_data=event_data,
         )
         self.db.add(event)
-        # 批量 flush，不立即 commit（由 finish_run 统一 commit）
-        await self.db.flush()
+        # 立即 commit，不持有长事务（避免 SQLite 锁冲突）
+        await self.db.commit()
         return event
 
     async def finish_run(
