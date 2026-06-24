@@ -33,14 +33,17 @@ agents-cli-learn/
 │   │   │   └── multi/
 │   │   │       └── team.py      — MultiAgentTeam：Sequential/Parallel/Supervisor/GroupChat
 │   │   ├── api/v1/
-│   │   │   ├── chat.py          — /chat/send + /stream_ndjson（核心对话 API）
+│   │   ├── chat.py          — /chat/send + /stream_ndjson（核心对话 API + 运行持久化 + 幂等 + 配额）
 │   │   │   ├── session.py       — 会话 CRUD + 消息历史
-│   │   │   └── team.py          — Multi-Agent API
+│   │   │   ├── team.py          — Multi-Agent API
+│   │   │   └── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
 │   │   ├── core/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db 依赖注入
 │   │   │   ├── checkpointer.py  — AsyncSqliteSaver（LangGraph 对话持久化）
 │   │   │   ├── auth.py          — Bearer Token 中间件 + ContextVar 协程隔离
+│   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
+│   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪）
 │   │   │   ├── rag.py           — ChromaDB 向量检索（docs/*.md 知识库）
 │   │   │   ├── skills.py        — SKILL.md 解析 + 触发词匹配 + prompt 注入
@@ -54,7 +57,7 @@ agents-cli-learn/
 │   │   │   ├── time_server.py   — 时间工具（HTTP transport 演示）
 │   │   │   └── loader.py        — MCP 配置加载 + MultiServerMCPClient 缓存
 │   │   ├── models/
-│   │   │   └── models.py        — SQLAlchemy ORM（Session + Message）
+│   │   │   └── models.py        — SQLAlchemy ORM（Session + Message + AgentRun + AgentEvent）
 │   │   └── schemas/
 │   │       └── chat.py          — Pydantic 请求/响应 Schema
 │   ├── eval/
@@ -96,7 +99,7 @@ agents-cli-learn/
 │   │   └── views/
 │   │       ├── ChatView.vue     — 主对话页
 │   │       └── LogView.vue      — 日志面板
-│   └── public/ui/index.html     — 旧版静态 HTML UI（保留兼容）
+│   └── public/ui/index.html     — 静态 HTML UI（markdown-it 渲染 + 停止生成 + 反馈 + 请求追踪）
 │
 ├── docs/                        — 文档 + GitHub Pages 站点
 │   ├── index.html               — Pages 门户首页
@@ -108,6 +111,10 @@ agents-cli-learn/
 │   ├── RUNNING.md               — 本地运行手册
 │   ├── DEPLOYMENT.md            — GitHub Pages 部署指南
 │   ├── STUDY-NOTES.md           — M0-M4 学习笔记
+│   ├── interview/               — 面试题系统学习（Vue 3 CDN 组件化）
+│   │   ├── index.html           — 入口（importmap + Vue ESM）
+│   │   ├── css/styles.css       — 样式（复用门户设计变量）
+│   │   └── js/                  — 6 模块 45 题 + 真实代码讲解
 │   └── learn-game/              — 交互式学习闯关游戏
 │       ├── index.html           — 游戏入口
 │       ├── css/styles.css       — 全部样式
@@ -147,15 +154,31 @@ agents-cli-learn/
 | GET | /health | 健康检查 |
 | GET | /api/v1/models | 可用模型列表 |
 | GET | /api/v1/agents | 可用 Agent 列表 |
-| POST | /api/v1/chat/stream_ndjson | 流式对话（核心） |
+| POST | /api/v1/chat/stream_ndjson | 流式对话（核心，支持幂等 key） |
 | POST | /api/v1/chat/send | 非流式对话 |
 | POST | /api/v1/session/ | 创建会话 |
+| DELETE | /api/v1/session/{id} | 删除会话 |
 | GET | /api/v1/session/{id}/messages | 获取历史消息 |
+| GET | /api/v1/runs/ | Agent 运行历史（分页 + 筛选） |
+| GET | /api/v1/runs/{id} | 单次运行详情 + 事件溯源 |
+| GET | /api/v1/runs/quota | 当前用户配额用量 |
 
 ## 核心数据流
 
 ```
-用户输入 → FastAPI 路由 → Pydantic 校验 → Agent Registry 选 Agent
-→ LangGraph StateGraph（agent → tools_condition → ToolNode → agent → END）
-→ astream_events → NDJSON 流式推送 → 前端增量渲染
+用户输入 → FastAPI 路由 → Pydantic 校验 → 配额检查 → 幂等检查
+→ Agent Registry 选 Agent → LangGraph StateGraph（agent → tools → agent → END）
+→ astream_events → Run/Event 持久化 → NDJSON 流式推送 → 前端增量渲染
 ```
+
+## 生产 Runtime 能力
+
+| 能力 | 实现 | 说明 |
+|------|------|------|
+| Run 持久化 | `AgentRun` + `AgentEvent` 表 | 每次调用全链路事件溯源 |
+| 幂等性 | `idempotency_key` 字段 | 重复请求直接返回缓存 |
+| 配额限制 | `quota.py` 进程内计数 | 按用户每日 token 上限 |
+| 停止生成 | AbortController + 前端 stopBtn | 中断 HTTP 流 |
+| Markdown | markdown-it + highlight.js | 代码高亮 + 公式 + 表格 |
+| 消息反馈 | 👍👎 按钮 | 每条 assistant 消息可评价 |
+| 请求追踪 | X-Request-ID header | 前后端链路对齐 |

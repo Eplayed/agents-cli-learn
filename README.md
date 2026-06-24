@@ -60,6 +60,22 @@ npm run dev
 | **Bearer Token 鉴权中间件（ContextVar 协程隔离）** | `apps/api/app/core/auth.py` |
 | **危险工具 + HITL 确认机制** | `apps/api/app/mcp_servers/dangerous_server.py` |
 
+### 生产 Runtime 能力（M10+）
+
+| 能力 | 说明 | 实现位置 |
+|---|---|---|
+| Agent Run/Event 持久化 | 每次调用的完整事件溯源，可审计、可回放 | `app/core/run_tracker.py` + `app/models/models.py` |
+| 幂等性 | `idempotency_key` 防重复执行 | `app/api/v1/chat.py` |
+| Per-user 配额 | 每日 token 上限 + 白名单 | `app/core/quota.py` + `app/core/config.py` |
+| 运行历史 API | 查询 runs/events/quota | `app/api/v1/runs.py` |
+| 停止生成 | 前端 AbortController 中断流式 | `apps/web/public/ui/index.html` |
+| Markdown 渲染 | markdown-it + highlight.js 代码高亮 | CDN + `index.html` |
+| 消息反馈 | 每条回复 👍👎 评价 | `index.html` |
+| 请求追踪 | X-Request-ID header 前后端链路对齐 | `index.html` apiFetch |
+| 一键 setup | `./setup.sh` 自动环境搭建 | `setup.sh` |
+| 配置引导 | 无 key 时 UI 显示引导卡片 | `app/api/v1/chat.py` + `index.html` |
+| 面试题学习站 | 45 题系统学习 + 代码讲解 | `docs/interview/` |
+
 ### 路线图（M5-M9）
 
 详见 [LEARNING-PLAN.md](./LEARNING-PLAN.md)。

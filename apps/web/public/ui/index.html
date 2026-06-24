@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Noah Agent Web UI</title>
+    <!-- Markdown-it + Highlight.js CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/highlight.js@11.9.0/styles/github-dark.min.css" />
+    <script src="https://unpkg.com/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <script src="https://unpkg.com/highlight.js@11.9.0/build/highlight.min.js"></script>
     <style>
       :root {
         color-scheme: light dark;
@@ -525,6 +529,60 @@
         border-radius: 4px;
         font-size: 12px;
       }
+
+      /* 停止生成按钮 */
+      #stopBtn {
+        animation: fadeIn .2s;
+      }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+      /* 消息反馈 */
+      .msg-feedback {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .feedback-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--muted);
+        transition: all .15s;
+      }
+      .feedback-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .feedback-btn.active-up { border-color: var(--ok); color: var(--ok); background: rgba(45,212,191,0.08); }
+      .feedback-btn.active-down { border-color: var(--danger); color: var(--danger); background: rgba(255,77,109,0.08); }
+
+      /* Markdown 渲染增强 */
+      .msg .content pre {
+        background: rgba(0,0,0,0.25);
+        border-radius: 8px;
+        padding: 12px;
+        overflow-x: auto;
+        margin: 8px 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      @media (prefers-color-scheme: light) {
+        .msg .content pre { background: #f3f4f6; }
+      }
+      .msg .content code {
+        font-family: "SF Mono", Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .msg .content p { margin: 0 0 8px; }
+      .msg .content p:last-child { margin-bottom: 0; }
+      .msg .content ul, .msg .content ol { margin: 4px 0; padding-left: 20px; }
+      .msg .content h1, .msg .content h2, .msg .content h3, .msg .content h4 {
+        margin: 12px 0 6px; font-weight: 700;
+      }
+      .msg .content table { border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+      .msg .content th, .msg .content td { border: 1px solid var(--border); padding: 4px 8px; }
+      .msg .content blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 4px 12px; color: var(--muted); }
+      .msg .content a { color: var(--accent); }
     </style>
   </head>
   <body>
@@ -597,6 +655,7 @@
           <div class="row">
             <button class="btn" id="sendBtn">发送（流式）</button>
             <button class="btn secondary" id="sendOnceBtn">发送（非流式）</button>
+            <button class="btn danger" id="stopBtn" style="display:none">停止生成</button>
           </div>
           <div class="hint" id="hint"></div>
         </div>
@@ -631,27 +690,21 @@
     <script>
       const $ = (id) => document.getElementById(id);
 
-      // 简单 Markdown 渲染（不引入外部库）
+      // Markdown 渲染（使用 markdown-it + highlight.js）
+      const md = window.markdownit({
+        html: false,
+        linkify: true,
+        breaks: true,
+        highlight: function (str, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            try { return hljs.highlight(str, { language: lang }).value; } catch {}
+          }
+          return hljs.highlightAuto(str).value;
+        }
+      });
       function renderMarkdown(text) {
         if (!text) return '';
-        return text
-          // 代码块
-          .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-          // 行内代码
-          .replace(/`([^`]+)`/g, '<code>$1</code>')
-          // 粗体
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          // 标题
-          .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-          .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-          .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-          // 列表
-          .replace(/^- (.+)$/gm, '<li>$1</li>')
-          .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-          // 分隔线
-          .replace(/^---$/gm, '<hr>')
-          // 换行
-          .replace(/\n/g, '<br>');
+        return md.render(text);
       }
 
       function renderConfigGuide(chunk) {
@@ -684,6 +737,7 @@
       const inputEl = $("input");
       const sendBtn = $("sendBtn");
       const sendOnceBtn = $("sendOnceBtn");
+      const stopBtn = $("stopBtn");
       const newSessionBtn = $("newSessionBtn");
       const clearBtn = $("clearBtn");
       const hintEl = $("hint");
@@ -708,6 +762,15 @@
       let sessionSummaries = [];
       let currentMessages = [];
       let pendingToolBlocks = [];
+      let currentAbortCtrl = null; // AbortController for stop-generation
+
+      // 生成 UUID v4（Request-ID 用）
+      function genRequestId() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+      }
 
       const LOG_STORE_KEY = "noah_agent_ui_logs_v1";
       const LOG_UI_KEY = "noah_agent_ui_logpanel_v1";
@@ -730,6 +793,7 @@
         uiModeEl.disabled = v;
         teamModeEl.disabled = v || uiModeEl.value !== "team";
         statusTextEl.textContent = v ? "running" : "idle";
+        stopBtn.style.display = v ? "inline-block" : "none";
       }
 
       function formatTime(d) {
@@ -750,6 +814,23 @@
         body.textContent = content;
         div.appendChild(head);
         div.appendChild(body);
+
+        // 反馈按钮（仅 assistant 消息）
+        if (kind === "assistant") {
+          const fb = document.createElement("div");
+          fb.className = "msg-feedback";
+          fb.innerHTML = `<button class="feedback-btn" data-vote="up" title="有帮助">👍</button><button class="feedback-btn" data-vote="down" title="不太对">👎</button>`;
+          fb.addEventListener("click", (e) => {
+            const btn = e.target.closest(".feedback-btn");
+            if (!btn) return;
+            const vote = btn.dataset.vote;
+            fb.querySelectorAll(".feedback-btn").forEach(b => b.classList.remove("active-up", "active-down"));
+            btn.classList.add(vote === "up" ? "active-up" : "active-down");
+            pushLog("INFO", "feedback", { vote, content: content?.substring(0, 100) });
+          });
+          div.appendChild(fb);
+        }
+
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         return body;
@@ -1195,6 +1276,14 @@
         const url = base.replace(/\/$/, "") + path;
         const method = (init && init.method) || "GET";
         const payload = init && init.body ? (() => { try { return JSON.parse(init.body); } catch { return init.body; } })() : undefined;
+
+        // 注入 Request-ID header
+        if (init && init.headers) {
+          init.headers["X-Request-ID"] = genRequestId();
+        } else if (init) {
+          init.headers = { "X-Request-ID": genRequestId() };
+        }
+
         return await runSpan(
           "INFO",
           "fetch",
@@ -1437,12 +1526,13 @@
         }
       }
 
-      async function streamNDJSON(path, payload, onChunk) {
+      async function streamNDJSON(path, payload, onChunk, signal) {
         return await runSpan("INFO", "ui:streamNDJSON", { path, payload }, async () => {
           const res = await apiFetch(path, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/x-ndjson" },
             body: JSON.stringify(payload),
+            signal: signal || undefined,
           });
 
           if (!res.body) {
@@ -1499,6 +1589,15 @@
 
       clearBtn.addEventListener("click", () => {
         messagesEl.innerHTML = "";
+      });
+
+      stopBtn.addEventListener("click", () => {
+        if (currentAbortCtrl) {
+          currentAbortCtrl.abort();
+          currentAbortCtrl = null;
+          addMessage("event", "system", "⏹ 已停止生成");
+          setRunning(false);
+        }
       });
 
       sessionSearchEl.addEventListener("input", () => {
@@ -1636,6 +1735,7 @@
               bodyEl.innerHTML = '<span class="typing-indicator">AI 思考中<span class="dots"></span></span>';
               let full = "";
               let firstToken = true;
+              currentAbortCtrl = new AbortController();
               await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: true }, (_evt, chunk) => {
                 if (chunk.type === "text") {
                   if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
@@ -1675,7 +1775,8 @@
                 } else {
                   addMessage("event", "event", JSON.stringify(chunk, null, 2));
                 }
-              });
+              }, currentAbortCtrl.signal);
+              currentAbortCtrl = null;
               await loadSessionSummaries();
             } else {
               const bodyEl = addMessage("assistant", `team:${teamModeEl.value}`, "");
