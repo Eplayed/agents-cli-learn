@@ -154,7 +154,7 @@ class SingleAgent:
 
         try:
             async for event in self.graph.astream_events(
-                {"messages": messages}, config=config, version="v2"
+                {"messages": messages}, config=config, version="v1"
             ):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":

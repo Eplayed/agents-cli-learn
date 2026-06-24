@@ -271,7 +271,7 @@ class SkillsAgentWrapper:
 
         try:
             async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v2"
+                {"messages": messages}, config=config, version="v1"
             ):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
@@ -369,7 +369,7 @@ class RAGAgentWrapper:
 
         try:
             async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v2"
+                {"messages": messages}, config=config, version="v1"
             ):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
@@ -486,7 +486,7 @@ class FullAgentWrapper:
 
         try:
             async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v2"
+                {"messages": messages}, config=config, version="v1"
             ):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
