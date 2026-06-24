@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     model: Optional[str] = Field(None, description="指定 LLM 模型名称，不传则用服务端默认值")
     agent_key: Optional[str] = Field(None, description="指定 Agent 类型（如 basic-chatbot / tool-agent / mcp-agent），不传则用默认 MCP Agent")
     stream: bool = True
+    idempotency_key: Optional[str] = Field(None, description="幂等键：相同 key 的重复请求直接返回上次结果，不重复执行。推荐用 UUID")
 
 
 class ChatResponse(BaseModel):

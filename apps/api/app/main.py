@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
-from app.api.v1 import chat, team, session
+from app.api.v1 import chat, team, session, runs
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -52,6 +52,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Single Agent"])
 app.include_router(team.router, prefix="/api/v1/team", tags=["Multi-Agent"])
 app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
+app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observability"])
 
 
 @app.get("/")

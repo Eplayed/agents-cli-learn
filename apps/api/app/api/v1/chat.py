@@ -180,6 +180,31 @@ async def chat_stream_get(message: str, raw_request: FastAPIRequest, session_id:
 async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
     # NDJSON 流式：每一行是一个 JSON（application/x-ndjson）
     # 适配性更强，前端可以用 fetch + ReadableStream 按行解析
+
+    # --- 幂等性检查：重复 key 直接返回上次结果 ---
+    if request.idempotency_key:
+        from app.core.run_tracker import RunTracker
+        tracker = RunTracker(db)
+        existing_run = await tracker.get_by_idempotency_key(request.idempotency_key)
+        if existing_run and existing_run.status == "completed":
+            # 找到已完成的 run，回放其事件流
+            async def replay():
+                for evt in existing_run.events:
+                    yield (json.dumps({"type": evt.event_type, "data": evt.event_data}) + "\n").encode("utf-8")
+                yield (json.dumps({"type": "done", "content": "", "run_id": existing_run.id, "deduplicated": True}) + "\n").encode("utf-8")
+            return StreamingResponse(
+                replay(),
+                media_type="application/x-ndjson; charset=utf-8",
+                headers={"Cache-Control": "no-cache", "X-Idempotency-Status": "hit"},
+            )
+
+    # --- 配额检查：超限直接 429 ---
+    from app.core.quota import check_quota, record_usage
+    from app.core.auth import get_current_user_optional as _get_user_opt
+    _quota_user = _get_user_opt()
+    _quota_uid = _quota_user.user_id if _quota_user else None
+    check_quota(_quota_uid)
+
     session, _ = await get_or_create_session(request.session_id, db)
 
     user_msg = Message(session_id=session.id, role="user", content=request.message)
@@ -196,15 +221,59 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
         full_response = ""
         sid = session.id
 
+        # --- Run Tracker: 持久化运行生命周期 + 事件流 ---
+        from app.core.database import AsyncSessionLocal
+        from app.core.run_tracker import RunTracker
+        from app.core.auth import get_current_user_optional
+
+        user = get_current_user_optional()
+        user_id = user.user_id if user else None
+
+        run_id = None
+        tracker = None
+        tracker_db_ctx = None
+
+        try:
+            tracker_db_ctx = AsyncSessionLocal()
+            tracker_db = await tracker_db_ctx.__aenter__()
+            tracker = RunTracker(tracker_db)
+            run = await tracker.start_run(
+                session_id=sid,
+                prompt=request.message,
+                user_id=user_id,
+                agent_key=request.agent_key,
+                model=request.model,
+                idempotency_key=request.idempotency_key,
+            )
+            run_id = run.id
+        except Exception as _tracker_err:
+            # Run Tracker 是可观测层，失败不应影响核心功能
+            print(f"[RunTracker] start_run failed (non-blocking): {_tracker_err}")
+            tracker = None
+
+        run_status = "completed"
+        run_error = None
+        token_stats = {}
+
         try:
             async for chunk in agent.stream(request.message):
                 if chunk["type"] == "done":
                     break
                 if chunk["type"] == "text":
                     full_response += chunk.get("content", "")
+                if chunk["type"] == "token_stats":
+                    token_stats = chunk.get("data", {})
+
+                # 持久化事件（text 事件太多，只记录非 text 事件以控制存储量）
+                if tracker and run_id and chunk["type"] != "text":
+                    try:
+                        await tracker.record_event(run_id, chunk["type"], chunk.get("data") or {"content": chunk.get("content", "")})
+                    except Exception:
+                        pass  # 事件记录失败不影响流式输出
+
                 yield (json.dumps(chunk) + "\n").encode("utf-8")
 
-            from app.core.database import AsyncSessionLocal
+            # 落库 assistant 消息
             async with AsyncSessionLocal() as inner_db:
                 agent_msg = Message(session_id=sid, role="assistant", content=full_response)
                 inner_db.add(agent_msg)
@@ -214,8 +283,36 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
                 sess.message_count += 2
                 sess.updated_at = datetime.utcnow()
                 await inner_db.commit()
+
         except Exception as e:
+            run_status = "failed"
+            run_error = str(e)
             yield (json.dumps({"type": "error", "content": str(e)}) + "\n").encode("utf-8")
+
+        # 结束 run，写入 token 统计
+        if tracker and run_id:
+            try:
+                await tracker.finish_run(
+                    run_id=run_id,
+                    status=run_status,
+                    error_message=run_error,
+                    input_tokens=token_stats.get("input_tokens", 0),
+                    output_tokens=token_stats.get("output_tokens", 0),
+                    total_tokens=token_stats.get("total_tokens", 0),
+                    cost_usd=token_stats.get("cost_usd", 0.0),
+                )
+            except Exception as _e:
+                print(f"[RunTracker] finish_run failed (non-blocking): {_e}")
+
+        # 配额记录
+        record_usage(_quota_uid, token_stats.get("total_tokens", 0))
+
+        # 清理 tracker DB session
+        if tracker_db_ctx:
+            try:
+                await tracker_db_ctx.__aexit__(None, None, None)
+            except Exception:
+                pass
 
         yield (json.dumps({"type": "done", "content": ""}) + "\n").encode("utf-8")
 
