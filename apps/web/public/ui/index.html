@@ -290,6 +290,19 @@
         color: var(--muted);
         white-space: nowrap;
       }
+      .del-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 13px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        opacity: 0;
+        transition: opacity .15s, color .15s, background .15s;
+      }
+      .sessionItem:hover .del-btn { opacity: 1; }
+      .del-btn:hover { color: var(--danger); background: rgba(255,77,109,0.12); }
       .sessionItem .preview {
         font-size: 12px;
         color: var(--muted);
@@ -1255,13 +1268,38 @@
           const when = s.last_message_at || s.updated_at || s.created_at;
           const time = when ? new Date(when).toLocaleString("zh-CN") : "";
           const preview = s.last_message_preview || "";
-          div.innerHTML = `<div class="top"><div class="name">${s.name || s.id}</div><div class="time">${time}</div></div><div class="preview">${preview}</div>`;
-          div.addEventListener("click", async () => {
+          div.innerHTML = `<div class="top"><div class="name">${s.name || s.id}</div><div class="time">${time}</div><button class="del-btn" title="删除会话">✕</button></div><div class="preview">${preview}</div>`;
+          // 点击会话切换
+          div.addEventListener("click", async (e) => {
+            if (e.target.closest(".del-btn")) return; // 点删除按钮不触发切换
             await runTrace("INFO", "ui:switchSessionTrace", { sessionId: s.id }, async () => {
               await switchSession(s.id);
             });
           });
+          // 删除按钮
+          div.querySelector(".del-btn").addEventListener("click", async (e) => {
+            e.stopPropagation();
+            if (!confirm(`确定删除会话 "${s.name || s.id}"？消息将被永久删除。`)) return;
+            await deleteSession(s.id);
+          });
           sessionListEl.appendChild(div);
+        }
+      }
+
+      async function deleteSession(sessionId) {
+        try {
+          await apiFetch(`/api/v1/session/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+          // 如果删的是当前会话，清空聊天区
+          if (sessionId === currentSessionId) {
+            currentSessionId = null;
+            sessionIdEl.textContent = "-";
+            messagesEl.innerHTML = "";
+            currentMessages = [];
+          }
+          await loadSessionSummaries();
+          addMessage("event", "system", `会话 ${sessionId} 已删除`);
+        } catch (e) {
+          addMessage("event", "error", `删除失败: ${e.message || e}`);
         }
       }
 
