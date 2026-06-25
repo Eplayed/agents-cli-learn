@@ -22,6 +22,18 @@ from app.agents.single.agent import SingleAgent, _FALLBACK_CHECKPOINTER, _get_fa
 from app.core.config import settings
 
 
+def _build_human_message(message: str, images: list | None = None):
+    """构建 HumanMessage：支持纯文本和多模态（文本 + 图片）"""
+    from langchain_core.messages import HumanMessage
+    if images:
+        content_parts = [{"type": "text", "text": message}]
+        for img in images[:3]:
+            data_uri = f"data:{img.media_type};base64,{img.data}"
+            content_parts.append({"type": "image_url", "image_url": {"url": data_uri}})
+        return HumanMessage(content=content_parts)
+    return HumanMessage(content=message)
+
+
 # ============================================================
 # M0 · Basic Chatbot（纯对话，不调工具）
 # ============================================================
@@ -55,18 +67,7 @@ class BasicChatbot:
 
     async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
         sys = SystemMessage(content="你是一个友好的中文助手。注意：你没有任何工具可用，只能基于自己的知识回答。如果用户问天气等实时信息，请诚实告知你无法查询。如果用户发送了图片，请仔细分析图片内容并结合文字回答。")
-
-        # 构建多模态消息
-        if images:
-            content_parts = [{"type": "text", "text": message}]
-            for img in images[:3]:
-                data_uri = f"data:{img.media_type};base64,{img.data}"
-                content_parts.append({"type": "image_url", "image_url": {"url": data_uri}})
-            human_msg = HumanMessage(content=content_parts)
-        else:
-            human_msg = HumanMessage(content=message)
-
-        messages = [sys, human_msg]
+        messages = [sys, _build_human_message(message, images)]
 
         try:
             async for chunk in self.llm.astream(messages):
@@ -278,7 +279,7 @@ class SkillsAgentWrapper:
             "你是一个可调用工具的中文助手。"
             + skill_prompt
         )
-        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+        messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
         try:
             async for event in agent.graph.astream_events(
@@ -376,7 +377,7 @@ class RAGAgentWrapper:
             "如果知识库没有相关内容，就用你自己的知识回答并说明。"
             + rag_context
         )
-        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+        messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
         try:
             async for event in agent.graph.astream_events(
@@ -493,7 +494,7 @@ class FullAgentWrapper:
         if tracing:
             config.update(tracing)
 
-        messages = [SystemMessage(content=sys_content), HumanMessage(content=message)]
+        messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
         try:
             async for event in agent.graph.astream_events(
