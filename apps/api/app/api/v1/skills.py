@@ -223,72 +223,52 @@ async def uninstall_skill(skill_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/online-search")
 async def online_search(q: str = "", category: Optional[str] = None):
-    """从在线 Skill 仓库搜索（代理请求到 aiskillstore.io）
+    """从在线仓库搜索 Skill（GitHub Search API）
 
-    数据来源：
-    - aiskillstore.io（USK 标准，4800+ skills）
-    - 本地 fallback 用 GitHub search API
+    搜索 GitHub 上含 SKILL.md 或 agent-skill 关键词的仓库，
+    返回标准化结果供前端安装。
     """
     import httpx
 
     if not q and not category:
-        return {"skills": [], "count": 0, "source": "aiskillstore.io"}
+        return {"skills": [], "count": 0, "source": "github"}
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # AI Skill Store API
-            params = {"q": q or category or "agent", "limit": "20"}
-            resp = await client.get("https://aiskillstore.io/api/skills/search", params=params)
-            if resp.status_code == 200:
-                data = resp.json()
-                skills = data.get("skills", data.get("results", []))
-                # 标准化字段
-                normalized = []
-                for s in skills[:20]:
-                    normalized.append({
-                        "name": s.get("name") or s.get("slug", "unknown"),
-                        "display_name": s.get("title") or s.get("name", ""),
-                        "description": s.get("description") or s.get("summary", ""),
-                        "version": s.get("version", "1.0.0"),
-                        "author": s.get("author") or s.get("creator", "Community"),
-                        "category": s.get("category", category or "other"),
-                        "icon": s.get("icon", "🌐"),
-                        "triggers": s.get("triggers") or s.get("keywords", []),
-                        "content": s.get("content") or s.get("instructions") or f"# {s.get('name', 'Skill')}\n\n{s.get('description', '')}",
-                        "source": "online",
-                        "source_url": s.get("url") or s.get("github_url", ""),
-                    })
-                return {"skills": normalized, "count": len(normalized), "source": "aiskillstore.io"}
-    except Exception as e:
-        pass  # fallback below
+    search_query = q or category or "agent"
 
-    # Fallback：从 GitHub 搜索带 SKILL.md 的仓库
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 "https://api.github.com/search/repositories",
-                params={"q": f"{q or 'agent'} SKILL.md language:markdown", "per_page": "10", "sort": "stars"},
+                params={
+                    "q": f"{search_query} agent skill",
+                    "per_page": "15",
+                    "sort": "stars",
+                    "order": "desc",
+                },
                 headers={"Accept": "application/vnd.github.v3+json"},
             )
             if resp.status_code == 200:
                 items = resp.json().get("items", [])
                 normalized = []
                 for repo in items:
+                    # 从 topics 提取 triggers
+                    topics = repo.get("topics", [])
                     normalized.append({
                         "name": repo.get("name", ""),
-                        "display_name": repo.get("name", "").replace("-", " ").title(),
-                        "description": repo.get("description", "") or "",
+                        "display_name": repo.get("name", "").replace("-", " ").replace("_", " ").title(),
+                        "description": repo.get("description", "") or "No description",
                         "version": "1.0.0",
                         "author": repo.get("owner", {}).get("login", ""),
                         "category": "community",
                         "icon": "🐙",
-                        "triggers": [],
-                        "content": f"# {repo.get('name', '')}\n\n{repo.get('description', '')}",
+                        "triggers": topics[:5] if topics else [search_query],
+                        "content": f"# {repo.get('name', '')}\n\n{repo.get('description', '')}\n\nSource: {repo.get('html_url', '')}",
                         "source": "github",
                         "source_url": repo.get("html_url", ""),
+                        "stars": repo.get("stargazers_count", 0),
                     })
                 return {"skills": normalized, "count": len(normalized), "source": "github"}
-    except Exception:
-        pass
-
-    return {"skills": [], "count": 0, "source": "none", "error": "在线搜索暂时不可用"}
+            else:
+                return {"skills": [], "count": 0, "source": "github", "error": f"GitHub API: {resp.status_code}"}
+    except Exception as e:
+        return {"skills": [], "count": 0, "source": "none", "error": f"搜索失败: {str(e)}"}
