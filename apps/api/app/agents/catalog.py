@@ -146,7 +146,7 @@ class MultiAgentWrapper:
         self.session_id = session_id
         self.model = model
 
-    async def stream(self, message: str, thread_id: str | None = None) -> AsyncGenerator[dict, None]:
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
         from app.agents.multi.team import MultiAgentTeam
 
         team = MultiAgentTeam(mode="sequential")
@@ -239,7 +239,7 @@ class SkillsAgentWrapper:
         self.model = model
         self.checkpointer = checkpointer
 
-    async def stream(self, message: str, thread_id: str | None = None):
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None):
         from app.core.skills import load_skills, match_skills, skills_to_prompt
 
         # 加载所有 skills 并匹配
@@ -332,7 +332,7 @@ class RAGAgentWrapper:
         self.model = model
         self.checkpointer = checkpointer
 
-    async def stream(self, message: str, thread_id: str | None = None):
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None):
         from app.core.rag import get_rag_retriever, format_rag_context
         from app.core.config import settings
         from langchain_core.messages import SystemMessage, HumanMessage
@@ -438,7 +438,7 @@ class FullAgentWrapper:
         self.model = model
         self.checkpointer = checkpointer
 
-    async def stream(self, message: str, thread_id: str | None = None):
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None):
         from app.core.skills import load_skills, match_skills, skills_to_prompt
         from app.core.rag import get_rag_retriever, format_rag_context
         from app.core.tracing import get_tracing_config
