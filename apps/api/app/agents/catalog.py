@@ -53,9 +53,20 @@ class BasicChatbot:
             streaming=True,
         )
 
-    async def stream(self, message: str, thread_id: str | None = None) -> AsyncGenerator[dict, None]:
-        sys = SystemMessage(content="你是一个友好的中文助手。注意：你没有任何工具可用，只能基于自己的知识回答。如果用户问天气等实时信息，请诚实告知你无法查询。")
-        messages = [sys, HumanMessage(content=message)]
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
+        sys = SystemMessage(content="你是一个友好的中文助手。注意：你没有任何工具可用，只能基于自己的知识回答。如果用户问天气等实时信息，请诚实告知你无法查询。如果用户发送了图片，请仔细分析图片内容并结合文字回答。")
+
+        # 构建多模态消息
+        if images:
+            content_parts = [{"type": "text", "text": message}]
+            for img in images[:3]:
+                data_uri = f"data:{img.media_type};base64,{img.data}"
+                content_parts.append({"type": "image_url", "image_url": {"url": data_uri}})
+            human_msg = HumanMessage(content=content_parts)
+        else:
+            human_msg = HumanMessage(content=message)
+
+        messages = [sys, human_msg]
 
         try:
             async for chunk in self.llm.astream(messages):

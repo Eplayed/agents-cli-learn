@@ -122,7 +122,7 @@ class SingleAgent:
         response = await self.llm_with_tools.ainvoke(state["messages"])
         return {"messages": [response]}
 
-    async def stream(self, message: str, thread_id: str | None = None) -> AsyncGenerator[dict, None]:
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
         thread_id = thread_id or self.session_id
         config = {
             "configurable": {"thread_id": thread_id},
@@ -148,9 +148,25 @@ class SingleAgent:
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
                 "必须先调用 get_weather(city) 获取数据后再给结论。"
                 "回答时先给结论（适合/不适合/观望），再给 1-3 条依据（降雨概率/风速/降水量），最后附天气摘要。"
+                "如果用户发送了图片，请仔细分析图片内容并结合文字回答。"
             )
         )
-        messages = [sys, HumanMessage(content=message)]
+
+        # 构建 HumanMessage：支持多模态（文本 + 图片）
+        if images:
+            # 多模态格式：content 是 list[dict]
+            content_parts = [{"type": "text", "text": message}]
+            for img in images[:3]:  # 最多 3 张
+                data_uri = f"data:{img.media_type};base64,{img.data}"
+                content_parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": data_uri}
+                })
+            human_msg = HumanMessage(content=content_parts)
+        else:
+            human_msg = HumanMessage(content=message)
+
+        messages = [sys, human_msg]
 
         try:
             async for event in self.graph.astream_events(

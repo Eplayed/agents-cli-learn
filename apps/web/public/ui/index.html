@@ -583,6 +583,68 @@
       .msg .content th, .msg .content td { border: 1px solid var(--border); padding: 4px 8px; }
       .msg .content blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 4px 12px; color: var(--muted); }
       .msg .content a { color: var(--accent); }
+
+      /* 图片上传 */
+      .input-wrap {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+      }
+      .input-wrap textarea {
+        flex: 1;
+        padding-right: 40px;
+      }
+      .upload-btn {
+        position: absolute;
+        right: 8px;
+        bottom: 10px;
+        font-size: 18px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity .15s;
+      }
+      .upload-btn:hover { opacity: 1; }
+      .img-preview-bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-height: 0;
+      }
+      .img-preview-bar:empty { display: none; }
+      .img-preview-item {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .img-preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .img-preview-item .img-remove {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.6);
+        color: #fff;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .img-preview-item .img-remove:hover { background: var(--danger); }
+      .drag-over textarea {
+        border-color: var(--accent) !important;
+        background: rgba(99,102,241,0.05);
+      }
     </style>
   </head>
   <body>
@@ -651,7 +713,14 @@
         <div class="messages" id="messages"></div>
         <div class="composer">
           <div class="label">输入</div>
-          <textarea id="input" placeholder="单 Agent：输入一句话；Multi-Agent：输入 topic"></textarea>
+          <div class="img-preview-bar" id="imgPreviewBar"></div>
+          <div class="input-wrap">
+            <textarea id="input" placeholder="输入文字，可粘贴/拖拽/点击📎上传图片"></textarea>
+            <label class="upload-btn" title="上传图片（最多3张）">
+              📎
+              <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden />
+            </label>
+          </div>
           <div class="row">
             <button class="btn" id="sendBtn">发送（流式）</button>
             <button class="btn secondary" id="sendOnceBtn">发送（非流式）</button>
@@ -763,6 +832,12 @@
       let currentMessages = [];
       let pendingToolBlocks = [];
       let currentAbortCtrl = null; // AbortController for stop-generation
+      let pendingImages = []; // Base64 images waiting to be sent
+
+      // 图片上传元素
+      const fileInputEl = $("fileInput");
+      const imgPreviewBarEl = $("imgPreviewBar");
+      const composerEl = document.querySelector(".composer");
 
       // 生成 UUID v4（Request-ID 用）
       function genRequestId() {
@@ -771,6 +846,104 @@
           return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
         });
       }
+
+      // ===== 图片上传逻辑 =====
+      const MAX_IMAGES = 3;
+      const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
+
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(",")[1]; // 去掉 data:...;base64, 前缀
+            resolve({ data: base64, media_type: file.type || "image/png" });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function addImageFiles(files) {
+        for (const file of files) {
+          if (pendingImages.length >= MAX_IMAGES) {
+            addMessage("event", "system", `最多上传 ${MAX_IMAGES} 张图片`);
+            break;
+          }
+          if (!file.type.startsWith("image/")) continue;
+          if (file.size > MAX_IMAGE_SIZE) {
+            addMessage("event", "system", `图片 "${file.name}" 超过 4MB 限制，已跳过`);
+            continue;
+          }
+          const img = await fileToBase64(file);
+          img._preview = URL.createObjectURL(file);
+          img._name = file.name;
+          pendingImages.push(img);
+        }
+        renderImagePreviews();
+      }
+
+      function removeImage(index) {
+        if (pendingImages[index] && pendingImages[index]._preview) {
+          URL.revokeObjectURL(pendingImages[index]._preview);
+        }
+        pendingImages.splice(index, 1);
+        renderImagePreviews();
+      }
+
+      function clearImages() {
+        pendingImages.forEach(img => { if (img._preview) URL.revokeObjectURL(img._preview); });
+        pendingImages = [];
+        renderImagePreviews();
+      }
+
+      function renderImagePreviews() {
+        imgPreviewBarEl.innerHTML = "";
+        pendingImages.forEach((img, i) => {
+          const item = document.createElement("div");
+          item.className = "img-preview-item";
+          item.innerHTML = `<img src="${img._preview}" alt="${img._name || 'image'}" /><div class="img-remove" data-idx="${i}">✕</div>`;
+          item.querySelector(".img-remove").addEventListener("click", () => removeImage(i));
+          imgPreviewBarEl.appendChild(item);
+        });
+      }
+
+      // 文件选择
+      fileInputEl.addEventListener("change", (e) => {
+        if (e.target.files.length) addImageFiles(Array.from(e.target.files));
+        e.target.value = ""; // 允许重复选择同一文件
+      });
+
+      // 粘贴图片（Ctrl+V）
+      inputEl.addEventListener("paste", (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        const imageFiles = [];
+        for (const item of items) {
+          if (item.type.startsWith("image/")) {
+            imageFiles.push(item.getAsFile());
+          }
+        }
+        if (imageFiles.length) {
+          e.preventDefault();
+          addImageFiles(imageFiles);
+        }
+      });
+
+      // 拖拽图片
+      composerEl.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        composerEl.classList.add("drag-over");
+      });
+      composerEl.addEventListener("dragleave", () => {
+        composerEl.classList.remove("drag-over");
+      });
+      composerEl.addEventListener("drop", (e) => {
+        e.preventDefault();
+        composerEl.classList.remove("drag-over");
+        if (e.dataTransfer?.files.length) {
+          addImageFiles(Array.from(e.dataTransfer.files));
+        }
+      });
 
       const LOG_STORE_KEY = "noah_agent_ui_logs_v1";
       const LOG_UI_KEY = "noah_agent_ui_logpanel_v1";
@@ -1672,7 +1845,8 @@
         try {
           setRunning(true);
           await runTrace("INFO", "ui:sendOnce", { mode: uiModeEl.value, text }, async () => {
-            addMessage("user", "user", text);
+            const imgLabel = pendingImages.length ? ` 📷×${pendingImages.length}` : "";
+            addMessage("user", "user", text + imgLabel);
             inputEl.value = "";
 
             if (uiModeEl.value === "single") {
@@ -1680,8 +1854,9 @@
               const res = await apiFetch("/api/v1/chat/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: false }),
+                body: JSON.stringify({ message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: false, images: pendingImages.length ? pendingImages.map(img => ({ data: img.data, media_type: img.media_type })) : undefined }),
               });
+              clearImages();
               const data = await res.json();
               emitLog("INFO", "event", "api:/api/v1/chat/send response", data);
               addMessage("assistant", "assistant", data.content || "");
@@ -1725,7 +1900,8 @@
         try {
           setRunning(true);
           await runTrace("INFO", "ui:sendStream", { mode: uiModeEl.value, text }, async () => {
-            addMessage("user", "user", text);
+            const imgLabel = pendingImages.length ? ` 📷×${pendingImages.length}` : "";
+            addMessage("user", "user", text + imgLabel);
             inputEl.value = "";
             pendingToolBlocks = [];
 
@@ -1736,7 +1912,12 @@
               let full = "";
               let firstToken = true;
               currentAbortCtrl = new AbortController();
-              await streamNDJSON("/api/v1/chat/stream_ndjson", { message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: true }, (_evt, chunk) => {
+              const streamPayload = { message: text, session_id: currentSessionId, model: modelSelectEl.value || undefined, agent_key: agentSelectEl.value || undefined, stream: true };
+              if (pendingImages.length) {
+                streamPayload.images = pendingImages.map(img => ({ data: img.data, media_type: img.media_type }));
+                clearImages();
+              }
+              await streamNDJSON("/api/v1/chat/stream_ndjson", streamPayload, (_evt, chunk) => {
                 if (chunk.type === "text") {
                   if (firstToken) { bodyEl.innerHTML = ""; firstToken = false; }
                   full += chunk.content || "";

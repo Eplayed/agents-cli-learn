@@ -6,8 +6,15 @@ from typing import Optional, Literal
 from datetime import datetime
 
 
+class ImageAttachment(BaseModel):
+    """图片附件（Base64 编码）"""
+    data: str = Field(..., description="图片 Base64 数据（不含 data:image/... 前缀）")
+    media_type: str = Field(default="image/png", description="MIME 类型：image/png, image/jpeg, image/gif, image/webp")
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
+    images: Optional[list[ImageAttachment]] = Field(None, description="附带图片列表（最多 3 张，每张 Base64 < 4MB）")
     session_id: Optional[str] = None
     model: Optional[str] = Field(None, description="指定 LLM 模型名称，不传则用服务端默认值")
     agent_key: Optional[str] = Field(None, description="指定 Agent 类型（如 basic-chatbot / tool-agent / mcp-agent），不传则用默认 MCP Agent")

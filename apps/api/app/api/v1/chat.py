@@ -102,7 +102,7 @@ async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: Async
 
     agent = _resolve_agent(request, raw_request, session.id)
     full_response = ""
-    async for chunk in agent.stream(request.message):
+    async for chunk in agent.stream(request.message, images=request.images):
         if chunk["type"] == "text":
             full_response += chunk.get("content", "")
 
@@ -143,7 +143,7 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
         full_response = ""
         sid = session.id
         try:
-            async for chunk in agent.stream(request.message):
+            async for chunk in agent.stream(request.message, images=request.images):
                 if chunk["type"] == "done":
                     break
                 if chunk["type"] == "text":
@@ -256,7 +256,7 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
         token_stats = {}
 
         try:
-            async for chunk in agent.stream(request.message):
+            async for chunk in agent.stream(request.message, images=request.images):
                 if chunk["type"] == "done":
                     break
                 if chunk["type"] == "text":
