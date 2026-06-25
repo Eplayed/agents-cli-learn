@@ -88,6 +88,7 @@
   </div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" style="display:none">没有找到匹配的 Skill</div>
+  <div class="loading-indicator" id="loadingIndicator" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:14px;">⏳ 搜索中...</div>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -108,6 +109,8 @@ const emptyEl = document.getElementById('empty');
 const searchEl = document.getElementById('searchInput');
 const filtersEl = document.getElementById('filters');
 const toastEl = document.getElementById('toast');
+const loadingEl = document.getElementById('loadingIndicator');
+let isSearching = false;
 
 // Toast
 function showToast(msg) {
@@ -126,6 +129,7 @@ document.querySelectorAll('.tab').forEach(btn => {
     // 更新搜索框 placeholder
     if (currentTab === 'online') {
       searchEl.placeholder = '输入关键词搜索在线 Skill（如 python、react、testing）';
+      if (!onlineData.length && !searchEl.value.trim()) loadOnlineDefault();
     } else {
       searchEl.placeholder = '搜索 Skill（名称、描述、触发词）';
     }
@@ -136,21 +140,42 @@ document.querySelectorAll('.tab').forEach(btn => {
 // Search
 searchEl.addEventListener('input', () => {
   if (currentTab === 'online') {
-    // 在线搜索用 debounce（500ms 后触发）
     clearTimeout(onlineSearchTimer);
     onlineSearchTimer = setTimeout(async () => {
       const q = searchEl.value.trim();
-      if (q.length < 2) { onlineData = []; render(); return; }
+      if (!q) { loadOnlineDefault(); return; }
+      isSearching = true;
+      loadingEl.style.display = 'block';
+      gridEl.style.display = 'none';
+      emptyEl.style.display = 'none';
       try {
         const data = await fetchJSON(`/api/v1/skills/online-search?q=${encodeURIComponent(q)}`);
         onlineData = data.skills || [];
-        render();
-      } catch { onlineData = []; render(); }
+      } catch { onlineData = []; }
+      isSearching = false;
+      loadingEl.style.display = 'none';
+      gridEl.style.display = '';
+      render();
     }, 500);
   } else {
     render();
   }
 });
+
+async function loadOnlineDefault() {
+  isSearching = true;
+  loadingEl.style.display = 'block';
+  gridEl.style.display = 'none';
+  emptyEl.style.display = 'none';
+  try {
+    const data = await fetchJSON('/api/v1/skills/online-search?q=AI agent skill');
+    onlineData = (data.skills || []).slice(0, 10);
+  } catch { onlineData = []; }
+  isSearching = false;
+  loadingEl.style.display = 'none';
+  gridEl.style.display = '';
+  render();
+}
 
 // API calls
 async function fetchJSON(path) {
@@ -251,12 +276,7 @@ function render() {
   // Render cards
   gridEl.innerHTML = '';
   emptyEl.style.display = skills.length ? 'none' : 'block';
-  if (currentTab === 'online' && !searchEl.value.trim()) {
-    emptyEl.textContent = '输入关键词搜索在线社区 Skill';
-    emptyEl.style.display = 'block';
-  } else {
-    emptyEl.textContent = '没有找到匹配的 Skill';
-  }
+  emptyEl.textContent = '没有找到匹配的 Skill';
 
   for (const s of skills) {
     const card = document.createElement('div');
