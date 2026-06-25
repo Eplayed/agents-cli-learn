@@ -583,6 +583,23 @@
       .msg .content th, .msg .content td { border: 1px solid var(--border); padding: 4px 8px; }
       .msg .content blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 4px 12px; color: var(--muted); }
       .msg .content a { color: var(--accent); }
+      .msg .content .think-block {
+        font-size: 11px;
+        color: var(--muted);
+        opacity: 0.6;
+        border-left: 2px solid var(--border);
+        padding: 4px 10px;
+        margin: 6px 0;
+        line-height: 1.5;
+      }
+      .msg .content .think-toggle {
+        font-size: 11px;
+        color: var(--muted);
+        cursor: pointer;
+        opacity: 0.5;
+        margin: 4px 0;
+      }
+      .msg .content .think-toggle:hover { opacity: 0.8; }
 
       /* 图片上传 */
       .input-wrap {
@@ -773,7 +790,23 @@
       });
       function renderMarkdown(text) {
         if (!text) return '';
-        return md.render(text);
+        // 处理 <think>...</think> 块：折叠 + 淡化
+        let processed = text.replace(/<think>([\s\S]*?)<\/think>/g, (_, content) => {
+          const trimmed = content.trim();
+          if (!trimmed) return '';
+          return `\n\n%%THINK_START%%${trimmed}%%THINK_END%%\n\n`;
+        });
+        // 也处理未闭合的 <think>（流式时可能还没收到 </think>）
+        processed = processed.replace(/<think>([\s\S]*)$/g, (_, content) => {
+          return `\n\n%%THINK_START%%${content.trim()}%%THINK_END%%\n\n`;
+        });
+        let html = md.render(processed);
+        // 替换占位符为样式化的折叠块
+        html = html.replace(/%%THINK_START%%([\s\S]*?)%%THINK_END%%/g, (_, inner) => {
+          const rendered = md.render(inner);
+          return `<details class="think-block"><summary class="think-toggle">💭 思考过程（点击展开）</summary>${rendered}</details>`;
+        });
+        return html;
       }
 
       function renderConfigGuide(chunk) {
