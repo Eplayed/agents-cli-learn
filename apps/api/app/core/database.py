@@ -26,6 +26,8 @@ Base = declarative_base()
 
 async def init_db():
     # 启动时建表（学习/演示友好）
+    # 确保所有 model 都被 import，这样 create_all 能创建全部表
+    import app.models.models  # noqa: F401
     # 生产环境通常用 Alembic 迁移来管理 schema
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
