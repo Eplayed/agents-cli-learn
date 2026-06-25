@@ -178,7 +178,104 @@ agents-cli-learn/
 | Run 持久化 | `AgentRun` + `AgentEvent` 表 | 每次调用全链路事件溯源 |
 | 幂等性 | `idempotency_key` 字段 | 重复请求直接返回缓存 |
 | 配额限制 | `quota.py` 进程内计数 | 按用户每日 token 上限 |
+| 多模态图片 | `images` 字段 + Vision API | 上传/粘贴/拖拽图片，Base64 传给 LLM |
+| 输入长度保护 | 前端 4000 字符 + 后端 30K token 估算 | 超限拒绝 + context_length 错误捕获 |
+| Think 折叠 | `<think>` 标签处理 | Qwen3 推理过程默认折叠、淡化 |
 | 停止生成 | AbortController + 前端 stopBtn | 中断 HTTP 流 |
-| Markdown | markdown-it + highlight.js | 代码高亮 + 公式 + 表格 |
+| Markdown | markdown-it + highlight.js | 代码高亮 + 表格 + 引用 |
 | 消息反馈 | 👍👎 按钮 | 每条 assistant 消息可评价 |
 | 请求追踪 | X-Request-ID header | 前后端链路对齐 |
+
+---
+
+## AI 快速索引（无需读源码即可理解）
+
+> 下次 AI 助手读取此文件即可了解整个项目，不需要逐文件阅读源码。
+
+### 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend (localhost:8000/ui)                                     │
+│  · 单 HTML 文件，无需构建                                          │
+│  · markdown-it + highlight.js 渲染                                │
+│  · NDJSON 流式 + AbortController 停止 + 图片上传                    │
+│  · 👍👎 反馈 + X-Request-ID + 字符计数                             │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ POST /api/v1/chat/stream_ndjson
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  FastAPI Backend (apps/api/)                                      │
+│                                                                   │
+│  ┌─ Middleware ──────────────────────────────────────────────┐   │
+│  │  AuthMiddleware → Quota Check → Idempotency Check         │   │
+│  └───────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌─ Agent Layer ─────────────────────────────────────────────┐   │
+│  │  Registry → catalog.py (9 agents) → SingleAgent           │   │
+│  │  SingleAgent = LangGraph StateGraph + ToolNode + astream  │   │
+│  │  支持 images (multimodal) + token 预检 + context 错误捕获   │   │
+│  └───────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌─ Tool Layer ──────────────────────────────────────────────┐   │
+│  │  MCP Servers (stdio): weather / utils / dangerous / time   │   │
+│  │  Fallback @tool: get_weather / calculator / search          │   │
+│  └───────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌─ Persistence ─────────────────────────────────────────────┐   │
+│  │  SQLite: sessions + messages + agent_runs + agent_events   │   │
+│  │  LangGraph Checkpoint: AsyncSqliteSaver (对话状态持久化)      │   │
+│  └───────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌─ Observability ───────────────────────────────────────────┐   │
+│  │  Langfuse tracing + RunTracker (event sourcing)            │   │
+│  │  Token Tracker (cost calculation)                           │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 核心文件索引（按功能域）
+
+| 功能域 | 关键文件 | 职责 |
+|--------|----------|------|
+| **入口** | `app/main.py` | lifespan + 路由注册 + CORS + 静态文件 |
+| **Agent 核心** | `app/agents/single/agent.py` | StateGraph 构建、stream() 流式执行、多模态、token 预检 |
+| **Agent 注册** | `app/agents/catalog.py` | 9 种 Agent 工厂 + `_build_human_message()` 多模态辅助 |
+| **对话 API** | `app/api/v1/chat.py` | send / stream / stream_ndjson + 幂等 + 配额 + RunTracker |
+| **运行追踪** | `app/core/run_tracker.py` | AgentRun/Event CRUD，事件溯源 |
+| **配额** | `app/core/quota.py` | 每日 token 限额、白名单、用量查询 |
+| **配置** | `app/core/config.py` | 所有 env var（API Key / 模型 / 鉴权 / 配额 / RAG） |
+| **鉴权** | `app/core/auth.py` | Bearer Token + ContextVar 协程隔离 |
+| **MCP 工具** | `app/mcp_servers/loader.py` | 配置加载、venv Python 路径解析、Tool 缓存 |
+| **RAG** | `app/core/rag.py` | ChromaDB 向量化 + 检索 + ENABLE_RAG 开关 |
+| **上下文压缩** | `app/core/context_compressor.py` | 滑动窗口 + 摘要压缩 |
+| **前端 UI** | `apps/web/public/ui/index.html` | 全功能单文件 UI |
+| **Schema** | `app/schemas/chat.py` | ChatRequest（含 images / idempotency_key） |
+| **数据模型** | `app/models/models.py` | Session / Message / AgentRun / AgentEvent |
+
+### 关键设计决策
+
+| 决策 | 原因 |
+|------|------|
+| SQLite（非 PG） | 学习项目优先零配置，clone 即用 |
+| 单 HTML UI（非 SPA） | 无需 npm install，FastAPI 直接托管 |
+| NDJSON 流式（非 SSE） | 兼容性更好，解析更简单 |
+| MCP stdio（非 HTTP） | 开发简单，子进程隔离 |
+| 进程内配额（非 Redis） | 避免新增依赖，学习场景重启清零可接受 |
+| Base64 图片（非 URL） | 无需文件存储服务，一次请求搞定 |
+| RunTracker 非阻断 | 可观测层失败不影响核心对话功能 |
+| QUOTA_WHITELIST=* 默认 | 开发模式不限制，上线改配置即启用 |
+
+### 如何修改常见功能
+
+| 想做什么 | 改哪里 |
+|---------|--------|
+| 加新 MCP 工具 | `app/mcp_servers/` 加 server.py + `config.json` 加注册 |
+| 加新 Agent 模式 | `app/agents/catalog.py` 加 @register + 工厂函数 |
+| 改系统提示词 | `app/agents/single/agent.py` 的 SystemMessage |
+| 改前端 UI | `apps/web/public/ui/index.html`（单文件） |
+| 加新 Skill | `skills/` 目录加文件夹 + SKILL.md |
+| 改配额限制 | `.env.dev` 的 QUOTA_DAILY_TOKENS / QUOTA_WHITELIST |
+| 开启 RAG | `.env.dev` 设 ENABLE_RAG=true |
+| 切换模型 | `.env.dev` 的 OPENAI_MODEL |
+| 加新 API 端点 | `app/api/v1/` 加路由文件 + `main.py` 注册 |

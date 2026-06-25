@@ -70,6 +70,9 @@ npm run dev
 | 运行历史 API | 查询 runs/events/quota | `app/api/v1/runs.py` |
 | 停止生成 | 前端 AbortController 中断流式 | `apps/web/public/ui/index.html` |
 | Markdown 渲染 | markdown-it + highlight.js 代码高亮 | CDN + `index.html` |
+| Think 折叠 | Qwen3 `<think>` 推理过程默认折叠淡化 | `index.html` renderMarkdown |
+| 多模态图片 | 上传/粘贴/拖拽图片 + Vision LLM 分析 | Schema + agent + UI |
+| 输入长度保护 | 前端 4000 字符 + 后端 30K token 预检 | `agent.py` + `index.html` |
 | 消息反馈 | 每条回复 👍👎 评价 | `index.html` |
 | 请求追踪 | X-Request-ID header 前后端链路对齐 | `index.html` apiFetch |
 | 一键 setup | `./setup.sh` 自动环境搭建 | `setup.sh` |
