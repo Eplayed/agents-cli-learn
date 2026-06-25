@@ -77,6 +77,7 @@
   <div class="tab-bar">
     <button class="tab active" data-tab="marketplace">商店</button>
     <button class="tab" data-tab="installed">已安装</button>
+    <button class="tab" data-tab="online">在线搜索</button>
     <button class="tab" data-tab="local">本地</button>
   </div>
 </header>
@@ -97,8 +98,10 @@ let currentTab = 'marketplace';
 let marketplaceData = [];
 let installedData = [];
 let localData = [];
+let onlineData = [];
 let categories = [];
 let activeCategory = '';
+let onlineSearchTimer = null;
 
 const gridEl = document.getElementById('grid');
 const emptyEl = document.getElementById('empty');
@@ -120,12 +123,34 @@ document.querySelectorAll('.tab').forEach(btn => {
     btn.classList.add('active');
     currentTab = btn.dataset.tab;
     activeCategory = '';
+    // 更新搜索框 placeholder
+    if (currentTab === 'online') {
+      searchEl.placeholder = '输入关键词搜索在线 Skill（如 python、react、testing）';
+    } else {
+      searchEl.placeholder = '搜索 Skill（名称、描述、触发词）';
+    }
     render();
   });
 });
 
 // Search
-searchEl.addEventListener('input', () => render());
+searchEl.addEventListener('input', () => {
+  if (currentTab === 'online') {
+    // 在线搜索用 debounce（500ms 后触发）
+    clearTimeout(onlineSearchTimer);
+    onlineSearchTimer = setTimeout(async () => {
+      const q = searchEl.value.trim();
+      if (q.length < 2) { onlineData = []; render(); return; }
+      try {
+        const data = await fetchJSON(`/api/v1/skills/online-search?q=${encodeURIComponent(q)}`);
+        onlineData = data.skills || [];
+        render();
+      } catch { onlineData = []; render(); }
+    }, 500);
+  } else {
+    render();
+  }
+});
 
 // API calls
 async function fetchJSON(path) {
@@ -199,6 +224,8 @@ function render() {
     skills = marketplaceData.map(s => ({ ...s, _tab: 'marketplace' }));
   } else if (currentTab === 'installed') {
     skills = installedData.map(s => ({ ...s, _tab: 'installed' }));
+  } else if (currentTab === 'online') {
+    skills = onlineData.map(s => ({ ...s, _tab: 'online' }));
   } else {
     skills = localData.map(s => ({ ...s, _tab: 'local' }));
   }
@@ -224,6 +251,12 @@ function render() {
   // Render cards
   gridEl.innerHTML = '';
   emptyEl.style.display = skills.length ? 'none' : 'block';
+  if (currentTab === 'online' && !searchEl.value.trim()) {
+    emptyEl.textContent = '输入关键词搜索在线社区 Skill';
+    emptyEl.style.display = 'block';
+  } else {
+    emptyEl.textContent = '没有找到匹配的 Skill';
+  }
 
   for (const s of skills) {
     const card = document.createElement('div');
@@ -236,11 +269,14 @@ function render() {
     else if (s._tab === 'installed' || s.installed) badgeHtml = '<span class="badge installed">已安装</span>';
 
     let actionsHtml = '';
-    if (s._tab === 'marketplace') {
+    if (s._tab === 'marketplace' || s._tab === 'online') {
       if (s.installed) {
         actionsHtml = '<button class="btn" disabled>已安装</button>';
       } else {
         actionsHtml = `<button class="btn primary" onclick="installSkill(${JSON.stringify(s).replace(/"/g, '&quot;')})">安装</button>`;
+      }
+      if (s.source_url) {
+        actionsHtml += ` <a class="btn" href="${s.source_url}" target="_blank" style="text-decoration:none">🔗 源码</a>`;
       }
     } else if (s._tab === 'installed') {
       const toggleLabel = s.enabled ? '禁用' : '启用';

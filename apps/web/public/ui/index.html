@@ -1615,8 +1615,12 @@
             messagesEl.innerHTML = "";
             currentMessages = [];
           }
+          // 立即从本地列表移除（不等 API 刷新，避免延迟闪烁）
+          sessionSummaries = sessionSummaries.filter(s => s.id !== sessionId);
+          renderSessionList();
+          // 再从后端刷新确认
           await loadSessionSummaries();
-          addMessage("event", "system", `会话 ${sessionId} 已删除`);
+          addMessage("event", "system", `会话已删除`);
         } catch (e) {
           addMessage("event", "error", `删除失败: ${e.message || e}`);
         }
