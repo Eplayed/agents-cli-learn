@@ -168,6 +168,17 @@ class SingleAgent:
 
         messages = [sys, human_msg]
 
+        # --- 输入长度预检：估算 token 数，超限时提前拒绝 ---
+        # 粗略估算：中文 1 字符 ≈ 1.5 token，英文 1 word ≈ 1.3 token
+        # 这里用简单的字符数 / 2 估算（偏保守）
+        MAX_CONTEXT_TOKENS = 30000  # 留 2K 给输出
+        text_content = message if isinstance(message, str) else str(message)
+        estimated_input_tokens = len(text_content) // 2 + 200  # +200 for system prompt
+        if estimated_input_tokens > MAX_CONTEXT_TOKENS:
+            yield {"type": "error", "content": f"输入过长（约 {estimated_input_tokens} tokens，上限 {MAX_CONTEXT_TOKENS}）。请精简内容后重试。"}
+            yield {"type": "done", "content": ""}
+            return
+
         try:
             async for event in self.graph.astream_events(
                 {"messages": messages}, config=config, version="v1"
@@ -189,7 +200,12 @@ class SingleAgent:
                             tool_output = str(tool_output)
                     yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
         except Exception as e:
-            yield {"type": "error", "content": str(e)}
+            err_msg = str(e)
+            # 捕获 context_length_exceeded：提示用户并建议新建会话
+            if "context_length" in err_msg.lower() or "maximum context" in err_msg.lower() or "too many tokens" in err_msg.lower():
+                yield {"type": "error", "content": "对话历史过长，已超出模型上下文窗口限制。建议新建 Session 开始新对话。"}
+            else:
+                yield {"type": "error", "content": err_msg}
 
         # M10：返回 token 统计（如果有）
         if hasattr(self, '_token_tracker') and self._token_tracker:

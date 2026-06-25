@@ -662,6 +662,17 @@
         border-color: var(--accent) !important;
         background: rgba(99,102,241,0.05);
       }
+      .input-meta {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 2px;
+      }
+      .char-count {
+        font-size: 11px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .char-count.over { color: var(--danger); font-weight: 700; }
     </style>
   </head>
   <body>
@@ -737,6 +748,9 @@
               📎
               <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden />
             </label>
+          </div>
+          <div class="input-meta">
+            <span class="char-count" id="charCount">0/4000</span>
           </div>
           <div class="row">
             <button class="btn" id="sendBtn">发送（流式）</button>
@@ -976,6 +990,17 @@
         if (e.dataTransfer?.files.length) {
           addImageFiles(Array.from(e.dataTransfer.files));
         }
+      });
+
+      // ===== 字符计数 =====
+      const charCountEl = $("charCount");
+      const CHAR_LIMIT = 4000;
+      inputEl.addEventListener("input", () => {
+        const len = inputEl.value.length;
+        charCountEl.textContent = `${len}/${CHAR_LIMIT}`;
+        charCountEl.classList.toggle("over", len > CHAR_LIMIT);
+        sendBtn.disabled = running || len > CHAR_LIMIT;
+        sendOnceBtn.disabled = running || len > CHAR_LIMIT;
       });
 
       const LOG_STORE_KEY = "noah_agent_ui_logs_v1";
