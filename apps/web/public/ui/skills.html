@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skill 商店 · Noah Agent</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b0f19; --panel: #121a2b; --muted: #9aa4b2; --text: #e6eaf2;
+      --border: #25314a; --accent: #7c5cff; --danger: #ff4d6d; --ok: #2dd4bf;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7fb; --panel: #ffffff; --muted: #667085; --text: #101828;
+        --border: #e4e7ec; --accent: #6d5efc; --danger: #d92d20; --ok: #0e9384;
+        --shadow: 0 10px 30px rgba(16,24,40,0.12);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+    header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; max-width: 1100px; margin: 0 auto; }
+    header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    header .back { color: var(--muted); text-decoration: none; font-size: 13px; }
+    header .back:hover { color: var(--accent); }
+    .spacer { flex: 1; }
+    .tab-bar { display: flex; gap: 4px; }
+    .tab { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600; }
+    .tab.active { background: rgba(124,92,255,0.12); border-color: var(--accent); color: var(--accent); }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+    .filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .filters input { flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 13px; outline: none; }
+    .cat-btn { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+    .cat-btn.active { background: rgba(124,92,255,0.12); border-color: var(--accent); color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 8px; transition: border-color .2s, transform .15s; }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .card .top { display: flex; align-items: center; gap: 10px; }
+    .card .icon { font-size: 28px; }
+    .card .info { flex: 1; min-width: 0; }
+    .card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card .meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; margin-top: 2px; }
+    .card .desc { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; }
+    .card .triggers { display: flex; gap: 4px; flex-wrap: wrap; }
+    .card .trigger-tag { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(124,92,255,0.08); border: 1px solid rgba(124,92,255,0.2); color: var(--accent); }
+    .card .actions { display: flex; gap: 8px; margin-top: 4px; }
+    .card .btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 12px; font-weight: 600; }
+    .card .btn:hover { border-color: var(--accent); }
+    .card .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .card .btn.primary:hover { opacity: 0.9; }
+    .card .btn.danger { color: var(--danger); border-color: var(--danger); }
+    .card .btn.danger:hover { background: rgba(255,77,109,0.08); }
+    .card .btn.toggle-off { color: var(--muted); }
+    .card.installed { border-color: rgba(45,212,191,0.3); }
+    .card .badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+    .card .badge.installed { background: rgba(45,212,191,0.12); color: var(--ok); }
+    .card .badge.local { background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 20px; font-size: 13px; box-shadow: var(--shadow); opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="/ui">← 返回对话</a>
+  <h1>🛒 Skill 商店</h1>
+  <div class="spacer"></div>
+  <div class="tab-bar">
+    <button class="tab active" data-tab="marketplace">商店</button>
+    <button class="tab" data-tab="installed">已安装</button>
+    <button class="tab" data-tab="local">本地</button>
+  </div>
+</header>
+
+<main>
+  <div class="filters" id="filters">
+    <input id="searchInput" placeholder="搜索 Skill（名称、描述、触发词）" />
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">没有找到匹配的 Skill</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let currentTab = 'marketplace';
+let marketplaceData = [];
+let installedData = [];
+let localData = [];
+let categories = [];
+let activeCategory = '';
+
+const gridEl = document.getElementById('grid');
+const emptyEl = document.getElementById('empty');
+const searchEl = document.getElementById('searchInput');
+const filtersEl = document.getElementById('filters');
+const toastEl = document.getElementById('toast');
+
+// Toast
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2500);
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    activeCategory = '';
+    render();
+  });
+});
+
+// Search
+searchEl.addEventListener('input', () => render());
+
+// API calls
+async function fetchJSON(path) {
+  const res = await fetch(API + path);
+  return res.json();
+}
+
+async function loadAll() {
+  const [mp, inst, local] = await Promise.all([
+    fetchJSON('/api/v1/skills/marketplace'),
+    fetchJSON('/api/v1/skills/installed'),
+    fetchJSON('/api/v1/skills/local'),
+  ]);
+  marketplaceData = mp.skills || [];
+  installedData = inst.skills || [];
+  localData = local.skills || [];
+  categories = mp.categories || [];
+  render();
+}
+
+async function installSkill(skill) {
+  const res = await fetch(API + '/api/v1/skills/install', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: skill.name,
+      display_name: skill.display_name,
+      description: skill.description,
+      version: skill.version,
+      author: skill.author,
+      category: skill.category,
+      icon: skill.icon,
+      triggers: skill.triggers,
+      content: skill.content,
+      source: skill.source || 'marketplace',
+    }),
+  });
+  if (res.ok) {
+    showToast(`✓ 已安装: ${skill.display_name || skill.name}`);
+    await loadAll();
+  } else {
+    const data = await res.json();
+    showToast(`✗ ${data.detail || '安装失败'}`);
+  }
+}
+
+async function uninstallSkill(id, name) {
+  if (!confirm(`确定卸载「${name}」？`)) return;
+  const res = await fetch(API + `/api/v1/skills/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    showToast(`✓ 已卸载: ${name}`);
+    await loadAll();
+  }
+}
+
+async function toggleSkill(id, name) {
+  const res = await fetch(API + `/api/v1/skills/${id}/toggle`, { method: 'POST' });
+  if (res.ok) {
+    const data = await res.json();
+    showToast(`${data.enabled ? '✓ 已启用' : '○ 已禁用'}: ${name}`);
+    await loadAll();
+  }
+}
+
+// Render
+function render() {
+  const q = searchEl.value.trim().toLowerCase();
+  let skills = [];
+
+  if (currentTab === 'marketplace') {
+    skills = marketplaceData.map(s => ({ ...s, _tab: 'marketplace' }));
+  } else if (currentTab === 'installed') {
+    skills = installedData.map(s => ({ ...s, _tab: 'installed' }));
+  } else {
+    skills = localData.map(s => ({ ...s, _tab: 'local' }));
+  }
+
+  // Filter by search
+  if (q) {
+    skills = skills.filter(s =>
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.display_name || '').toLowerCase().includes(q) ||
+      (s.description || '').toLowerCase().includes(q) ||
+      (s.triggers || []).join(' ').toLowerCase().includes(q)
+    );
+  }
+
+  // Filter by category
+  if (activeCategory) {
+    skills = skills.filter(s => s.category === activeCategory);
+  }
+
+  // Render category buttons (marketplace only)
+  renderCategoryButtons();
+
+  // Render cards
+  gridEl.innerHTML = '';
+  emptyEl.style.display = skills.length ? 'none' : 'block';
+
+  for (const s of skills) {
+    const card = document.createElement('div');
+    card.className = `card${s._tab === 'installed' || s.installed ? ' installed' : ''}`;
+
+    const triggersHtml = (s.triggers || []).slice(0, 5).map(t => `<span class="trigger-tag">${t}</span>`).join('');
+
+    let badgeHtml = '';
+    if (s._tab === 'local') badgeHtml = '<span class="badge local">本地</span>';
+    else if (s._tab === 'installed' || s.installed) badgeHtml = '<span class="badge installed">已安装</span>';
+
+    let actionsHtml = '';
+    if (s._tab === 'marketplace') {
+      if (s.installed) {
+        actionsHtml = '<button class="btn" disabled>已安装</button>';
+      } else {
+        actionsHtml = `<button class="btn primary" onclick="installSkill(${JSON.stringify(s).replace(/"/g, '&quot;')})">安装</button>`;
+      }
+    } else if (s._tab === 'installed') {
+      const toggleLabel = s.enabled ? '禁用' : '启用';
+      const toggleClass = s.enabled ? 'toggle-off' : 'primary';
+      actionsHtml = `
+        <button class="btn ${toggleClass}" onclick="toggleSkill('${s.id}','${s.display_name || s.name}')">${toggleLabel}</button>
+        <button class="btn danger" onclick="uninstallSkill('${s.id}','${s.display_name || s.name}')">卸载</button>
+      `;
+    } else {
+      actionsHtml = '<span style="font-size:11px;color:var(--muted)">只读（编辑请修改 skills/ 目录文件）</span>';
+    }
+
+    card.innerHTML = `
+      <div class="top">
+        <div class="icon">${s.icon || '🔧'}</div>
+        <div class="info">
+          <div class="name">${s.display_name || s.name} ${badgeHtml}</div>
+          <div class="meta">
+            <span>${s.author || ''}</span>
+            <span>v${s.version || '1.0'}</span>
+            ${s.category ? `<span>${s.category}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="desc">${s.description || ''}</div>
+      <div class="triggers">${triggersHtml}</div>
+      <div class="actions">${actionsHtml}</div>
+    `;
+    gridEl.appendChild(card);
+  }
+}
+
+function renderCategoryButtons() {
+  // Remove existing cat buttons
+  filtersEl.querySelectorAll('.cat-btn').forEach(b => b.remove());
+
+  if (currentTab !== 'marketplace' || categories.length === 0) return;
+
+  const allBtn = document.createElement('button');
+  allBtn.className = `cat-btn${!activeCategory ? ' active' : ''}`;
+  allBtn.textContent = '全部';
+  allBtn.addEventListener('click', () => { activeCategory = ''; render(); });
+  filtersEl.appendChild(allBtn);
+
+  const catLabels = { productivity: '效率', coding: '编程', writing: '写作', research: '研究', lifestyle: '生活' };
+  for (const cat of categories) {
+    const btn = document.createElement('button');
+    btn.className = `cat-btn${activeCategory === cat ? ' active' : ''}`;
+    btn.textContent = catLabels[cat] || cat;
+    btn.addEventListener('click', () => { activeCategory = cat; render(); });
+    filtersEl.appendChild(btn);
+  }
+}
+
+// Init
+loadAll();
+</script>
+
+</body>
+</html>

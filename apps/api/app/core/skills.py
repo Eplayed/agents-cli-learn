@@ -118,6 +118,47 @@ def match_skills(message: str, skills: List[Skill]) -> List[Skill]:
     return matched
 
 
+async def load_db_skills() -> List[Skill]:
+    """从数据库加载已安装且启用的 Skill（Skill Store）
+
+    与 load_skills() 的本地文件互补：
+    - load_skills(): 读 skills/ 目录（始终启用，开发者手动管理）
+    - load_db_skills(): 读 DB installed_skills 表（用户通过商店管理）
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.models import InstalledSkill
+        from sqlalchemy import select
+
+        async with AsyncSessionLocal() as db:
+            stmt = select(InstalledSkill).where(InstalledSkill.enabled == 1)
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+
+            return [
+                Skill(
+                    name=row.name,
+                    description=row.description or "",
+                    version=row.version or "1.0.0",
+                    triggers=row.triggers or [],
+                    content=row.content or "",
+                    path=f"db://{row.id}",
+                )
+                for row in rows
+            ]
+    except Exception as e:
+        # DB 不可用时（如测试环境），graceful 降级
+        print(f"[Skills] load_db_skills failed (non-blocking): {e}")
+        return []
+
+
+async def load_all_skills() -> List[Skill]:
+    """加载所有可用 Skill（本地文件 + 数据库商店）"""
+    local = load_skills()
+    db_skills = await load_db_skills()
+    return local + db_skills
+
+
 def skills_to_prompt(skills: List[Skill]) -> str:
     """把匹配到的 Skills 转成 system prompt 追加内容"""
     if not skills:

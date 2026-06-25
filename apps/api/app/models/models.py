@@ -115,3 +115,45 @@ class AgentEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     run = relationship("AgentRun", back_populates="events")
+
+
+# ============================================================
+# Skill Store 模型（技能商店）
+#
+# 管理已安装的 Skills：
+# - 从商店安装的 Skill 存入此表
+# - 本地 skills/ 目录的 SKILL.md 不在此表（向后兼容）
+# - enabled 字段控制是否在对话时生效
+# ============================================================
+
+
+class InstalledSkill(Base):
+    """已安装的 Skill（来自商店或自定义导入）"""
+    __tablename__ = "installed_skills"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"skill_{uuid.uuid4().hex[:12]}")
+
+    # Skill 元信息
+    name = Column(String(100), nullable=False, unique=True, index=True)
+    display_name = Column(String(200), nullable=True)
+    description = Column(Text, nullable=True)
+    version = Column(String(20), default="1.0.0")
+    author = Column(String(100), nullable=True)
+    category = Column(String(50), nullable=True)  # productivity / coding / writing / research / other
+    icon = Column(String(10), nullable=True)       # emoji icon
+
+    # Skill 内容
+    triggers = Column(JSON, nullable=True)          # ["天气", "洗车"] 触发词列表
+    content = Column(Text, nullable=False)          # SKILL.md 正文内容（不含 frontmatter）
+
+    # 来源
+    source = Column(String(50), default="marketplace")  # marketplace / custom / local
+    source_url = Column(String(500), nullable=True)     # GitHub URL / 商店 URL
+
+    # 状态
+    enabled = Column(Integer, default=1)  # 1=启用, 0=禁用
+    install_count = Column(Integer, default=0)  # 安装次数（商店统计用）
+
+    # 时间
+    installed_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

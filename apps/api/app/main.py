@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
-from app.api.v1 import chat, team, session, runs
+from app.api.v1 import chat, team, session, runs, skills, skills
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -53,6 +53,7 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["Single Agent"])
 app.include_router(team.router, prefix="/api/v1/team", tags=["Multi-Agent"])
 app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
 app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observability"])
+app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skill Store"])
 
 
 @app.get("/")
@@ -89,4 +90,11 @@ async def ui():
     # Web UI 静态页入口（不需要前端工程/打包）
     # 浏览器打开 /ui 后，通过 fetch 调用上面的 /api/v1/* 接口
     ui_file = Path(__file__).resolve().parent.parent.parent / "web" / "public" / "ui" / "index.html"
+    return FileResponse(ui_file)
+
+
+@app.get("/ui/skills", include_in_schema=False)
+async def ui_skills():
+    # Skill 商店页面
+    ui_file = Path(__file__).resolve().parent.parent.parent / "web" / "public" / "ui" / "skills.html"
     return FileResponse(ui_file)
