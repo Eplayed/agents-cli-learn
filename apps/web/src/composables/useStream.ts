@@ -14,6 +14,14 @@ export interface StreamChunk {
 
 export type ChunkHandler = (chunk: StreamChunk) => void
 
+// 生成 UUID v4 作为 Request-ID（前后端链路追踪）
+export function genRequestId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
 export function useStream() {
   const isStreaming = ref(false)
   let abortController: AbortController | null = null
@@ -28,7 +36,10 @@ export function useStream() {
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': genRequestId(),
+        },
         body: JSON.stringify(body),
         signal: abortController.signal,
       })

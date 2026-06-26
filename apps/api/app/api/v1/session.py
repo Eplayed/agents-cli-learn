@@ -122,6 +122,7 @@ async def get_messages(session_id: str, limit: int = 50, db: AsyncSession = Depe
             "role": m.role,
             "content": m.content,
             "tool_calls": m.tool_calls,
+            "attachments": m.attachments,
             "created_at": m.created_at,
         }
         for m in messages

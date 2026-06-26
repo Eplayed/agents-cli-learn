@@ -10,3 +10,9 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# 用户从商店安装的 Skill（运行时生成，不提交）
+skills/_installed/
+
+# 用户上传的图片附件（运行时生成，不提交）
+uploads/

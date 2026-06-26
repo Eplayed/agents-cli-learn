@@ -32,6 +32,7 @@ class Skill:
     triggers: List[str] = field(default_factory=list)
     content: str = ""  # SKILL.md 的正文（不含 frontmatter）
     path: str = ""
+    enabled: bool = True
 
 
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -74,7 +75,7 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 
 
 def load_skills(skills_dir: str = None) -> List[Skill]:
-    """加载所有 Skills（扫描 skills/ 目录）"""
+    """加载内置 Skills（扫描 skills/ 目录顶层，跳过 _ 开头的目录）"""
     if skills_dir is None:
         skills_dir = str(Path(__file__).resolve().parent.parent.parent / "skills")
 
@@ -86,6 +87,8 @@ def load_skills(skills_dir: str = None) -> List[Skill]:
     for skill_dir in sorted(skills_path.iterdir()):
         if not skill_dir.is_dir():
             continue
+        if skill_dir.name.startswith("_"):
+            continue  # 跳过 _installed 等特殊目录（由 load_installed_skills 处理）
         skill_file = skill_dir / "SKILL.md"
         if not skill_file.exists():
             continue
@@ -106,6 +109,50 @@ def load_skills(skills_dir: str = None) -> List[Skill]:
     return skills
 
 
+def get_installed_dir() -> Path:
+    """已安装 Skill 的存放目录：skills/_installed/"""
+    return Path(__file__).resolve().parent.parent.parent / "skills" / "_installed"
+
+
+def load_installed_skills(include_disabled: bool = False) -> List[Skill]:
+    """加载从商店安装的 Skill（扫描 skills/_installed/ 目录）
+
+    每个安装的 Skill 是 skills/_installed/<name>/SKILL.md。
+    frontmatter 里的 enabled 字段控制是否启用（默认 true）。
+    """
+    installed_path = get_installed_dir()
+    if not installed_path.exists():
+        return []
+
+    skills = []
+    for skill_dir in sorted(installed_path.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_file = skill_dir / "SKILL.md"
+        if not skill_file.exists():
+            continue
+
+        text = skill_file.read_text(encoding='utf-8')
+        meta, body = _parse_frontmatter(text)
+
+        enabled = str(meta.get('enabled', 'true')).lower() != 'false'
+        if not include_disabled and not enabled:
+            continue
+
+        skill = Skill(
+            name=meta.get('name', skill_dir.name),
+            description=meta.get('description', ''),
+            version=meta.get('version', '1.0.0'),
+            triggers=meta.get('triggers', []),
+            content=body.strip(),
+            path=str(skill_file),
+        )
+        skill.enabled = enabled  # 动态附加属性
+        skills.append(skill)
+
+    return skills
+
+
 def match_skills(message: str, skills: List[Skill]) -> List[Skill]:
     """根据用户消息匹配相关 Skills（关键词触发）"""
     message_lower = message.lower()
@@ -118,45 +165,9 @@ def match_skills(message: str, skills: List[Skill]) -> List[Skill]:
     return matched
 
 
-async def load_db_skills() -> List[Skill]:
-    """从数据库加载已安装且启用的 Skill（Skill Store）
-
-    与 load_skills() 的本地文件互补：
-    - load_skills(): 读 skills/ 目录（始终启用，开发者手动管理）
-    - load_db_skills(): 读 DB installed_skills 表（用户通过商店管理）
-    """
-    try:
-        from app.core.database import AsyncSessionLocal
-        from app.models.models import InstalledSkill
-        from sqlalchemy import select
-
-        async with AsyncSessionLocal() as db:
-            stmt = select(InstalledSkill).where(InstalledSkill.enabled == 1)
-            result = await db.execute(stmt)
-            rows = result.scalars().all()
-
-            return [
-                Skill(
-                    name=row.name,
-                    description=row.description or "",
-                    version=row.version or "1.0.0",
-                    triggers=row.triggers or [],
-                    content=row.content or "",
-                    path=f"db://{row.id}",
-                )
-                for row in rows
-            ]
-    except Exception as e:
-        # DB 不可用时（如测试环境），graceful 降级
-        print(f"[Skills] load_db_skills failed (non-blocking): {e}")
-        return []
-
-
-async def load_all_skills() -> List[Skill]:
-    """加载所有可用 Skill（本地文件 + 数据库商店）"""
-    local = load_skills()
-    db_skills = await load_db_skills()
-    return local + db_skills
+def load_all_skills() -> List[Skill]:
+    """加载所有启用的 Skill（内置 + 已安装），供对话时匹配使用"""
+    return load_skills() + load_installed_skills(include_disabled=False)
 
 
 def skills_to_prompt(skills: List[Skill]) -> str:
@@ -168,3 +179,88 @@ def skills_to_prompt(skills: List[Skill]) -> str:
     for skill in skills:
         parts.append(f"\n### Skill: {skill.name}\n{skill.content}")
     return "\n".join(parts)
+
+
+# ============================================================
+# Skill 安装管理（文件夹方式，写入 skills/_installed/<name>/SKILL.md）
+# ============================================================
+
+import re as _re_slug
+
+
+def _slugify(name: str) -> str:
+    """把 Skill 名转成安全的文件夹名"""
+    slug = _re_slug.sub(r'[^a-zA-Z0-9_-]', '-', name.strip().lower())
+    slug = _re_slug.sub(r'-+', '-', slug).strip('-')
+    return slug or "skill"
+
+
+def _build_skill_md(meta: dict, content: str) -> str:
+    """根据元信息和正文构建 SKILL.md 文本（含 frontmatter）"""
+    triggers = meta.get('triggers') or []
+    lines = ["---"]
+    lines.append(f"name: {meta.get('name', '')}")
+    lines.append(f"description: {meta.get('description', '')}")
+    lines.append(f"version: {meta.get('version', '1.0.0')}")
+    if meta.get('author'):
+        lines.append(f"author: {meta['author']}")
+    if meta.get('category'):
+        lines.append(f"category: {meta['category']}")
+    if meta.get('icon'):
+        lines.append(f"icon: {meta['icon']}")
+    if meta.get('source'):
+        lines.append(f"source: {meta['source']}")
+    if meta.get('source_url'):
+        lines.append(f"source_url: {meta['source_url']}")
+    lines.append(f"enabled: {str(meta.get('enabled', True)).lower()}")
+    if triggers:
+        lines.append("triggers:")
+        for t in triggers:
+            lines.append(f"  - {t}")
+    lines.append("---")
+    lines.append("")
+    lines.append(content)
+    return "\n".join(lines)
+
+
+def install_skill_file(meta: dict, content: str) -> tuple[bool, str]:
+    """安装 Skill：写入 skills/_installed/<slug>/SKILL.md
+
+    返回 (success, message_or_slug)
+    """
+    slug = _slugify(meta.get('name', ''))
+    skill_dir = get_installed_dir() / slug
+    if skill_dir.exists():
+        return False, f"Skill '{meta.get('name')}' 已安装"
+
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(_build_skill_md(meta, content), encoding='utf-8')
+    return True, slug
+
+
+def uninstall_skill_file(slug: str) -> bool:
+    """卸载 Skill：删除 skills/_installed/<slug>/ 目录"""
+    import shutil
+    skill_dir = get_installed_dir() / slug
+    if not skill_dir.exists():
+        return False
+    shutil.rmtree(skill_dir)
+    return True
+
+
+def toggle_skill_file(slug: str) -> tuple[bool, bool]:
+    """切换 Skill 启用状态（改写 frontmatter 的 enabled 字段）
+
+    返回 (success, new_enabled_state)
+    """
+    skill_file = get_installed_dir() / slug / "SKILL.md"
+    if not skill_file.exists():
+        return False, False
+
+    text = skill_file.read_text(encoding='utf-8')
+    meta, body = _parse_frontmatter(text)
+    current = str(meta.get('enabled', 'true')).lower() != 'false'
+    new_state = not current
+    meta['enabled'] = new_state
+    skill_file.write_text(_build_skill_md(meta, body.strip()), encoding='utf-8')
+    return True, new_state

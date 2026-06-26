@@ -6,12 +6,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
-from app.api.v1 import chat, team, session, runs, skills, skills
+from app.api.v1 import chat, team, session, runs, skills
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -55,6 +56,17 @@ app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
 app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observability"])
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skill Store"])
 
+# 挂载 uploads 静态目录（多模态图片附件），URL: /uploads/<session>/<file>
+_uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
+
+# Vue 构建产物目录（apps/web/dist，已提交进 git，零构建可用）
+_web_dist = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
+if (_web_dist / "assets").exists():
+    # 挂载构建出的 JS/CSS 资源（vite base=/ui/，所以资源路径是 /ui/assets/*）
+    app.mount("/ui/assets", StaticFiles(directory=str(_web_dist / "assets")), name="ui-assets")
+
 
 @app.get("/")
 async def root():
@@ -86,15 +98,19 @@ async def list_agents_endpoint():
 
 
 @app.get("/ui", include_in_schema=False)
-async def ui():
-    # Web UI 静态页入口（不需要前端工程/打包）
-    # 浏览器打开 /ui 后，通过 fetch 调用上面的 /api/v1/* 接口
-    ui_file = Path(__file__).resolve().parent.parent.parent / "web" / "public" / "ui" / "index.html"
-    return FileResponse(ui_file)
-
-
-@app.get("/ui/skills", include_in_schema=False)
-async def ui_skills():
-    # Skill 商店页面
-    ui_file = Path(__file__).resolve().parent.parent.parent / "web" / "public" / "ui" / "skills.html"
-    return FileResponse(ui_file)
+@app.get("/ui/{path:path}", include_in_schema=False)
+async def ui(path: str = ""):
+    # 服务 Vue 构建产物（SPA）。所有 /ui 及子路由（/ui/skills、/ui/logs）
+    # 都返回 dist/index.html，由前端 vue-router 接管客户端路由。
+    # /ui/assets/* 已由上面的 StaticFiles 挂载处理，不会进到这里。
+    index_file = _web_dist / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    # 构建产物不存在时的友好提示（开发者忘了 build）
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "Web UI 未构建",
+            "hint": "运行 `npm run build:web` 生成 apps/web/dist/，或开发时用 `npm run dev:web`（端口 3000）",
+        },
+    )

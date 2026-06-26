@@ -3,13 +3,16 @@ import { ref } from 'vue'
 import { useStream, type StreamChunk } from '../composables/useStream'
 import { useSessionStore } from './session'
 import { useAgentStore } from './agent'
+import type { ImageAttachment } from '../composables/useApi'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'event'
-  type?: string // text, tool_call, tool_result, token_stats, error, agent_start, etc.
+  type?: string // text, tool_call, tool_result, token_stats, error, config_error, agent_start, etc.
   content: string
   data?: Record<string, unknown>
+  attachments?: string[]   // 图片 URL 列表（用户消息）
+  feedback?: 'up' | 'down' | null
   timestamp: number
 }
 
@@ -22,8 +25,14 @@ export const useChatStore = defineStore('chat', () => {
     return `msg_${Date.now()}_${++msgCounter}`
   }
 
-  function addMessage(role: ChatMessage['role'], content: string, type?: string, data?: Record<string, unknown>) {
-    const msg: ChatMessage = { id: genId(), role, content, type, data, timestamp: Date.now() }
+  function addMessage(
+    role: ChatMessage['role'],
+    content: string,
+    type?: string,
+    data?: Record<string, unknown>,
+    attachments?: string[]
+  ) {
+    const msg: ChatMessage = { id: genId(), role, content, type, data, attachments, feedback: null, timestamp: Date.now() }
     chatMessages.value.push(msg)
     return msg
   }
@@ -33,9 +42,9 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /**
-   * 发送单 Agent 流式消息
+   * 发送单 Agent 流式消息（支持图片）
    */
-  async function sendSingle(text: string) {
+  async function sendSingle(text: string, images: ImageAttachment[] = []) {
     const sessionStore = useSessionStore()
     const agentStore = useAgentStore()
 
@@ -43,21 +52,29 @@ export const useChatStore = defineStore('chat', () => {
       await sessionStore.createNew()
     }
 
-    addMessage('user', text)
+    // 用户消息（带图片预览 URL）
+    const previews = images.map((img) => `data:${img.media_type};base64,${img.data}`)
+    addMessage('user', text, 'text', undefined, previews.length ? previews : undefined)
 
-    // 创建一个 assistant 占位消息，逐步填充
     const assistantMsg = addMessage('assistant', '', 'text')
     let fullContent = ''
 
-    await startStream('/api/v1/chat/stream_ndjson', {
-      message: text,
-      session_id: sessionStore.currentSessionId,
-      model: agentStore.selectedModel || undefined,
-      agent_key: agentStore.selectedAgent || undefined,
-      stream: true,
-    }, (chunk: StreamChunk) => {
-      handleChunk(chunk, assistantMsg, (c) => { fullContent += c })
-    })
+    await startStream(
+      '/api/v1/chat/stream_ndjson',
+      {
+        message: text,
+        session_id: sessionStore.currentSessionId,
+        model: agentStore.selectedModel || undefined,
+        agent_key: agentStore.selectedAgent || undefined,
+        images: images.length ? images : undefined,
+        stream: true,
+      },
+      (chunk: StreamChunk) => {
+        handleChunk(chunk, assistantMsg, (c) => {
+          fullContent += c
+        })
+      }
+    )
 
     assistantMsg.content = fullContent
     await sessionStore.loadSessions()
@@ -75,28 +92,27 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     addMessage('user', topic, 'team')
-
     const assistantMsg = addMessage('assistant', '', 'text')
     let fullContent = ''
 
-    await startStream('/api/v1/team/stream_ndjson', {
-      topic,
-      mode: agentStore.teamMode,
-      session_id: sessionStore.currentSessionId,
-    }, (chunk: StreamChunk) => {
-      if (chunk.type === 'summary') {
-        fullContent = chunk.content || ''
-        assistantMsg.content = fullContent
-      } else if (chunk.type === 'task_result') {
-        addMessage('event', String(chunk.content || ''), 'task_result')
-      } else if (chunk.type === 'agent_start' || chunk.type === 'agent_thinking' || chunk.type === 'agent_done') {
-        addMessage('event', String(chunk.content || ''), chunk.type)
-      } else if (chunk.type === 'error') {
-        addMessage('event', String(chunk.content || ''), 'error')
-      } else if (chunk.type !== 'done') {
-        addMessage('event', JSON.stringify(chunk), 'event')
+    await startStream(
+      '/api/v1/team/stream_ndjson',
+      { topic, mode: agentStore.teamMode, session_id: sessionStore.currentSessionId },
+      (chunk: StreamChunk) => {
+        if (chunk.type === 'summary') {
+          fullContent = chunk.content || ''
+          assistantMsg.content = fullContent
+        } else if (chunk.type === 'task_result') {
+          addMessage('event', String(chunk.content || ''), 'task_result')
+        } else if (chunk.type === 'agent_start' || chunk.type === 'agent_thinking' || chunk.type === 'agent_done') {
+          addMessage('event', String(chunk.content || ''), chunk.type)
+        } else if (chunk.type === 'error') {
+          addMessage('event', String(chunk.content || ''), 'error')
+        } else if (chunk.type !== 'done') {
+          addMessage('event', JSON.stringify(chunk), 'event')
+        }
       }
-    })
+    )
 
     await sessionStore.loadSessions()
   }
@@ -107,6 +123,7 @@ export const useChatStore = defineStore('chat', () => {
         appendText(chunk.content || '')
         assistantMsg.content += chunk.content || ''
         break
+      case 'tool_calls':
       case 'tool_call':
         addMessage('event', '', 'tool_call', chunk.data as Record<string, unknown>)
         break
@@ -115,6 +132,9 @@ export const useChatStore = defineStore('chat', () => {
         break
       case 'token_stats':
         addMessage('event', '', 'token_stats', chunk.data as Record<string, unknown>)
+        break
+      case 'config_error':
+        addMessage('event', chunk.content || 'API Key 未配置', 'config_error', chunk.details as Record<string, unknown>)
         break
       case 'error':
         addMessage('event', chunk.content || 'Unknown error', 'error')

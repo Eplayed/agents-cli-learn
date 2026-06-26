@@ -241,10 +241,10 @@ class SkillsAgentWrapper:
         self.checkpointer = checkpointer
 
     async def stream(self, message: str, thread_id: str | None = None, images: list | None = None):
-        from app.core.skills import load_skills, match_skills, skills_to_prompt
+        from app.core.skills import load_all_skills, match_skills, skills_to_prompt
 
-        # 加载所有 skills 并匹配
-        all_skills = load_skills()
+        # 加载所有 skills（内置 + 已安装）并匹配
+        all_skills = load_all_skills()
         matched = match_skills(message, all_skills)
         skill_prompt = skills_to_prompt(matched)
 
@@ -440,7 +440,7 @@ class FullAgentWrapper:
         self.checkpointer = checkpointer
 
     async def stream(self, message: str, thread_id: str | None = None, images: list | None = None):
-        from app.core.skills import load_skills, match_skills, skills_to_prompt
+        from app.core.skills import load_all_skills, match_skills, skills_to_prompt
         from app.core.rag import get_rag_retriever, format_rag_context
         from app.core.tracing import get_tracing_config
         from langchain_core.messages import SystemMessage, HumanMessage
@@ -448,7 +448,7 @@ class FullAgentWrapper:
         thread_id = thread_id or self.session_id
 
         # 1. Skills 匹配
-        all_skills = load_skills()
+        all_skills = load_all_skills()
         matched_skills = match_skills(message, all_skills)
         skill_prompt = skills_to_prompt(matched_skills)
         if matched_skills:

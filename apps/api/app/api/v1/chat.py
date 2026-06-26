@@ -95,8 +95,12 @@ async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: Async
 
     session, _ = await get_or_create_session(request.session_id, db)
 
+    # 保存图片附件（多模态消息）
+    from app.core.uploads import save_images
+    img_urls = save_images(request.images, session.id)
+
     # 先把 user 消息落库：这样就算中途模型报错，也能在 DB 里看到“用户问了什么”
-    user_msg = Message(session_id=session.id, role="user", content=request.message)
+    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 
@@ -123,7 +127,10 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     # 若遇到该问题，建议前端改用 /stream_ndjson（更通用）
     session, _ = await get_or_create_session(request.session_id, db)
 
-    user_msg = Message(session_id=session.id, role="user", content=request.message)
+    from app.core.uploads import save_images
+    img_urls = save_images(request.images, session.id)
+
+    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 
@@ -207,7 +214,10 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
 
     session, _ = await get_or_create_session(request.session_id, db)
 
-    user_msg = Message(session_id=session.id, role="user", content=request.message)
+    from app.core.uploads import save_images
+    img_urls = save_images(request.images, session.id)
+
+    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 

@@ -97,9 +97,10 @@ agents-cli-learn/
 │   │   │   ├── SessionList.vue  — 会话列表
 │   │   │   └── TypingIndicator.vue — 等待动画
 │   │   └── views/
-│   │       ├── ChatView.vue     — 主对话页
+│   │       ├── ChatView.vue     — 主对话页（流式+图片+反馈+字符计数）
+│   │       ├── SkillsView.vue   — Skill 商店（在线搜索/已安装/本地）
 │   │       └── LogView.vue      — 日志面板
-│   └── public/ui/index.html     — 静态 HTML UI（markdown-it 渲染 + 停止生成 + 反馈 + 请求追踪）
+│   └── dist/                    — Vue 构建产物（提交进 git，FastAPI 在 /ui 托管）
 │
 ├── docs/                        — 文档 + GitHub Pages 站点
 │   ├── index.html               — Pages 门户首页
@@ -249,9 +250,9 @@ agents-cli-learn/
 | **MCP 工具** | `app/mcp_servers/loader.py` | 配置加载、venv Python 路径解析、Tool 缓存 |
 | **RAG** | `app/core/rag.py` | ChromaDB 向量化 + 检索 + ENABLE_RAG 开关 |
 | **上下文压缩** | `app/core/context_compressor.py` | 滑动窗口 + 摘要压缩 |
-| **前端 UI** | `apps/web/public/ui/index.html` | 全功能单文件 UI |
+| **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
 | **Schema** | `app/schemas/chat.py` | ChatRequest（含 images / idempotency_key） |
-| **数据模型** | `app/models/models.py` | Session / Message / AgentRun / AgentEvent |
+| **数据模型** | `app/models/models.py` | Session / Message(含attachments) / AgentRun / AgentEvent |
 
 ### 关键设计决策
 
@@ -273,8 +274,8 @@ agents-cli-learn/
 | 加新 MCP 工具 | `app/mcp_servers/` 加 server.py + `config.json` 加注册 |
 | 加新 Agent 模式 | `app/agents/catalog.py` 加 @register + 工厂函数 |
 | 改系统提示词 | `app/agents/single/agent.py` 的 SystemMessage |
-| 改前端 UI | `apps/web/public/ui/index.html`（单文件） |
-| 加新 Skill | `skills/` 目录加文件夹 + SKILL.md |
+| 改前端 UI | `apps/web/src/`（Vue 3）→ 改完跑 `npm run build:web` 重新生成 dist |
+| 加新 Skill | `skills/<name>/SKILL.md`（内置）或商店安装到 `skills/_installed/` |
 | 改配额限制 | `.env.dev` 的 QUOTA_DAILY_TOKENS / QUOTA_WHITELIST |
 | 开启 RAG | `.env.dev` 设 ENABLE_RAG=true |
 | 切换模型 | `.env.dev` 的 OPENAI_MODEL |

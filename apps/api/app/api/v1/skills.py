@@ -1,22 +1,30 @@
 """
-Skills Store API — Skill 商店 + 管理
+Skills Store API — Skill 商店 + 管理（文件夹方式）
+
+Skill 以文件夹形式存储（符合 Anthropic Agent Skills 标准）：
+- 内置 Skill：    apps/api/skills/<name>/SKILL.md（git 管理）
+- 安装的 Skill：  apps/api/skills/_installed/<name>/SKILL.md（用户通过商店安装）
 
 端点：
-- GET  /api/v1/skills/installed     — 已安装列表
-- GET  /api/v1/skills/marketplace   — 商店浏览（内置 + 社区）
-- POST /api/v1/skills/install       — 安装 Skill
-- POST /api/v1/skills/{id}/toggle   — 启用/禁用
-- DELETE /api/v1/skills/{id}        — 卸载
-- GET  /api/v1/skills/local         — 本地 skills/ 目录的 Skill（只读）
+- GET  /api/v1/skills/installed     — 已安装列表（读 _installed/ 目录）
+- GET  /api/v1/skills/local         — 内置 Skill（只读）
+- POST /api/v1/skills/install       — 安装（写 SKILL.md 文件）
+- POST /api/v1/skills/{slug}/toggle — 启用/禁用（改 frontmatter）
+- DELETE /api/v1/skills/{slug}      — 卸载（删文件夹）
+- GET  /api/v1/skills/online-search — GitHub 在线搜索
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.core.database import get_db
-from app.models.models import InstalledSkill
+from app.core.skills import (
+    load_skills,
+    load_installed_skills,
+    install_skill_file,
+    uninstall_skill_file,
+    toggle_skill_file,
+    _slugify,
+)
 
 router = APIRouter()
 
@@ -33,53 +41,29 @@ class SkillInstallRequest(BaseModel):
     icon: Optional[str] = None
     triggers: list[str] = []
     content: str = Field(..., min_length=1)
-    source: str = "marketplace"
+    source: str = "online"
     source_url: Optional[str] = None
 
 
-class SkillResponse(BaseModel):
-    id: str
-    name: str
-    display_name: Optional[str]
-    description: Optional[str]
-    version: str
-    author: Optional[str]
-    category: Optional[str]
-    icon: Optional[str]
-    triggers: Optional[list]
-    enabled: int
-    source: str
-    source_url: Optional[str]
-    installed_at: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-# ===== 已安装 =====
+# ===== 已安装（读 skills/_installed/ 目录）=====
 
 @router.get("/installed")
-async def list_installed(db: AsyncSession = Depends(get_db)):
-    """列出所有已安装的 Skill"""
-    stmt = select(InstalledSkill).order_by(InstalledSkill.installed_at.desc())
-    result = await db.execute(stmt)
-    skills = result.scalars().all()
+async def list_installed():
+    """列出所有已安装的 Skill（含禁用的）"""
+    skills = load_installed_skills(include_disabled=True)
     return {
         "skills": [
             {
-                "id": s.id,
+                "id": _slugify(s.name),           # slug 作为 id，用于 toggle/uninstall
                 "name": s.name,
-                "display_name": s.display_name or s.name,
+                "display_name": s.name,
                 "description": s.description,
                 "version": s.version,
-                "author": s.author,
-                "category": s.category,
-                "icon": s.icon or "🔧",
-                "triggers": s.triggers or [],
-                "enabled": s.enabled,
-                "source": s.source,
-                "source_url": s.source_url,
-                "installed_at": str(s.installed_at) if s.installed_at else None,
+                "triggers": s.triggers,
+                "icon": "🔧",
+                "enabled": 1 if s.enabled else 0,
+                "source": "installed",
+                "path": s.path,
             }
             for s in skills
         ],
@@ -87,12 +71,11 @@ async def list_installed(db: AsyncSession = Depends(get_db)):
     }
 
 
-# ===== 本地 Skills（只读，来自 skills/ 目录）=====
+# ===== 内置 Skills（只读）=====
 
 @router.get("/local")
 async def list_local():
-    """列出本地 skills/ 目录中的 Skill（只读展示）"""
-    from app.core.skills import load_skills
+    """列出内置 skills/ 目录中的 Skill（只读展示）"""
     local_skills = load_skills()
     return {
         "skills": [
@@ -104,7 +87,7 @@ async def list_local():
                 "triggers": s.triggers,
                 "source": "local",
                 "path": s.path,
-                "enabled": 1,  # 本地 Skill 始终启用
+                "enabled": 1,
             }
             for s in local_skills
         ],
@@ -112,122 +95,56 @@ async def list_local():
     }
 
 
-# ===== 商店浏览 =====
-
-@router.get("/marketplace")
-async def browse_marketplace(
-    category: Optional[str] = None,
-    q: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-):
-    """浏览 Skill 商店（内置预设 + 已安装状态标记）"""
-    from app.api.v1.skill_marketplace import MARKETPLACE_SKILLS
-
-    # 获取已安装的 skill name 集合
-    stmt = select(InstalledSkill.name)
-    result = await db.execute(stmt)
-    installed_names = set(row[0] for row in result.all())
-
-    # 过滤
-    skills = MARKETPLACE_SKILLS
-    if category:
-        skills = [s for s in skills if s.get("category") == category]
-    if q:
-        q_lower = q.lower()
-        skills = [
-            s for s in skills
-            if q_lower in s.get("name", "").lower()
-            or q_lower in s.get("description", "").lower()
-            or q_lower in " ".join(s.get("triggers", [])).lower()
-        ]
-
-    # 标记安装状态
-    for s in skills:
-        s["installed"] = s["name"] in installed_names
-
-    return {
-        "skills": skills,
-        "count": len(skills),
-        "categories": list(set(s.get("category", "other") for s in MARKETPLACE_SKILLS)),
-    }
-
-
-# ===== 安装 =====
+# ===== 安装（写文件）=====
 
 @router.post("/install")
-async def install_skill(req: SkillInstallRequest, db: AsyncSession = Depends(get_db)):
-    """安装一个 Skill 到本地数据库"""
-    # 检查是否已安装
-    stmt = select(InstalledSkill).where(InstalledSkill.name == req.name)
-    result = await db.execute(stmt)
-    existing = result.scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=409, detail=f"Skill '{req.name}' already installed")
-
-    skill = InstalledSkill(
-        name=req.name,
-        display_name=req.display_name or req.name,
-        description=req.description,
-        version=req.version,
-        author=req.author,
-        category=req.category,
-        icon=req.icon,
-        triggers=req.triggers,
-        content=req.content,
-        source=req.source,
-        source_url=req.source_url,
-        enabled=1,
-    )
-    db.add(skill)
-    await db.commit()
-    await db.refresh(skill)
-
-    return {"status": "installed", "id": skill.id, "name": skill.name}
+async def install_skill(req: SkillInstallRequest):
+    """安装一个 Skill —— 写入 skills/_installed/<slug>/SKILL.md"""
+    meta = {
+        "name": req.name,
+        "description": req.description or "",
+        "version": req.version,
+        "author": req.author,
+        "category": req.category,
+        "icon": req.icon,
+        "source": req.source,
+        "source_url": req.source_url,
+        "triggers": req.triggers,
+        "enabled": True,
+    }
+    success, result = install_skill_file(meta, req.content)
+    if not success:
+        raise HTTPException(status_code=409, detail=result)
+    return {"status": "installed", "id": result, "name": req.name}
 
 
-# ===== 启用/禁用 =====
+# ===== 启用/禁用（改 frontmatter）=====
 
-@router.post("/{skill_id}/toggle")
-async def toggle_skill(skill_id: str, db: AsyncSession = Depends(get_db)):
+@router.post("/{slug}/toggle")
+async def toggle_skill(slug: str):
     """切换 Skill 启用/禁用状态"""
-    stmt = select(InstalledSkill).where(InstalledSkill.id == skill_id)
-    result = await db.execute(stmt)
-    skill = result.scalar_one_or_none()
-    if not skill:
+    success, new_state = toggle_skill_file(slug)
+    if not success:
         raise HTTPException(status_code=404, detail="Skill not found")
-
-    skill.enabled = 0 if skill.enabled else 1
-    await db.commit()
-
-    return {"status": "toggled", "id": skill.id, "name": skill.name, "enabled": skill.enabled}
+    return {"status": "toggled", "id": slug, "enabled": 1 if new_state else 0}
 
 
-# ===== 卸载 =====
+# ===== 卸载（删文件夹）=====
 
-@router.delete("/{skill_id}")
-async def uninstall_skill(skill_id: str, db: AsyncSession = Depends(get_db)):
-    """卸载 Skill（从数据库删除）"""
-    stmt = select(InstalledSkill).where(InstalledSkill.id == skill_id)
-    result = await db.execute(stmt)
-    skill = result.scalar_one_or_none()
-    if not skill:
+@router.delete("/{slug}")
+async def uninstall_skill(slug: str):
+    """卸载 Skill —— 删除 skills/_installed/<slug>/ 目录"""
+    success = uninstall_skill_file(slug)
+    if not success:
         raise HTTPException(status_code=404, detail="Skill not found")
-
-    await db.delete(skill)
-    await db.commit()
-
-    return {"status": "uninstalled", "name": skill.name}
+    return {"status": "uninstalled", "id": slug}
 
 
-# ===== 在线搜索（AI Skill Store） =====
+# ===== 在线搜索（GitHub Search API）=====
 
 @router.get("/online-search")
 async def online_search(q: str = "", category: Optional[str] = None):
-    """从在线仓库搜索 Skill（GitHub Search API）
-
-    搜索 GitHub 上含 SKILL.md 或 agent-skill 关键词的仓库，
-    返回标准化结果供前端安装。
-    """
+    """从 GitHub 搜索含 agent skill 关键词的仓库，返回标准化结果供安装"""
     import httpx
 
     if not q and not category:
@@ -251,7 +168,6 @@ async def online_search(q: str = "", category: Optional[str] = None):
                 items = resp.json().get("items", [])
                 normalized = []
                 for repo in items:
-                    # 从 topics 提取 triggers
                     topics = repo.get("topics", [])
                     normalized.append({
                         "name": repo.get("name", ""),
@@ -268,7 +184,6 @@ async def online_search(q: str = "", category: Optional[str] = None):
                         "stars": repo.get("stargazers_count", 0),
                     })
                 return {"skills": normalized, "count": len(normalized), "source": "github"}
-            else:
-                return {"skills": [], "count": 0, "source": "github", "error": f"GitHub API: {resp.status_code}"}
+            return {"skills": [], "count": 0, "source": "github", "error": f"GitHub API: {resp.status_code}"}
     except Exception as e:
         return {"skills": [], "count": 0, "source": "none", "error": f"搜索失败: {str(e)}"}

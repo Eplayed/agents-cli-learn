@@ -31,6 +31,34 @@ async def init_db():
     # 生产环境通常用 Alembic 迁移来管理 schema
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # 轻量自动迁移：为已存在的旧表补充新增列（SQLite）
+        # create_all 不会 ALTER 已存在的表，这里手动补列，避免删库丢数据
+        await conn.run_sync(_ensure_columns)
+
+
+def _ensure_columns(sync_conn):
+    """检查并补充缺失的列（仅 SQLite，幂等）"""
+    from sqlalchemy import inspect, text
+    inspector = inspect(sync_conn)
+    try:
+        existing_tables = inspector.get_table_names()
+    except Exception:
+        return
+
+    # 需要确保存在的列：{表名: {列名: 列定义}}
+    required = {
+        "messages": {"attachments": "JSON"},
+    }
+    for table, cols in required.items():
+        if table not in existing_tables:
+            continue
+        existing_cols = {c["name"] for c in inspector.get_columns(table)}
+        for col_name, col_type in cols.items():
+            if col_name not in existing_cols:
+                try:
+                    sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+                except Exception as e:
+                    print(f"[DB migrate] add {table}.{col_name} failed: {e}")
 
 
 async def get_db():

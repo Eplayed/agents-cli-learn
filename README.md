@@ -52,9 +52,9 @@ npm run dev
 | NDJSON 流式协议 | `apps/api/app/api/v1/chat.py` `/stream_ndjson` |
 | 会话持久化（SQLite + SQLAlchemy 异步） | `apps/api/app/models/models.py` |
 | 真实工具调用（天气走 Open-Meteo） | `apps/api/app/mcp_servers/weather_server.py` |
-| 前端模型切换（`/api/v1/models` + UI 下拉） | `apps/web/public/ui/index.html` |
+| 前端模型切换（`/api/v1/models` + UI 下拉） | `apps/web/src/` (Vue 3) |
 | Agent 注册中心 + 多能力切换（M0/M3/M4/M5） | `apps/api/app/agents/registry.py` + `catalog.py` |
-| Web UI（对话 + 会话切换 + Trace 日志面板 + 导出） | `apps/web/public/ui/index.html` |
+| Web UI（Vue 3：对话 + 会话切换 + Skill 商店 + 日志面板） | `apps/web/src/`（构建产物 `dist/` 由 FastAPI 在 `/ui` 托管） |
 | **AsyncSqliteSaver Checkpoint 持久化（重启不丢）** | `apps/api/app/core/checkpointer.py` |
 | **预算控制（recursion_limit + max_tokens + timeout）** | `apps/api/app/agents/single/agent.py` |
 | **Bearer Token 鉴权中间件（ContextVar 协程隔离）** | `apps/api/app/core/auth.py` |
@@ -68,9 +68,11 @@ npm run dev
 | 幂等性 | `idempotency_key` 防重复执行 | `app/api/v1/chat.py` |
 | Per-user 配额 | 每日 token 上限 + 白名单 | `app/core/quota.py` + `app/core/config.py` |
 | 运行历史 API | 查询 runs/events/quota | `app/api/v1/runs.py` |
-| 停止生成 | 前端 AbortController 中断流式 | `apps/web/public/ui/index.html` |
-| Markdown 渲染 | markdown-it + highlight.js 代码高亮 | CDN + `index.html` |
-| Think 折叠 | Qwen3 `<think>` 推理过程默认折叠淡化 | `index.html` renderMarkdown |
+| 停止生成 | 前端 AbortController 中断流式 | `apps/web/src/composables/useStream.ts` |
+| Markdown 渲染 | marked + think 折叠 | `apps/web/src/composables/useMarkdown.ts` |
+| Think 折叠 | Qwen3 `<think>` 推理过程默认折叠淡化 | `useMarkdown.ts` |
+| 多模态图片 | 上传/粘贴/拖拽 + 落盘 + 历史可见 | `app/core/uploads.py` + `ChatView.vue` |
+| Skill 商店 | 文件夹存储 + 在线搜索 + 启用/禁用 | `app/api/v1/skills.py` + `SkillsView.vue` |
 | 多模态图片 | 上传/粘贴/拖拽图片 + Vision LLM 分析 | Schema + agent + UI |
 | 输入长度保护 | 前端 4000 字符 + 后端 30K token 预检 | `agent.py` + `index.html` |
 | 消息反馈 | 每条回复 👍👎 评价 | `index.html` |
@@ -110,7 +112,7 @@ agents-cli-learn/
 │   │   │   └── main.py            # FastAPI app
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   └── web/public/ui/             # 静态 Web UI（HTML + fetch + NDJSON）
+│   └── web/                       # Vue 3 前端（src/ 源码 + dist/ 构建产物，FastAPI 在 /ui 托管）
 ├── archive/cli/                   # TS CLI（Phase 1-2 学习资产，归档）
 ├── docs/
 │   ├── ARCHITECTURE.md            # 6 张架构图（mermaid）

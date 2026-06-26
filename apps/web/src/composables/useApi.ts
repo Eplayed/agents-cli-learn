@@ -48,7 +48,13 @@ export interface MessageRecord {
   role: string
   content: string
   tool_calls: string | null
+  attachments: string[] | null
   created_at: string
+}
+
+export interface ImageAttachment {
+  data: string         // base64 (无前缀)
+  media_type: string   // image/png 等
 }
 
 export function createSession(name?: string) {
@@ -127,4 +133,65 @@ export function teamExecute(topic: string, mode: string, sessionId?: string) {
     method: 'POST',
     body: { topic, mode, session_id: sessionId },
   })
+}
+
+// ---- Skills Store ----
+
+export interface SkillItem {
+  id?: string
+  name: string
+  display_name?: string
+  description?: string
+  version?: string
+  author?: string
+  category?: string
+  icon?: string
+  triggers?: string[]
+  content?: string
+  source?: string
+  source_url?: string
+  stars?: number
+  enabled?: number
+  installed?: boolean
+}
+
+export function listInstalledSkills() {
+  return api<{ skills: SkillItem[]; count: number }>('/api/v1/skills/installed')
+}
+
+export function listLocalSkills() {
+  return api<{ skills: SkillItem[]; count: number }>('/api/v1/skills/local')
+}
+
+export function searchOnlineSkills(q: string) {
+  return api<{ skills: SkillItem[]; count: number; source: string }>(
+    `/api/v1/skills/online-search?q=${encodeURIComponent(q)}`
+  )
+}
+
+export function installSkill(skill: SkillItem) {
+  return api('/api/v1/skills/install', {
+    method: 'POST',
+    body: {
+      name: skill.name,
+      display_name: skill.display_name,
+      description: skill.description,
+      version: skill.version || '1.0.0',
+      author: skill.author,
+      category: skill.category,
+      icon: skill.icon,
+      triggers: skill.triggers || [],
+      content: skill.content || `# ${skill.name}\n\n${skill.description || ''}`,
+      source: skill.source || 'online',
+      source_url: skill.source_url,
+    },
+  })
+}
+
+export function toggleSkill(slug: string) {
+  return api(`/api/v1/skills/${slug}/toggle`, { method: 'POST' })
+}
+
+export function uninstallSkill(slug: string) {
+  return api(`/api/v1/skills/${slug}`, { method: 'DELETE' })
 }

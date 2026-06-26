@@ -21,13 +21,24 @@ const filteredSessions = computed(() => {
 async function select(id: string) {
   chatStore.clearMessages()
   await sessionStore.switchSession(id)
-  // 加载历史消息到 chat store
+  // 加载历史消息到 chat store（含图片附件）
   for (const m of sessionStore.messages) {
     chatStore.addMessage(
       m.role as 'user' | 'assistant',
       m.content,
-      'text'
+      'text',
+      undefined,
+      m.attachments || undefined
     )
+  }
+}
+
+async function remove(id: string, name: string, e: Event) {
+  e.stopPropagation()
+  if (!confirm(`确定删除会话「${name}」？消息将被永久删除。`)) return
+  await sessionStore.deleteSessionById(id)
+  if (sessionStore.currentSessionId === null) {
+    chatStore.clearMessages()
   }
 }
 
@@ -44,24 +55,29 @@ function formatTime(ts: string | null) {
       placeholder="搜索会话…"
       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
     />
-    <div class="max-h-[400px] overflow-y-auto space-y-1">
-      <button
+    <div class="max-h-[360px] overflow-y-auto space-y-1">
+      <div
         v-for="s in filteredSessions"
         :key="s.id"
-        class="w-full text-left rounded-lg px-3 py-2 text-sm transition-colors"
+        class="group w-full rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer"
         :class="sessionStore.currentSessionId === s.id
           ? 'bg-accent/10 border border-accent/30'
           : 'hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent'"
         @click="select(s.id)"
       >
-        <div class="flex justify-between items-center">
-          <span class="font-medium truncate">{{ s.name }}</span>
-          <span class="text-xs text-gray-400 whitespace-nowrap ml-2">{{ formatTime(s.updated_at) }}</span>
+        <div class="flex justify-between items-center gap-2">
+          <span class="font-medium truncate flex-1 min-w-0">{{ s.name }}</span>
+          <span class="text-xs text-gray-400 whitespace-nowrap">{{ formatTime(s.updated_at) }}</span>
+          <button
+            class="text-gray-400 hover:text-red-500 text-xs px-1 shrink-0"
+            title="删除会话"
+            @click="remove(s.id, s.name, $event)"
+          >✕</button>
         </div>
         <div v-if="s.last_message_preview" class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
           {{ s.last_message_preview }}
         </div>
-      </button>
+      </div>
       <div v-if="filteredSessions.length === 0" class="text-center text-xs text-gray-400 py-4">
         暂无会话
       </div>

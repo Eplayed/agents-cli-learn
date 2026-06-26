@@ -53,3 +53,12 @@
 .markdown-body blockquote {
   @apply border-l-4 border-gray-300 dark:border-gray-600 pl-3 italic text-gray-600 dark:text-gray-400 my-2;
 }
+
+/* Think 推理块（Qwen3 <think>）*/
+.think-block {
+  @apply text-xs text-gray-400 dark:text-gray-500 border-l-2 border-gray-300 dark:border-gray-600 pl-3 my-2 opacity-70;
+}
+.think-toggle {
+  @apply text-xs text-gray-400 dark:text-gray-500 cursor-pointer opacity-60 hover:opacity-90 select-none;
+}
+.think-block table { @apply text-xs; }
