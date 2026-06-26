@@ -44,9 +44,12 @@ watch(
 
 onMounted(async () => {
   await Promise.all([agentStore.loadModels(), agentStore.loadAgents(), sessionStore.loadSessions()])
-  if (sessionStore.sessions.length > 0) {
+  // 自动加载"最近一个有消息的会话"（跳过空会话），避免一打开就是空白
+  const withMsg = sessionStore.sessions.find((s) => s.message_count > 0 || s.last_message_preview)
+  const target = withMsg || sessionStore.sessions[0]
+  if (target) {
     chatStore.clearMessages()
-    await sessionStore.switchSession(sessionStore.sessions[0].id)
+    await sessionStore.switchSession(target.id)
     for (const m of sessionStore.messages) {
       chatStore.addMessage(m.role as 'user' | 'assistant', m.content, 'text', undefined, m.attachments || undefined)
     }
@@ -179,6 +182,9 @@ async function newSession() {
       <!-- Chat Area -->
       <section class="flex flex-col overflow-hidden">
         <div ref="messagesRef" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div v-if="chatStore.chatMessages.length === 0 && !chatStore.isStreaming" class="h-full flex items-center justify-center text-sm text-gray-400">
+            这个会话还没有消息，发一条开始对话吧 👇
+          </div>
           <template v-for="msg in chatStore.chatMessages" :key="msg.id">
             <ChatMessage v-if="msg.role !== 'event'" :msg="msg" />
             <ToolCallBlock v-else-if="msg.type === 'tool_call' || msg.type === 'tool_result'" :msg="msg" />
