@@ -95,6 +95,22 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     return SessionInfo(id=session.id, name=session.name, message_count=session.message_count, created_at=session.created_at, updated_at=session.updated_at)
 
 
+@router.delete("/cleanup-empty")
+async def cleanup_empty_sessions(db: AsyncSession = Depends(get_db)):
+    """批量删除没有任何消息的空会话（清理调试/误建的脏数据）"""
+    # 找出有消息的 session_id
+    has_msg = select(Message.session_id).distinct()
+    # 选出不在上述集合里的会话（即没有消息的）
+    stmt = select(Session).where(Session.id.notin_(has_msg))
+    result = await db.execute(stmt)
+    empties = result.scalars().all()
+    count = len(empties)
+    for s in empties:
+        await db.delete(s)
+    await db.commit()
+    return {"deleted": count}
+
+
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     # 删除会话会级联删除 messages（models.py 里 relationship 配置了 cascade）

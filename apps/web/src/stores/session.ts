@@ -5,6 +5,7 @@ import {
   listSessionSummaries,
   getSessionMessages,
   deleteSession as apiDeleteSession,
+  cleanupEmptySessions as apiCleanupEmpty,
   type SessionSummary,
   type MessageRecord,
 } from '../composables/useApi'
@@ -41,6 +42,12 @@ export const useSessionStore = defineStore('session', () => {
     await loadSessions()
   }
 
+  async function cleanupEmpty() {
+    const res = await apiCleanupEmpty()
+    await loadSessions()
+    return res.deleted
+  }
+
   async function refreshMessages() {
     if (currentSessionId.value) {
       messages.value = await getSessionMessages(currentSessionId.value)
@@ -56,6 +63,7 @@ export const useSessionStore = defineStore('session', () => {
     switchSession,
     createNew,
     deleteSessionById,
+    cleanupEmpty,
     refreshMessages,
   }
 })

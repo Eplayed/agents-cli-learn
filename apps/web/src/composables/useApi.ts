@@ -77,6 +77,10 @@ export function deleteSession(sessionId: string) {
   return api(`/api/v1/session/${sessionId}`, { method: 'DELETE' })
 }
 
+export function cleanupEmptySessions() {
+  return api<{ deleted: number }>('/api/v1/session/cleanup-empty', { method: 'DELETE' })
+}
+
 // ---- Models & Agents ----
 
 export interface ModelsResponse {
