@@ -57,7 +57,11 @@ def _get_checkpointer_from_request(raw_request):
 
 
 def _resolve_agent(request, raw_request, session_id):
-    """解析并创建 Agent 实例，无效 key 抛 400"""
+    """解析并创建 Agent 实例，无效 key 抛 400。
+
+    当请求带图片且配置了 VISION_MODEL 时，自动切换到视觉模型，
+    因为很多文本模型（如 qwen3.6-flash）不支持图片输入。
+    """
     agent_key = request.agent_key or get_default_key()
     available = [a["key"] for a in list_agents()]
     if agent_key not in available:
@@ -65,7 +69,11 @@ def _resolve_agent(request, raw_request, session_id):
             status_code=400,
             detail=f"Invalid agent_key: '{agent_key}'. Available: {available}",
         )
-    return get_agent(agent_key, session_id=session_id, model=request.model, checkpointer=_get_checkpointer_from_request(raw_request))
+    # 图片消息 → 优先用视觉模型（VISION_MODEL），否则用请求指定/默认模型
+    model = request.model
+    if getattr(request, "images", None) and settings.VISION_MODEL:
+        model = settings.VISION_MODEL
+    return get_agent(agent_key, session_id=session_id, model=model, checkpointer=_get_checkpointer_from_request(raw_request))
 
 
 async def get_or_create_session(session_id: str | None, db: AsyncSession):

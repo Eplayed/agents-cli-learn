@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
 
+    # LLM 单次调用超时（秒）。防止模型不响应时请求永久挂起。
+    LLM_TIMEOUT: int = 60
+
+    # 视觉模型：发送图片时使用的多模态模型。
+    # 留空 = 用当前 OPENAI_MODEL（要求它本身支持图片输入）。
+    # DashScope 示例：qwen-vl-max-latest / qwen-vl-plus
+    # OpenAI 示例：gpt-4o / gpt-4o-mini
+    VISION_MODEL: str = ""
+
     # 可用模型列表（前端下拉选择用）
     # 用户可在 .env.dev 中覆盖，逗号分隔
     AVAILABLE_MODELS: str = "gpt-4o-mini,gpt-4o,gpt-4.1-mini,gpt-4.1,gpt-3.5-turbo"

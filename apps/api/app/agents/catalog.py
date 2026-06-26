@@ -63,6 +63,7 @@ class BasicChatbot:
             base_url=settings.OPENAI_BASE_URL,
             temperature=0.7,
             streaming=True,
+            request_timeout=settings.LLM_TIMEOUT,  # 防止模型不响应时永久挂起
         )
 
     async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:

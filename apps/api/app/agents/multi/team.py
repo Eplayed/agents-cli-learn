@@ -37,7 +37,7 @@ class WorkerAgent:
     def __init__(self, profile: AgentProfile):
         self.profile = profile
         # 每个 worker 都是一个独立的 ChatOpenAI 实例（便于不同温度/模型/提示词）
-        self.llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7)
+        self.llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7, request_timeout=settings.LLM_TIMEOUT)
 
     async def execute(self, task: str) -> str:
         # 统一执行入口：SystemMessage(人设) + HumanMessage(任务)
@@ -51,7 +51,7 @@ class MultiAgentTeam:
         self.mode = mode
         self.workers = {}
         # supervisor_llm 用于“分派任务/规划”类提示，本示例用简单 JSON 解析
-        self.supervisor_llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7)
+        self.supervisor_llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, temperature=0.7, request_timeout=settings.LLM_TIMEOUT)
 
     def add_worker(self, profile: AgentProfile):
         self.workers[profile.name] = WorkerAgent(profile)
