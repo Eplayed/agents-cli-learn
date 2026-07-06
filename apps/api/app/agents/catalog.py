@@ -47,7 +47,7 @@ async def _run_graph_with_events(agent, messages, config, model_name):
 
     try:
         async for event in agent.graph.astream_events(
-            {"messages": messages}, config=config, version="v1"
+            {"messages": messages}, config=config, version="v2"
         ):
             kind = event["event"]
             if kind == "on_chat_model_stream":

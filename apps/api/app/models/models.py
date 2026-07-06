@@ -2,10 +2,19 @@
 Database Models - SQLAlchemy ORM
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, Integer, Float, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+
+def utcnow() -> datetime:
+    """返回当前 UTC 时间（naive，去掉 tzinfo）。
+
+    替代已弃用的 datetime.utcnow()，同时保持与旧数据一致的 naive 存储，
+    避免 tz-aware 与 naive 混用导致的比较问题。
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Session(Base):
@@ -18,8 +27,8 @@ class Session(Base):
     # metadata 是 SQLAlchemy 的保留名，这里用 metadata_ 映射到列名 "metadata"
     metadata_ = Column("metadata", JSON, nullable=True)
     message_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     # 级联删除：删除 Session 时，自动删除其 messages
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
 
@@ -35,7 +44,7 @@ class Message(Base):
     tool_calls = Column(JSON, nullable=True)
     # attachments: 图片等附件的 URL 列表（多模态消息），如 ["/uploads/xxx.png"]
     attachments = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     session = relationship("Session", back_populates="messages")
 
 
@@ -83,7 +92,7 @@ class AgentRun(Base):
     cost_usd = Column(Float, default=0.0)
 
     # 时间轴
-    queued_at = Column(DateTime, default=datetime.utcnow)
+    queued_at = Column(DateTime, default=utcnow)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
 
@@ -114,7 +123,7 @@ class AgentEvent(Base):
     event_type = Column(String(30), nullable=False)  # text / tool_calls / tool_result / error / done
     event_data = Column(JSON, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     run = relationship("AgentRun", back_populates="events")
 

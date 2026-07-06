@@ -14,11 +14,12 @@ Agent Run Tracker（M10+ 运行持久化服务）
     await tracker.record_event(run.id, "tool_calls", {"name": "get_weather", ...})
     await tracker.finish_run(run.id, status="completed", input_tokens=100, ...)
 """
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.models import utcnow
 
 from app.models.models import AgentRun, AgentEvent
 
@@ -40,7 +41,7 @@ class RunTracker:
         idempotency_key: Optional[str] = None,
     ) -> AgentRun:
         """创建并持久化一个新的 AgentRun（状态 = running）"""
-        now = datetime.utcnow()
+        now = utcnow()
         run = AgentRun(
             session_id=session_id,
             user_id=user_id,
@@ -102,7 +103,7 @@ class RunTracker:
         run.output_tokens = output_tokens
         run.total_tokens = total_tokens
         run.cost_usd = cost_usd
-        run.finished_at = datetime.utcnow()
+        run.finished_at = utcnow()
         await self.db.commit()
 
         # 清理 seq 计数器

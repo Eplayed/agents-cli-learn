@@ -12,7 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.core.database import get_db
 from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.models.models import Session, Message
+from app.models.models import Session, Message, utcnow
 from app.agents.registry import get_agent, get_default_key, list_agents
 
 router = APIRouter()
@@ -122,7 +122,7 @@ async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: Async
     agent_msg = Message(session_id=session.id, role="assistant", content=full_response)
     db.add(agent_msg)
     session.message_count += 2
-    session.updated_at = datetime.utcnow()
+    session.updated_at = utcnow()
     await db.commit()
 
     return ChatResponse(session_id=session.id, message_id=agent_msg.id, content=full_response, created_at=agent_msg.created_at)
@@ -176,7 +176,7 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
                 result = await inner_db.execute(stmt)
                 sess = result.scalar_one()
                 sess.message_count += 2
-                sess.updated_at = datetime.utcnow()
+                sess.updated_at = utcnow()
                 await inner_db.commit()
             yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
         except Exception as e:
@@ -299,7 +299,7 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
                 result = await inner_db.execute(stmt)
                 sess = result.scalar_one()
                 sess.message_count += 2
-                sess.updated_at = datetime.utcnow()
+                sess.updated_at = utcnow()
                 await inner_db.commit()
 
         except Exception as e:
