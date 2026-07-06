@@ -31,8 +31,8 @@ npm-debug.log*
 coverage/
 
 
-# Docker persistent data
-data/
+# Docker persistent data（仅根目录，避免误伤 docs/learn-game/data 等）
+/data/
 
 # RAG vector database
 apps/api/rag_db/
