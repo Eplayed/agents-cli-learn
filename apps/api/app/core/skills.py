@@ -153,16 +153,56 @@ def load_installed_skills(include_disabled: bool = False) -> List[Skill]:
     return skills
 
 
-def match_skills(message: str, skills: List[Skill]) -> List[Skill]:
-    """根据用户消息匹配相关 Skills（关键词触发）"""
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _tokenize(text: str) -> set:
+    """把文本拆成 latin 词集合（用于英文词边界匹配，避免 'ai' 命中 'said'）"""
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _trigger_score(trigger: str, message_lower: str, tokens: set) -> float:
+    """单个触发词对消息的匹配得分（0 = 不匹配）。
+
+    - 中文触发词：子串匹配（中文无词边界）
+    - 英文单词：词边界匹配（'ai' 不会命中 'said' / 'wait'）
+    - 英文短语（含空格）：子串匹配
+    """
+    t = trigger.lower().strip()
+    if not t:
+        return 0.0
+    if _CJK_RE.search(t):
+        return 1.0 if t in message_lower else 0.0
+    if " " in t:
+        return 1.0 if t in message_lower else 0.0
+    return 1.0 if t in tokens else 0.0
+
+
+def match_skills(message: str, skills: List[Skill], top_k: int = 3, min_score: float = 1.0) -> List[Skill]:
+    """根据用户消息匹配相关 Skills（打分 + 排序 + 限量）。
+
+    相比朴素子串匹配的改进：
+    - 英文触发词按词边界匹配，减少误触发
+    - 触发词命中累加分，Skill 名称词提供弱加权
+    - 按相关度排序，最多返回 top_k 个，避免注入过多 Skill 撑爆 prompt
+    """
     message_lower = message.lower()
-    matched = []
+    tokens = _tokenize(message)
+
+    scored: list[tuple[float, Skill]] = []
     for skill in skills:
-        for trigger in skill.triggers:
-            if trigger.lower() in message_lower:
-                matched.append(skill)
-                break
-    return matched
+        score = 0.0
+        for trig in skill.triggers or []:
+            score += _trigger_score(trig, message_lower, tokens)
+        # Skill 名称词作为弱信号（不足以单独触发）
+        for w in (skill.name or "").lower().replace("-", " ").replace("_", " ").split():
+            if len(w) > 1 and (w in tokens or w in message_lower):
+                score += 0.3
+        if score > 0:
+            scored.append((score, skill))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s for sc, s in scored if sc >= min_score][:top_k]
 
 
 def load_all_skills() -> List[Skill]:
