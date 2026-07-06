@@ -28,12 +28,9 @@ langgraph-checkpoint-sqlite>=3.0.0
 # 可观测（M6 - Langfuse）
 langfuse>=2.0.0
 
-# RAG（M9 - 向量检索）
-chromadb>=0.4.0
-langchain-chroma>=0.1.0
-langchain-text-splitters>=0.2.0
-langchain-community>=0.2.0
-sentence-transformers>=2.0.0
+# RAG（M9 - 向量检索）为可选功能，默认关闭（ENABLE_RAG=false）
+# 重型依赖（chromadb + sentence-transformers ≈ 300MB）已移到 requirements-rag.txt
+# 需要 RAG 时再装：pip install -r requirements-rag.txt
 
 # Data Validation
 pydantic>=2.7.4,<3.0.0

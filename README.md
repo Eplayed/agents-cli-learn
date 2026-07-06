@@ -9,34 +9,36 @@
 
 ## 快速开始
 
-### 1. 装依赖（一次性）
+### 方式 A：一键脚本（推荐）
 
 ```bash
-cd apps/api
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt    # 推荐用 uv 更快：uv pip install -r requirements.txt
+./setup.sh          # 自动检测 Python、建 venv、装依赖、生成 .env.dev
+# 按提示编辑 .env.dev 填入 OPENAI_API_KEY
+npm run dev         # 启动（等价于 cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000）
 ```
 
-### 2. 配置 API Key
+浏览器打开 **http://localhost:8000/ui** 即可对话。
 
-在项目根目录创建 `.env.dev`：
-
-```bash
-cp .env.example .env.dev
-# 编辑 .env.dev，填真实 OPENAI_API_KEY
-```
-
-支持自定义 `OPENAI_BASE_URL`（如 SiliconFlow / DeepSeek 等国内代理）。
-
-### 3. 启动
+### 方式 B：手动三步
 
 ```bash
+# 1. 装依赖
+cd apps/api && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt         # 推荐 uv：uv pip install -r requirements.txt
+
+# 2. 配 API Key（项目根目录）
+cd ../.. && cp .env.example .env.dev     # 编辑填入 OPENAI_API_KEY
+#   支持 OPENAI_BASE_URL 用国内代理（SiliconFlow / DeepSeek / DashScope）
+
+# 3. 启动
 npm run dev
-# 或：cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-浏览器打开 **http://localhost:8000/ui**
+> 💡 **依赖很轻**：默认不含 RAG 的重型库（torch/chromadb）。想用 RAG 知识库时再装：
+> `pip install -r apps/api/requirements-rag.txt` 并在 `.env.dev` 设 `ENABLE_RAG=true`。
+
+> 💡 **前端零构建**：`apps/web/dist/` 已随仓库提交，FastAPI 直接在 `/ui` 托管，无需 `npm install`。
+> 只有改前端源码（`apps/web/src/`）时才需 `npm run build:web` 重新构建。
 
 ---
 

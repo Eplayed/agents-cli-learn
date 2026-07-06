@@ -1,0 +1,14 @@
+# ==========================================
+# RAG 可选依赖（M9 - 向量检索知识库）
+# ==========================================
+# 仅在需要 RAG 功能时安装（约 300MB，含 torch/onnxruntime）：
+#   pip install -r requirements-rag.txt
+# 然后在 .env.dev 设置 ENABLE_RAG=true
+#
+# 默认不装也不影响主流程（对话/工具/多模态/Skill 商店全部可用）
+
+chromadb>=0.4.0
+langchain-chroma>=0.1.0
+langchain-text-splitters>=0.2.0
+langchain-community>=0.2.0
+sentence-transformers>=2.0.0
