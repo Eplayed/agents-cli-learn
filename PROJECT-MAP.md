@@ -46,7 +46,7 @@ agents-cli-learn/
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪）
 │   │   │   ├── rag.py           — ChromaDB 向量检索（docs/*.md 知识库）
-│   │   │   ├── skills.py        — SKILL.md 解析 + 触发词匹配 + prompt 注入
+│   │   │   ├── skills.py        — SKILL.md 解析 + 打分匹配（词边界/CJK/top-K）+ 安装管理
 │   │   │   ├── token_tracker.py — Token 消耗统计 + 费用计算
 │   │   │   └── context_compressor.py — 对话自动压缩（窗口 + 摘要）
 │   │   ├── mcp_servers/
@@ -66,13 +66,10 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/
-│       ├── test_health.py       — 健康检查 + 元信息端点（5 tests）
-│       ├── test_session.py      — 会话 CRUD（7 tests）
-│       ├── test_chat.py         — Chat API 校验（6 tests）
-│       ├── test_agents_registry.py — Agent 注册中心（5 tests）
-│       ├── test_mcp_servers.py  — MCP 工具直接调用（11 tests）
-│       └── test_auth.py         — ContextVar 鉴权隔离（5 tests）
+│   └── tests/                   — 45 tests（含 test_skills_match.py Skill 打分匹配）
+│       ├── test_health.py / test_session.py / test_chat.py
+│       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
+│       └── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
 │
 ├── apps/web/                    — Vue 3 + Vite 前端
 │   ├── package.json             — 前端依赖
@@ -115,16 +112,18 @@ agents-cli-learn/
 │   ├── interview/               — 面试题系统学习（Vue 3 CDN 组件化）
 │   │   ├── index.html           — 入口（importmap + Vue ESM）
 │   │   ├── css/styles.css       — 样式（复用门户设计变量）
-│   │   └── js/                  — 6 模块 45 题 + 真实代码讲解
+│   │   └── js/                  — 6 模块 50+ 题 + 真实代码讲解（data/ 已入库）
 │   └── learn-game/              — 交互式学习闯关游戏
 │       ├── index.html           — 游戏入口
 │       ├── css/styles.css       — 全部样式
-│       ├── data/
-│       │   ├── levels.js        — 关卡注册中心
+│       ├── data/               — ⚠️ gitignore 用 /data/（根锚定）避免误伤
+│       │   ├── levels.js        — 关卡注册中心（10 学习关卡 + 5 面试题库）
 │       │   ├── m0.js ~ m9.js    — 10 个学习关卡
-│       │   ├── interview-agent.js     — 面试题：Agent 核心（15 题）
-│       │   ├── interview-advanced.js  — 面试题：进阶（13 题）
+│       │   ├── interview-agent.js       — 面试题：Agent 核心（15 题）
+│       │   ├── interview-advanced.js    — 面试题：进阶（13 题）
 │       │   ├── interview-engineering.js — 面试题：工程深入（12 题）
+│       │   ├── interview-realbugs.js    — 面试题：真实踩坑（5 题）
+│       │   ├── interview-runtime.js     — 面试题：生产 Runtime（6 题）
 │       │   └── techFlows.js     — 通关后技术流程图数据
 │       └── js/                  — ES Module 模块化 JS
 │           ├── app.js / router.js / store.js / utils.js
@@ -259,13 +258,15 @@ agents-cli-learn/
 | 决策 | 原因 |
 |------|------|
 | SQLite（非 PG） | 学习项目优先零配置，clone 即用 |
-| 单 HTML UI（非 SPA） | 无需 npm install，FastAPI 直接托管 |
+| Vue SPA + 提交 dist | FastAPI 在 `/ui` 托管构建产物，clone 后零构建可用 |
 | NDJSON 流式（非 SSE） | 兼容性更好，解析更简单 |
 | MCP stdio（非 HTTP） | 开发简单，子进程隔离 |
 | 进程内配额（非 Redis） | 避免新增依赖，学习场景重启清零可接受 |
-| Base64 图片（非 URL） | 无需文件存储服务，一次请求搞定 |
+| Base64 图片存盘（非 URL 服务） | 无需对象存储，落盘 uploads/ 供历史回看 |
 | RunTracker 非阻断 | 可观测层失败不影响核心对话功能 |
 | QUOTA_WHITELIST=* 默认 | 开发模式不限制，上线改配置即启用 |
+| RAG 依赖可选（requirements-rag.txt） | 默认安装轻量，RAG 关闭时不装 torch/chromadb |
+| gitignore 用 /data/ 根锚定 | 避免误伤 docs/**/data/（曾导致文件漏提交） |
 
 ### 如何修改常见功能
 
@@ -276,6 +277,7 @@ agents-cli-learn/
 | 改系统提示词 | `app/agents/single/agent.py` 的 SystemMessage |
 | 改前端 UI | `apps/web/src/`（Vue 3）→ 改完跑 `npm run build:web` 重新生成 dist |
 | 加新 Skill | `skills/<name>/SKILL.md`（内置）或商店安装到 `skills/_installed/` |
+| 改 Skill 匹配逻辑 | `app/core/skills.py` 的 `match_skills`（打分 + top_k） |
 | 改配额限制 | `.env.dev` 的 QUOTA_DAILY_TOKENS / QUOTA_WHITELIST |
 | 开启 RAG | `.env.dev` 设 ENABLE_RAG=true |
 | 切换模型 | `.env.dev` 的 OPENAI_MODEL |

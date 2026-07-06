@@ -74,7 +74,7 @@ npm run dev
 | Markdown 渲染 | marked + think 折叠 | `apps/web/src/composables/useMarkdown.ts` |
 | Think 折叠 | Qwen3 `<think>` 推理过程默认折叠淡化 | `useMarkdown.ts` |
 | 多模态图片 | 上传/粘贴/拖拽 + 落盘 + 历史可见 | `app/core/uploads.py` + `ChatView.vue` |
-| Skill 商店 | 文件夹存储 + 在线搜索 + 启用/禁用 | `app/api/v1/skills.py` + `SkillsView.vue` |
+| Skill 商店 | 文件夹存储 + 在线搜索（抓真实 SKILL.md）+ 打分匹配 | `app/api/v1/skills.py` + `app/core/skills.py` + `SkillsView.vue` |
 | 多模态图片 | 上传/粘贴/拖拽图片 + Vision LLM 分析 | Schema + agent + UI |
 | 输入长度保护 | 前端 4000 字符 + 后端 30K token 预检 | `agent.py` + `index.html` |
 | 消息反馈 | 每条回复 👍👎 评价 | `index.html` |
