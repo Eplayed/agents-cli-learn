@@ -185,7 +185,7 @@ while (true) {
   // 按 \n 切分，每行 JSON.parse
 }
 ```
-位置：`apps/web/public/ui/index.html` 里的 `streamNDJSON()` 函数
+位置：`apps/web/src/composables/useStream.ts` 里的 NDJSON 流式解析
 
 ### 事件类型（前端必须认识）
 

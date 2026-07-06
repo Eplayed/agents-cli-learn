@@ -34,6 +34,43 @@ def _build_human_message(message: str, images: list | None = None):
     return HumanMessage(content=message)
 
 
+async def _run_graph_with_events(agent, messages, config, model_name):
+    """运行 agent.graph 的流式事件，统一处理 token 统计 + 事件转换。
+
+    供 Skills/RAG/Full 三个 Wrapper 复用，保证它们也能上报 token_stats。
+    返回一个 async generator，yield 统一格式的 chunk。
+    """
+    from app.core.token_tracker import TokenTracker, format_token_stats
+
+    tracker = TokenTracker(model=model_name or settings.OPENAI_MODEL)
+    config.setdefault("callbacks", []).append(tracker)
+
+    try:
+        async for event in agent.graph.astream_events(
+            {"messages": messages}, config=config, version="v1"
+        ):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    yield {"type": "text", "content": content}
+            elif kind == "on_tool_start":
+                yield {"type": "tool_calls", "data": {"name": event["name"], "input": event.get("data", {}).get("input")}}
+            elif kind == "on_tool_end":
+                tool_output = event.get("data", {}).get("output")
+                if tool_output is not None:
+                    try:
+                        tool_output = tool_output.content
+                    except Exception:
+                        tool_output = str(tool_output)
+                yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+    except Exception as e:
+        yield {"type": "error", "content": str(e)}
+
+    yield {"type": "token_stats", "data": format_token_stats(tracker.get_stats())}
+    yield {"type": "done", "content": ""}
+
+
 # ============================================================
 # M0 · Basic Chatbot（纯对话，不调工具）
 # ============================================================
@@ -63,6 +100,7 @@ class BasicChatbot:
             base_url=settings.OPENAI_BASE_URL,
             temperature=0.7,
             streaming=True,
+            stream_usage=True,              # 流式也返回 token usage
             request_timeout=settings.LLM_TIMEOUT,  # 防止模型不响应时永久挂起
         )
 
@@ -282,30 +320,8 @@ class SkillsAgentWrapper:
         )
         messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
-        try:
-            async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v1"
-            ):
-                kind = event["event"]
-                if kind == "on_chat_model_stream":
-                    content = event["data"]["chunk"].content
-                    if content:
-                        yield {"type": "text", "content": content}
-                elif kind == "on_tool_start":
-                    tool_input = event.get("data", {}).get("input")
-                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
-                elif kind == "on_tool_end":
-                    tool_output = event.get("data", {}).get("output")
-                    if tool_output is not None:
-                        try:
-                            tool_output = tool_output.content
-                        except Exception:
-                            tool_output = str(tool_output)
-                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
-        except Exception as e:
-            yield {"type": "error", "content": str(e)}
-
-        yield {"type": "done", "content": ""}
+        async for chunk in _run_graph_with_events(agent, messages, config, self.model):
+            yield chunk
 
 
 # ============================================================
@@ -380,30 +396,8 @@ class RAGAgentWrapper:
         )
         messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
-        try:
-            async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v1"
-            ):
-                kind = event["event"]
-                if kind == "on_chat_model_stream":
-                    content = event["data"]["chunk"].content
-                    if content:
-                        yield {"type": "text", "content": content}
-                elif kind == "on_tool_start":
-                    tool_input = event.get("data", {}).get("input")
-                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
-                elif kind == "on_tool_end":
-                    tool_output = event.get("data", {}).get("output")
-                    if tool_output is not None:
-                        try:
-                            tool_output = tool_output.content
-                        except Exception:
-                            tool_output = str(tool_output)
-                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
-        except Exception as e:
-            yield {"type": "error", "content": str(e)}
-
-        yield {"type": "done", "content": ""}
+        async for chunk in _run_graph_with_events(agent, messages, config, self.model):
+            yield chunk
 
 
 from pathlib import Path
@@ -497,27 +491,5 @@ class FullAgentWrapper:
 
         messages = [SystemMessage(content=sys_content), _build_human_message(message, images)]
 
-        try:
-            async for event in agent.graph.astream_events(
-                {"messages": messages}, config=config, version="v1"
-            ):
-                kind = event["event"]
-                if kind == "on_chat_model_stream":
-                    content = event["data"]["chunk"].content
-                    if content:
-                        yield {"type": "text", "content": content}
-                elif kind == "on_tool_start":
-                    tool_input = event.get("data", {}).get("input")
-                    yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
-                elif kind == "on_tool_end":
-                    tool_output = event.get("data", {}).get("output")
-                    if tool_output is not None:
-                        try:
-                            tool_output = tool_output.content
-                        except Exception:
-                            tool_output = str(tool_output)
-                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
-        except Exception as e:
-            yield {"type": "error", "content": str(e)}
-
-        yield {"type": "done", "content": ""}
+        async for chunk in _run_graph_with_events(agent, messages, config, self.model):
+            yield chunk

@@ -88,6 +88,7 @@ class SingleAgent:
             base_url=settings.OPENAI_BASE_URL,
             temperature=0.7,
             streaming=True,
+            stream_usage=True,              # M10：流式也返回 token usage
             max_tokens=MAX_TOKENS,          # M5：限制单次生成长度
             request_timeout=REQUEST_TIMEOUT,  # M5：超时保护
         )

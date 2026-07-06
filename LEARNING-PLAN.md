@@ -29,7 +29,7 @@ apps/
 │   ├── app/core/       # 配置 + DB
 │   ├── app/models/     # SQLAlchemy ORM
 │   └── app/schemas/    # Pydantic
-└── web/public/ui/      # 静态 Web UI（HTML + fetch + NDJSON）
+└── web/               # Vue 3 前端（src/ 源码 + dist/ 构建产物，FastAPI 在 /ui 托管）
 
 archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 ```

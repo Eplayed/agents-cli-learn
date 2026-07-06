@@ -95,27 +95,95 @@ async def list_local():
     }
 
 
+async def _fetch_github_skill(source_url: str) -> Optional[dict]:
+    """从 GitHub 仓库抓取真实的 Skill 内容。
+
+    优先找真正的 SKILL.md（agent-skill 仓库），否则退回 README.md。
+    返回 {content, triggers, description}，失败返回 None。
+    """
+    import re
+    import httpx
+
+    m = re.match(r"https?://github\.com/([^/]+)/([^/]+)", source_url or "")
+    if not m:
+        return None
+    owner, repo = m.group(1), m.group(2).replace(".git", "")
+
+    # 候选文件（按优先级）：真正的 SKILL.md 最理想，README 兜底
+    candidates = ["SKILL.md", "skill.md", ".claude/SKILL.md", "README.md", "readme.md"]
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        for path in candidates:
+            url = f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{path}"
+            try:
+                resp = await client.get(url)
+            except Exception:
+                continue
+            if resp.status_code != 200 or not resp.text.strip():
+                continue
+
+            text = resp.text[:8000]  # 截断，避免超长
+            is_skill_md = path.lower().endswith("skill.md")
+
+            # 若是真正的 SKILL.md，解析 frontmatter 拿 triggers/description
+            triggers, description = [], None
+            if is_skill_md:
+                from app.core.skills import _parse_frontmatter
+                meta, _ = _parse_frontmatter(text)
+                triggers = meta.get("triggers", []) or []
+                description = meta.get("description")
+
+            return {"content": text, "triggers": triggers, "description": description, "is_skill_md": is_skill_md}
+    return None
+
+
 # ===== 安装（写文件）=====
 
 @router.post("/install")
 async def install_skill(req: SkillInstallRequest):
-    """安装一个 Skill —— 写入 skills/_installed/<slug>/SKILL.md"""
+    """安装一个 Skill —— 写入 skills/_installed/<slug>/SKILL.md
+
+    对于在线（GitHub）来源，安装时会尝试抓取仓库里真正的 SKILL.md / README，
+    避免只存一行描述、装了却没实际能力。
+    """
+    content = req.content
+    triggers = req.triggers
+    description = req.description or ""
+
+    # 在线来源：抓取真实内容
+    if req.source in ("github", "online") and req.source_url:
+        fetched = await _fetch_github_skill(req.source_url)
+        if fetched:
+            content = fetched["content"]
+            if fetched["triggers"]:
+                triggers = fetched["triggers"]
+            if fetched["description"]:
+                description = fetched["description"]
+            # README 类内容：补一段说明，并用仓库名/topics 作为触发词兜底
+            if not fetched["is_skill_md"]:
+                content = (
+                    f"# {req.display_name or req.name}\n\n"
+                    f"> 来源：{req.source_url}\n\n"
+                    + content
+                )
+                if not triggers:
+                    triggers = req.triggers or [req.name.replace("-", " ")]
+
     meta = {
         "name": req.name,
-        "description": req.description or "",
+        "description": description,
         "version": req.version,
         "author": req.author,
         "category": req.category,
         "icon": req.icon,
         "source": req.source,
         "source_url": req.source_url,
-        "triggers": req.triggers,
+        "triggers": triggers,
         "enabled": True,
     }
-    success, result = install_skill_file(meta, req.content)
+    success, result = install_skill_file(meta, content)
     if not success:
         raise HTTPException(status_code=409, detail=result)
-    return {"status": "installed", "id": result, "name": req.name}
+    return {"status": "installed", "id": result, "name": req.name, "content_len": len(content)}
 
 
 # ===== 启用/禁用（改 frontmatter）=====

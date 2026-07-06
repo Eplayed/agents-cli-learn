@@ -307,7 +307,7 @@ router = APIRouter(dependencies=[Depends(verify_bearer)])
 ### 差距 5：客户端 SDK（🟡 减少前端重复代码）
 
 #### 现状
-你的 `apps/web/public/ui/index.html` 直接写 `fetch()` 调 NDJSON。如果将来加 Next.js 前端 / 或者写测试脚本，又要重写一遍。
+你的 `apps/web/src/composables/useStream.ts`（Vue 3）封装了 `fetch()` 调 NDJSON。如果将来加别的前端 / 或者写测试脚本，仍可复用这个 composable。
 
 #### 参考做法
 agent-service-toolkit 有 `src/client/client.py`：
