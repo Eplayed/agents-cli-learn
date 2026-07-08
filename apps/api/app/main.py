@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
-from app.api.v1 import chat, team, session, runs, skills
+from app.api.v1 import chat, team, session, runs, skills, ai_testing
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -55,6 +55,7 @@ app.include_router(team.router, prefix="/api/v1/team", tags=["Multi-Agent"])
 app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
 app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observability"])
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skill Store"])
+app.include_router(ai_testing.router, prefix="/api/v1/ai-testing", tags=["AI Testing"])
 
 # 挂载 uploads 静态目录（多模态图片附件），URL: /uploads/<session>/<file>
 _uploads_dir = Path(__file__).resolve().parent.parent / "uploads"

@@ -134,3 +134,36 @@ class AgentEvent(Base):
 # 注：Skill 已改为文件夹方式存储（skills/_installed/<name>/SKILL.md），
 # 不再使用数据库表。此处保留空说明以便理解历史。
 # ============================================================
+
+
+# ============================================================
+# AI 测试模型（M11）
+#
+# 存储每次测试套件运行的结果，支持在 Web UI 查看历史趋势：
+# - 同一个 test_type 多次运行的 pass_rate 变化，能看出 Prompt/模型改动的影响
+# - cases 字段存完整的用例级结果（JSON），不建细粒度表，保持简单
+# ============================================================
+
+
+class TestRun(Base):
+    """一次 AI 测试套件运行的记录"""
+    __tablename__ = "test_runs"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"test_{uuid.uuid4().hex[:16]}")
+
+    # 测试类型：prompt_stability / multi_turn / rag_hit_rate / tool_calling / hallucination / adversarial
+    test_type = Column(String(50), nullable=False, index=True)
+    agent_key = Column(String(50), nullable=True)   # 被测的 Agent（如 tool-agent）
+    model = Column(String(100), nullable=True)
+
+    # 汇总结果
+    total = Column(Integer, default=0)
+    passed = Column(Integer, default=0)
+    failed = Column(Integer, default=0)
+    pass_rate = Column(Float, default=0.0)
+    duration_ms = Column(Integer, default=0)
+
+    # 用例级详情（CaseResult 列表的 JSON），前端展开查看
+    cases = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime, default=utcnow)
