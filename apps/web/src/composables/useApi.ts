@@ -199,3 +199,82 @@ export function toggleSkill(slug: string) {
 export function uninstallSkill(slug: string) {
   return api(`/api/v1/skills/${slug}`, { method: 'DELETE' })
 }
+
+// ---- AI Testing ----
+
+export interface TestTypeInfo {
+  key: string
+  label: string
+  description: string
+  default_agent: string | null
+}
+
+export interface TestCaseResult {
+  case_id: string
+  passed: boolean
+  input: string
+  output: string
+  reasons: string[]
+  details: Record<string, unknown>
+  duration_ms: number
+  error: string | null
+}
+
+export interface TestSuiteResponse {
+  test_type: string
+  total: number
+  passed: number
+  failed: number
+  pass_rate: number
+  duration_ms: number
+  cases: TestCaseResult[]
+  run_id: string
+  created_at: string
+}
+
+export interface TestRunSummary {
+  id: string
+  test_type: string
+  agent_key: string | null
+  model: string | null
+  total: number
+  passed: number
+  failed: number
+  pass_rate: number
+  duration_ms: number
+  created_at: string
+}
+
+export function listTestTypes() {
+  return api<{ types: TestTypeInfo[] }>('/api/v1/ai-testing/types')
+}
+
+export function getTestPresets(testType: string) {
+  return api<{ test_type: string; cases: Record<string, unknown>[] }>(`/api/v1/ai-testing/presets/${testType}`)
+}
+
+export function runTest(testType: string, opts: { agentKey?: string; model?: string; cases?: unknown[]; runs?: number } = {}) {
+  return api<TestSuiteResponse>('/api/v1/ai-testing/run', {
+    method: 'POST',
+    body: {
+      test_type: testType,
+      agent_key: opts.agentKey,
+      model: opts.model,
+      cases: opts.cases,
+      runs: opts.runs,
+    },
+  })
+}
+
+export function listTestHistory(testType?: string, limit = 30) {
+  const q = testType ? `?test_type=${testType}&limit=${limit}` : `?limit=${limit}`
+  return api<{ runs: TestRunSummary[]; count: number }>(`/api/v1/ai-testing/history${q}`)
+}
+
+export function getTestHistoryDetail(runId: string) {
+  return api<TestSuiteResponse & { id: string }>(`/api/v1/ai-testing/history/${runId}`)
+}
+
+export function deleteTestHistory(runId: string) {
+  return api(`/api/v1/ai-testing/history/${runId}`, { method: 'DELETE' })
+}
