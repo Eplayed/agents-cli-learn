@@ -75,6 +75,7 @@ npm run dev
 | Think 折叠 | Qwen3 `<think>` 推理过程默认折叠淡化 | `useMarkdown.ts` |
 | 多模态图片 | 上传/粘贴/拖拽 + 落盘 + 历史可见 | `app/core/uploads.py` + `ChatView.vue` |
 | Skill 商店 | 文件夹存储 + 在线搜索（抓真实 SKILL.md）+ 打分匹配 | `app/api/v1/skills.py` + `app/core/skills.py` + `SkillsView.vue` |
+| AI 应用测试 | 6 种测试（Prompt稳定性/多轮/RAG命中率/工具调用/幻觉/越狱）+ Web UI + 历史记录 | `app/core/ai_testing.py` + `app/api/v1/ai_testing.py` + `TestingView.vue`，原理详见 [docs/AI-TESTING.md](./docs/AI-TESTING.md) |
 | 多模态图片 | 上传/粘贴/拖拽图片 + Vision LLM 分析 | Schema + agent + UI |
 | 输入长度保护 | 前端 4000 字符 + 后端 30K token 预检 | `agent.py` + `index.html` |
 | 消息反馈 | 每条回复 👍👎 评价 | `index.html` |
@@ -94,6 +95,7 @@ npm run dev
 | M7 | 评测体系（10 条回归用例 + 4 种断言） | ✅ 已完成 |
 | M8 | Skills 框架（渐进式加载能力包） | ✅ 已完成 |
 | M9 | RAG 知识库检索（ChromaDB + 引用标注） | ✅ 已完成 |
+| M11 | AI 应用测试（6 种测试类型 + Web UI + 历史记录） | ✅ 已完成 |
 
 ---
 

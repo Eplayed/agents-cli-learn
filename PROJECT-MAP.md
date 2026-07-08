@@ -36,7 +36,8 @@ agents-cli-learn/
 │   │   ├── chat.py          — /chat/send + /stream_ndjson（核心对话 API + 运行持久化 + 幂等 + 配额）
 │   │   │   ├── session.py       — 会话 CRUD + 消息历史
 │   │   │   ├── team.py          — Multi-Agent API
-│   │   │   └── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
+│   │   │   ├── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
+│   │   │   └── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
 │   │   ├── core/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db 依赖注入
@@ -48,7 +49,9 @@ agents-cli-learn/
 │   │   │   ├── rag.py           — ChromaDB 向量检索（docs/*.md 知识库）
 │   │   │   ├── skills.py        — SKILL.md 解析 + 打分匹配（词边界/CJK/top-K）+ 安装管理
 │   │   │   ├── token_tracker.py — Token 消耗统计 + 费用计算
-│   │   │   └── context_compressor.py — 对话自动压缩（窗口 + 摘要）
+│   │   │   ├── context_compressor.py — 对话自动压缩（窗口 + 摘要）
+│   │   │   ├── ai_testing.py    — AI 测试引擎（6 种类型：稳定性/多轮/RAG命中/工具调用/幻觉/越狱）
+│   │   │   └── ai_testing_cases.py — 6 种测试类型的预置用例（开箱即用）
 │   │   ├── mcp_servers/
 │   │   │   ├── config.json      — MCP Server 注册表（加工具只改这里）
 │   │   │   ├── weather_server.py — 天气查询（stdio, readOnly, openWorld）
@@ -57,7 +60,7 @@ agents-cli-learn/
 │   │   │   ├── time_server.py   — 时间工具（HTTP transport 演示）
 │   │   │   └── loader.py        — MCP 配置加载 + MultiServerMCPClient 缓存
 │   │   ├── models/
-│   │   │   └── models.py        — SQLAlchemy ORM（Session + Message + AgentRun + AgentEvent）
+│   │   │   └── models.py        — SQLAlchemy ORM（Session + Message + AgentRun + AgentEvent + TestRun）
 │   │   └── schemas/
 │   │       └── chat.py          — Pydantic 请求/响应 Schema
 │   ├── eval/
@@ -96,6 +99,7 @@ agents-cli-learn/
 │   │   └── views/
 │   │       ├── ChatView.vue     — 主对话页（流式+图片+反馈+字符计数）
 │   │       ├── SkillsView.vue   — Skill 商店（在线搜索/已安装/本地）
+│   │       ├── TestingView.vue  — AI 测试页（6 类型/JSON 编辑/结果详情/历史）
 │   │       └── LogView.vue      — 日志面板
 │   └── dist/                    — Vue 构建产物（提交进 git，FastAPI 在 /ui 托管）
 │
@@ -105,6 +109,7 @@ agents-cli-learn/
 │   ├── diagrams.html            — 架构图浏览器查看器
 │   ├── ARCHITECTURE.md          — 6 张 Mermaid 架构图 + Harness 七层映射
 │   ├── GAP-ANALYSIS.md          — 对标 agent-service-toolkit 差距分析
+│   ├── AI-TESTING.md            — AI 测试原理详解（6 类型 + 断言方法论 + API/UI 用法）
 │   ├── MCP-INTEGRATION.md       — M4 MCP 集成实施记录 + annotations 最佳实践
 │   ├── RUNNING.md               — 本地运行手册
 │   ├── DEPLOYMENT.md            — GitHub Pages 部署指南
@@ -124,6 +129,7 @@ agents-cli-learn/
 │       │   ├── interview-engineering.js — 面试题：工程深入（12 题）
 │       │   ├── interview-realbugs.js    — 面试题：真实踩坑（5 题）
 │       │   ├── interview-runtime.js     — 面试题：生产 Runtime（6 题）
+│       │   ├── interview-testing.js     — 面试题：AI 测试原理与实践（8 题）
 │       │   └── techFlows.js     — 通关后技术流程图数据
 │       └── js/                  — ES Module 模块化 JS
 │           ├── app.js / router.js / store.js / utils.js
@@ -162,6 +168,11 @@ agents-cli-learn/
 | GET | /api/v1/runs/ | Agent 运行历史（分页 + 筛选） |
 | GET | /api/v1/runs/{id} | 单次运行详情 + 事件溯源 |
 | GET | /api/v1/runs/quota | 当前用户配额用量 |
+| GET | /api/v1/ai-testing/types | 列出 6 种 AI 测试类型 |
+| GET | /api/v1/ai-testing/presets/{type} | 获取某类型预置用例 |
+| POST | /api/v1/ai-testing/run | 运行一次 AI 测试套件 |
+| GET | /api/v1/ai-testing/history | 测试历史记录列表 |
+| GET/DELETE | /api/v1/ai-testing/history/{id} | 单次测试详情 / 删除 |
 
 ## 核心数据流
 
@@ -185,6 +196,7 @@ agents-cli-learn/
 | Markdown | markdown-it + highlight.js | 代码高亮 + 表格 + 引用 |
 | 消息反馈 | 👍👎 按钮 | 每条 assistant 消息可评价 |
 | 请求追踪 | X-Request-ID header | 前后端链路对齐 |
+| AI 应用测试 | `ai_testing.py` 6 种 runner + `TestRun` 持久化 | Prompt稳定性/多轮/RAG命中/工具调用/幻觉/越狱，Web UI `/ui/testing` |
 
 ---
 
@@ -249,9 +261,10 @@ agents-cli-learn/
 | **MCP 工具** | `app/mcp_servers/loader.py` | 配置加载、venv Python 路径解析、Tool 缓存 |
 | **RAG** | `app/core/rag.py` | ChromaDB 向量化 + 检索 + ENABLE_RAG 开关 |
 | **上下文压缩** | `app/core/context_compressor.py` | 滑动窗口 + 摘要压缩 |
-| **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
+| **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/AI测试/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
 | **Schema** | `app/schemas/chat.py` | ChatRequest（含 images / idempotency_key） |
-| **数据模型** | `app/models/models.py` | Session / Message(含attachments) / AgentRun / AgentEvent |
+| **数据模型** | `app/models/models.py` | Session / Message(含attachments) / AgentRun / AgentEvent / TestRun |
+| **AI 测试引擎** | `app/core/ai_testing.py` + `ai_testing_cases.py` | 6 种测试类型 runner + 预置用例，详见 `docs/AI-TESTING.md` |
 
 ### 关键设计决策
 
@@ -282,3 +295,4 @@ agents-cli-learn/
 | 开启 RAG | `.env.dev` 设 ENABLE_RAG=true |
 | 切换模型 | `.env.dev` 的 OPENAI_MODEL |
 | 加新 API 端点 | `app/api/v1/` 加路由文件 + `main.py` 注册 |
+| 加新 AI 测试类型 | `app/core/ai_testing.py` 的 `TEST_TYPES` 注册表加 runner + `ai_testing_cases.py` 加预置用例 |
