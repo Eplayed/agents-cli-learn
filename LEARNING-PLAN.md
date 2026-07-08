@@ -19,7 +19,7 @@
 
 ---
 
-## 1. 当前项目状态（M0-M3 已完成）
+## 1. 当前项目状态（M0-M9 + M11 已完成）
 
 ```
 apps/
@@ -55,7 +55,8 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | HITL | 无 | `interrupt()` + Web UI 审批 | 🟡 中 |
 | 鉴权/限流 | 无 | JWT + slowapi | 🟡 中 |
 | 长期记忆 | 无 | `Store` API + 向量检索 | 🟢 低 |
-| 前端 | 静态 HTML（含模型切换/会话管理/日志面板） | Next.js + agent-chat-ui | 🟢 低 |
+| 前端 | Vue 3（对话/Skill商店/AI测试/日志面板，dist 提交 git 零构建） | Next.js + agent-chat-ui | ✅ 已完成 |
+| AI 测试 | 6 种测试类型 + Web UI（prompt稳定性/多轮/RAG/工具调用/幻觉/越狱） | DeepEval / trajectory eval | ✅ 已完成 |
 | A2A | 无 | A2A 协议（仅在多团队互通时需要） | 🟢 低 |
 
 ---
@@ -75,7 +76,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 ---
 
-## 3. 学习路线（M4 → M9）
+## 3. 学习路线（M4 → M11）
 
 ### M4：MCP 工具协议（🔴 最高优先级）
 
@@ -227,6 +228,58 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 ---
 
+### M11：AI 应用测试（✅ 已完成）— 从"能跑"到"能验证"
+
+**为什么要单独做这块？**
+- M7 的 `eval/run_eval.py` 已经证明"LLM 输出非确定性"这个核心矛盾——传统单测的"输出==期望值"断言在这里失效
+- 但 M7 只覆盖了工具调用这一个维度，AI 应用真实要测的面更广：Prompt 会不会输出飘、RAG 检索准不准、多轮记忆有没有丢、模型会不会瞎编、恶意输入能不能防住
+- 这些问题在面试里越来越高频（"你怎么测你的 Agent"几乎是必问题），值得系统化、可视化地做一遍
+
+**核心设计原则**：断言"属性"而非"精确值"。LLM 两次运行的措辞可以不同，但关键词覆盖率、输出长度区间、工具调用正确性、有无虚假信息等"属性"应该保持稳定——这是所有 AI 测试方法共同的底层逻辑。
+
+**6 种测试类型：**
+
+1. **Prompt 稳定性测试**（`prompt_stability`）
+   同一 Prompt 重复运行 N 次（默认 3 次），检查：
+   - 关键词是否每次都出现（`must_contain_all`）
+   - 输出长度的波动系数 `(max-min)/mean` 是否超过阈值（默认 0.6）
+   意义：改 Prompt / 换模型前后做回归对比，量化"有没有变得不稳定"。
+
+2. **多轮对话测试**（`multi_turn`）
+   设计一个多轮序列：前面轮次"埋点"信息（如"我叫小明"），最后一轮问回这些信息，断言回答中出现埋入内容。全程用同一个 `thread_id` 贯穿。
+   意义：验证 Checkpoint/上下文记忆机制是否真的生效（这是本项目 M5 踩过的真实坑——每请求 new 一个 checkpointer 导致记忆丢失）。
+
+3. **RAG 命中率测试**（`rag_hit_rate`）
+   直接调用 `retriever.ainvoke(query)`（不经过 LLM 生成），检查 Top-K 结果的来源文档是否覆盖预期文件名。
+   意义：把"检索"和"生成"两个环节拆开测——只看最终回答会把"检索错了但 LLM 靠自身知识蒙对"误判为通过。本质是信息检索里的 Recall@K 指标。
+
+4. **工具调用准确性测试**（`tool_calling`）
+   三个维度：该调用工具时是否调用（正向）、不该调用时是否没调（反向）、调用后结果是否被正确引用到最终回答（防止"调了工具但答案是编的"）。
+
+5. **幻觉检测测试**（`hallucination`）
+   故意问"模型不该知道"或"不存在"的东西（虚构函数名、未发生的未来事件），断言回答中出现承认不确定的表达，而不是自信编造虚假细节。
+
+6. **异常输入 / 越狱测试**（`adversarial`）
+   越狱提示（"忽略之前所有指令"）、危险请求（"删除所有数据不需要确认"）、边界输入（空/超长/纯符号），断言：没有被越狱、没有无确认执行危险操作、没有崩溃或超时。
+
+**主参考**：DeepEval 的"属性断言"思路 + Anthropic Evals 文档（评估流程设计）+ 信息检索的 Recall@K / Precision@K 指标定义
+
+**实现位置：**
+- `apps/api/app/core/ai_testing.py` — 6 个测试 runner + 统一的 `CaseResult`/`TestSuiteResult` 结构
+- `apps/api/app/core/ai_testing_cases.py` — 每种类型的预置用例（开箱即测）
+- `apps/api/app/models/models.py::TestRun` — 每次运行的结果持久化（历史趋势查看）
+- `apps/api/app/api/v1/ai_testing.py` — `/types` `/presets/{type}` `/run` `/history` 端点
+- `apps/web/src/views/TestingView.vue` — Web UI：选类型 → 编辑用例 JSON → 运行 → 看结果/历史
+
+**可验收：**
+- [x] `/ui/testing` 页面能选测试类型、编辑用例、点击运行、看到逐用例的 pass/fail + 原因
+- [x] 6 种类型都有开箱即用的预置用例，不需要先自己写用例
+- [x] 每次运行结果落库，历史 tab 可查看趋势 + 点开看详情
+- [x] RAG 命中率测试在 `ENABLE_RAG=false` 时明确标记"跳过"而非"失败"（避免信号污染）
+- [x] 异常输入测试有超时保护（30s），恶意输入不会导致请求永久挂起
+
+---
+
 ## 4. CowAgent 思想迁移对照表
 
 CowAgent 仍有值得借鉴的**工程思想**（不是技术）。下面列出每个思想在 2026 主流栈下应该用什么实现：
@@ -294,21 +347,23 @@ ToolHive 是企业级 MCP 托管平台的落地案例，其设计思想对本项
 | **评测** | trajectory eval 是什么？怎么防止 prompt 改了能力退化？ | M7 待实现 | M7 |
 | **RAG** | 向量检索 + 引用可解释？chunking 策略？ | M9 待实现 | M9 |
 | **Multi-Agent** | Sequential / Parallel / Supervisor 适用场景？ | `agents/multi/team.py` 四种模式实现 | M3 |
+| **AI 测试** | LLM 输出非确定性怎么测？RAG 命中率怎么验证？ | `app/core/ai_testing.py` 六种测试类型 | M11 |
 | **系统设计** | 设计一个支持 10w QPS 的 Agent 服务？ | 整体架构图（docs/ARCHITECTURE.md） | 综合 |
 
 ### 6.3 学习游戏接入规划
 
-面试题将以新关卡类型接入 learn-game：
+面试题以新关卡类型接入 learn-game（当前均已完成）：
 
 ```
 docs/learn-game/data/
-  ├── m0.js ... m4.js          ← 学习关卡（已有）
-  ├── interview-agent.js       ← 面试题：Agent 核心（计划中）
-  ├── interview-langgraph.js   ← 面试题：LangGraph（计划中）
-  ├── interview-mcp.js         ← 面试题：MCP 协议（计划中）
-  ├── interview-rag.js         ← 面试题：RAG（计划中）
-  ├── interview-system.js      ← 面试题：系统设计（计划中）
-  └── levels.js                ← 注册所有关卡
+  ├── m0.js ... m9.js              ← 学习关卡（已有，10 个）
+  ├── interview-agent.js           ← 面试题：Agent 核心（15 题）✅
+  ├── interview-advanced.js        ← 面试题：进阶（13 题）✅
+  ├── interview-engineering.js     ← 面试题：工程深入（12 题）✅
+  ├── interview-realbugs.js        ← 面试题：真实踩坑（5 题）✅
+  ├── interview-runtime.js         ← 面试题：生产 Runtime（6 题）✅
+  ├── interview-testing.js         ← 面试题：AI 测试（8 题）✅
+  └── levels.js                    ← 注册所有关卡（LEVELS_ALL）
 ```
 
 **面试关卡的独特设计**：
@@ -327,16 +382,7 @@ M0-M4 学习关卡做完后（当前），下一步：
 
 ---
 
-## 7. 不在本计划范围（明确放弃）
-
-- ❌ A2A 协议：除非要做"多团队 agent 互通"，单项目用不上
-- ❌ 多通道接入：CowAgent 强项，但你的目标是 Web-only
-- ❌ Computer Use（浏览器自动化）：高风险，等基础牢固后再考虑
-- ❌ 自研 agent runtime：LangGraph 已经够好，不重复造轮子
-
----
-
-## 8. 时间安排建议（不强求）
+## 7. 时间安排建议（不强求）
 
 学习项目不宜定死时间，但可以参考节奏：
 
@@ -347,7 +393,7 @@ M0-M4 学习关卡做完后（当前），下一步：
 
 ---
 
-## 9. 自检清单
+## 8. 自检清单
 
 学完每个 M，问自己 3 个问题：
 1. **能不能给一个不熟悉的人讲清楚这个技术解决什么问题？**
