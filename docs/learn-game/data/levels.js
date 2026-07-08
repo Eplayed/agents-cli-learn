@@ -20,9 +20,10 @@ import interviewAdvanced from './interview-advanced.js';
 import interviewEngineering from './interview-engineering.js';
 import interviewRealbugs from './interview-realbugs.js';
 import interviewRuntime from './interview-runtime.js';
+import interviewTesting from './interview-testing.js';
 
 // 面试关卡和学习关卡合并在同一个数组，排在学习关卡后面
-export const LEVELS_ALL = [...LEVELS, interviewAgent, interviewAdvanced, interviewEngineering, interviewRealbugs, interviewRuntime];
+export const LEVELS_ALL = [...LEVELS, interviewAgent, interviewAdvanced, interviewEngineering, interviewRealbugs, interviewRuntime, interviewTesting];
 
 // ===== 面试题库（计划中，M0-M4 通关后解锁） =====
 // 面试关卡特殊设计：
