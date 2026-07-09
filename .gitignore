@@ -41,3 +41,7 @@ apps/api/rag_db/
 apps/api/checkpoints.db
 apps/api/checkpoints.db-shm
 apps/api/checkpoints.db-wal
+
+# deer-flow-lab/：独立 clone 的 bytedance/deer-flow，仅用于对照学习（M12）
+# 完全独立的第三方仓库，不作为本项目依赖，不提交其代码/历史
+deer-flow-lab/

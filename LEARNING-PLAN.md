@@ -73,10 +73,11 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | **前端（成品）** | [langchain-ai/agent-chat-ui](https://github.com/langchain-ai/agent-chat-ui) | Next.js + 流式 + HITL |
 | **前端（带 MCP+HITL）** | [agentailor/fullstack-langgraph-nextjs-agent](https://github.com/agentailor/fullstack-langgraph-nextjs-agent) | Next.js + Prisma + MCP + HITL |
 | **MCP Server 模板** | [oraios/serena](https://github.com/oraios/serena) | 工业级 MCP Server 写法 |
+| **架构借鉴**（生产级 harness 设计） | [bytedance/deer-flow](https://github.com/bytedance/deer-flow) | Harness/App 分层边界、全链路 trace-id、Goal 自动续跑护栏（M12） |
 
 ---
 
-## 3. 学习路线（M4 → M11）
+## 3. 学习路线（M4 → M12）
 
 ### M4：MCP 工具协议（🔴 最高优先级）
 
@@ -277,6 +278,44 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - [x] 每次运行结果落库，历史 tab 可查看趋势 + 点开看详情
 - [x] RAG 命中率测试在 `ENABLE_RAG=false` 时明确标记"跳过"而非"失败"（避免信号污染）
 - [x] 异常输入测试有超时保护（30s），恶意输入不会导致请求永久挂起
+
+---
+
+### M12：借鉴 DeerFlow 的三个生产级设计（🟡 中优先级）
+
+**为什么做？**
+- [bytedance/deer-flow](https://github.com/bytedance/deer-flow)（字节跳动开源 super agent harness，7.6万+ star，MIT 协议）2.0 版本是一个把"沙箱执行、持久化记忆、Skill 体系、子智能体调度"打包成开箱即用运行时的完整平台
+- 直接把它整体换成你的后端，会把"学习自己搭 Agent 系统"变成"学习使用 DeerFlow"，价值不一样（详见对比分析）
+- 但它在几个具体工程问题上已经踩过坑、验证过方案，直接借鉴思想能让你少走弯路——**这里学的是设计，不是代码**，不引入 DeerFlow 的任何依赖
+
+**主参考**：bytedance/deer-flow 的 `backend/AGENTS.md`（Harness / App Split 章节）+ `README.md`（Langfuse Tracing / Session Goals 章节）
+
+**怎么跑起来对照学习**：把 DeerFlow clone 到本项目下的 `deer-flow-lab/`（已加入 `.gitignore`，完全独立、零代码耦合、不提交），跟着它自己的 `make setup && make dev` 起服务，边跑边对照读源码。详细步骤和验证记录见 [docs/DEERFLOW-NOTES.md](../docs/DEERFLOW-NOTES.md)。
+
+**学习子目标：**
+
+1. **Harness / App 边界检查**（工程卫生，最容易落地）
+   - DeerFlow 把"可发布的 Agent 框架代码"（`packages/harness/deerflow/*`）和"不发布的业务代码"（`app/*`，路由/鉴权/IM 集成）严格分层，并写了 CI 测试 `test_harness_boundary.py` 用 AST 检查 harness 绝不 import app
+   - 对照你的项目：`app/agents/` + `app/core/` 是"可复用的 Agent 核心能力"，`app/api/` 是"业务路由"。给这条边界写一个静态检查测试：断言 `app/agents/*.py` 和 `app/core/*.py` 不 import `app.api.*`
+   - 加到 pytest，作为架构守护测试跑在 CI 里
+
+2. **全链路 Trace-ID 关联**（可观测性补强）
+   - DeerFlow 给每个请求生成/复用一个 trace_id，注入 Langfuse trace 的 `metadata.deerflow_trace_id`，同时通过 `X-Trace-Id` 响应头回传，前端出错时能直接拿这个 ID 去 Langfuse 里查
+   - 你项目已经接了 Langfuse（`tracing.py`），但缺这层"请求级 ID ↔ trace 关联"。加一个中间件：如果客户端传了 `X-Trace-Id` 就复用，否则生成 uuid4；塞进 Langfuse callback 的 metadata；响应头回传
+
+3. **Goal 自动续跑护栏**（进阶，可选加分项）
+   - DeerFlow 的 `/goal` 命令：设置一个"完成条件"，每轮结束后用一个非思考模型评估任务是否达成，未达成就自动续跑一次；但有明确的安全上限（默认最多 8 次自动续跑）+ 停滞检测（连续 2 次评估结果没有进展就停止）
+   - 这是"让 Agent 自动跑到任务完成"这类需求的标准护栏设计——上限和停滞检测两者缺一不可，否则容易死循环烧 token
+   - 实现量较大，作为可选加分项，不强制在这个里程碑完成
+
+**可验收：**
+- [ ] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过
+- [ ] 请求响应头里有 `X-Trace-Id`，Langfuse trace 详情页能看到同一个 ID
+- [ ] （可选）设置一个目标后，Agent 会自动续跑直到目标达成，且有安全上限和停滞检测两道护栏
+
+**配套阅读：**
+- [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `backend/AGENTS.md`（Harness / App Split 章节）
+- [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `README.md`（Langfuse Tracing / Session Goals 章节）
 
 ---
 
