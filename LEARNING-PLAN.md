@@ -74,6 +74,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | **前端（带 MCP+HITL）** | [agentailor/fullstack-langgraph-nextjs-agent](https://github.com/agentailor/fullstack-langgraph-nextjs-agent) | Next.js + Prisma + MCP + HITL |
 | **MCP Server 模板** | [oraios/serena](https://github.com/oraios/serena) | 工业级 MCP Server 写法 |
 | **架构借鉴**（生产级 harness 设计） | [bytedance/deer-flow](https://github.com/bytedance/deer-flow) | Harness/App 分层边界、全链路 trace-id、Goal 自动续跑护栏（M12） |
+| **架构借鉴**（业务落地体验） | `crm-ai-h5`（内部项目，只读参考） | 轻量 trace-id 中间件、工具调用人话翻译（M12） |
 
 ---
 
@@ -281,16 +282,19 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 ---
 
-### M12：借鉴 DeerFlow 的三个生产级设计（🟡 中优先级）
+### M12：借鉴 DeerFlow + crm-ai-h5 的生产级设计（🟡 中优先级）
 
 **为什么做？**
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow)（字节跳动开源 super agent harness，7.6万+ star，MIT 协议）2.0 版本是一个把"沙箱执行、持久化记忆、Skill 体系、子智能体调度"打包成开箱即用运行时的完整平台
 - 直接把它整体换成你的后端，会把"学习自己搭 Agent 系统"变成"学习使用 DeerFlow"，价值不一样（详见对比分析）
 - 但它在几个具体工程问题上已经踩过坑、验证过方案，直接借鉴思想能让你少走弯路——**这里学的是设计，不是代码**，不引入 DeerFlow 的任何依赖
+- `crm-ai-h5`（诺亚内部项目，理财顾问 AI 助手 H5）是同一批需求在真实业务场景下的落地，补了两个 DeerFlow 没覆盖到、但更贴近"C 端 Agent 应用"体验的细节：轻量级 trace-id 实现（不依赖 Langfuse）、工具调用的人话翻译
 
-**主参考**：bytedance/deer-flow 的 `backend/AGENTS.md`（Harness / App Split 章节）+ `README.md`（Langfuse Tracing / Session Goals 章节）
+**主参考**：
+- bytedance/deer-flow 的 `backend/AGENTS.md`（Harness / App Split 章节）+ `README.md`（Langfuse Tracing / Session Goals 章节）
+- `crm-ai-h5` 的 `middleware.ts`（trace-id 中间件）+ `app/(activities)/claude-chat/components/constants.ts`（工具名人话翻译 + 流式增量解析）
 
-**怎么跑起来对照学习**：把 DeerFlow clone 到本项目下的 `deer-flow-lab/`（已加入 `.gitignore`，完全独立、零代码耦合、不提交），跟着它自己的 `make setup && make dev` 起服务，边跑边对照读源码。详细步骤和验证记录见 [docs/DEERFLOW-NOTES.md](../docs/DEERFLOW-NOTES.md)。
+**怎么跑起来对照学习**：把 DeerFlow clone 到本项目下的 `deer-flow-lab/`（已加入 `.gitignore`，完全独立、零代码耦合、不提交），跟着它自己的 `make setup && make dev` 起服务，边跑边对照读源码。详细步骤和验证记录见 [docs/DEERFLOW-NOTES.md](../docs/DEERFLOW-NOTES.md)。`crm-ai-h5` 是只读参考（内部项目，不 clone 进来），直接读源码即可。
 
 **学习子目标：**
 
@@ -299,23 +303,32 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
    - 对照你的项目：`app/agents/` + `app/core/` 是"可复用的 Agent 核心能力"，`app/api/` 是"业务路由"。给这条边界写一个静态检查测试：断言 `app/agents/*.py` 和 `app/core/*.py` 不 import `app.api.*`
    - 加到 pytest，作为架构守护测试跑在 CI 里
 
-2. **全链路 Trace-ID 关联**（可观测性补强）
-   - DeerFlow 给每个请求生成/复用一个 trace_id，注入 Langfuse trace 的 `metadata.deerflow_trace_id`，同时通过 `X-Trace-Id` 响应头回传，前端出错时能直接拿这个 ID 去 Langfuse 里查
-   - 你项目已经接了 Langfuse（`tracing.py`），但缺这层"请求级 ID ↔ trace 关联"。加一个中间件：如果客户端传了 `X-Trace-Id` 就复用，否则生成 uuid4；塞进 Langfuse callback 的 metadata；响应头回传
+2. **全链路 Trace-ID 关联**（可观测性补强，两个参考互补）
+   - DeerFlow 的做法：给每个请求生成/复用一个 trace_id，注入 Langfuse trace 的 `metadata.deerflow_trace_id`，同时通过 `X-Trace-Id` 响应头回传，前端出错时能直接拿这个 ID 去 Langfuse 里查
+   - `crm-ai-h5` 的做法更轻量：`middleware.ts` 在请求入口处统一注入 `x-request-id`/`x-trace-id`/`x-user-uid`/`x-real-ip`，日志（winston）和 API 调用全链路带着这几个 header 走，**不需要先接好 Langfuse 才能做**
+   - 落地顺序建议：先照 `crm-ai-h5` 的思路加一个轻量中间件（生成/复用请求头 + 结构化日志带 trace_id），验证链路打通后，再把同一个 trace_id 塞进 Langfuse callback 的 metadata（对齐 DeerFlow 的做法），两步都做完才算完整关闭这个子目标
+   - 你项目已经接了 Langfuse（`tracing.py`），缺的正是这层"请求级 ID ↔ trace 关联"
 
 3. **Goal 自动续跑护栏**（进阶，可选加分项）
    - DeerFlow 的 `/goal` 命令：设置一个"完成条件"，每轮结束后用一个非思考模型评估任务是否达成，未达成就自动续跑一次；但有明确的安全上限（默认最多 8 次自动续跑）+ 停滞检测（连续 2 次评估结果没有进展就停止）
    - 这是"让 Agent 自动跑到任务完成"这类需求的标准护栏设计——上限和停滞检测两者缺一不可，否则容易死循环烧 token
    - 实现量较大，作为可选加分项，不强制在这个里程碑完成
 
+4. **工具调用人话翻译**（体验补强，实现成本低）
+   - `crm-ai-h5` 的 `constants.ts` 把底层工具名（Bash / Write / MCP 工具）翻译成中文业务语义——不是展示 `get_weather`，而是展示"正在查询天气…"；还能从**未完成的流式 JSON** 里增量解析出文件内容和生成进度（"正在生成文件…已生成约 N 字"）
+   - 对照你的项目：`catalog.py` 产出的 `tool_calls`/`tool_result` chunk 目前是原始技术名称直传到前端，`TestingView.vue` 和 `ChatView.vue` 展示的也是原始工具名
+   - 加一个 `TOOL_DISPLAY_NAMES` 映射表（前端或后端均可，建议放前端 `apps/web/src/composables/` 下，改动不影响后端协议）：`get_weather` → "正在查询天气"，`calculator` → "正在计算"，新增 MCP 工具时同步补一条映射；查不到映射时 fallback 到原始工具名，不阻塞展示
+
 **可验收：**
 - [ ] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过
-- [ ] 请求响应头里有 `X-Trace-Id`，Langfuse trace 详情页能看到同一个 ID
+- [ ] 请求响应头里有 `X-Trace-Id`（或 `X-Request-Id`），结构化日志和 Langfuse trace 详情页能用同一个 ID 关联起来
 - [ ] （可选）设置一个目标后，Agent 会自动续跑直到目标达成，且有安全上限和停滞检测两道护栏
+- [ ] Web UI 里工具调用展示的是人话（"正在查询天气"），不是原始函数名（`get_weather`），且新工具没配映射时能优雅 fallback
 
 **配套阅读：**
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `backend/AGENTS.md`（Harness / App Split 章节）
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `README.md`（Langfuse Tracing / Session Goals 章节）
+- `crm-ai-h5` 的 `docs/项目导读.md`（亮点 2、5）+ `middleware.ts` + `constants.ts`
 
 ---
 
