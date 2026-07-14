@@ -74,7 +74,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | **前端（带 MCP+HITL）** | [agentailor/fullstack-langgraph-nextjs-agent](https://github.com/agentailor/fullstack-langgraph-nextjs-agent) | Next.js + Prisma + MCP + HITL |
 | **MCP Server 模板** | [oraios/serena](https://github.com/oraios/serena) | 工业级 MCP Server 写法 |
 | **架构借鉴**（生产级 harness 设计） | [bytedance/deer-flow](https://github.com/bytedance/deer-flow) | Harness/App 分层边界、全链路 trace-id、Goal 自动续跑护栏（M12） |
-| **架构借鉴**（业务落地体验） | `crm-ai-h5`（内部项目，只读参考） | 轻量 trace-id 中间件、工具调用人话翻译（M12） |
+| **架构借鉴**（业务落地体验） | `crm-ai-h5`（内部项目，只读参考） | 工具调用人话翻译+流式可视化（P0）、轻量 trace-id 中间件（P1）（M12） |
 
 ---
 
@@ -296,34 +296,47 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 **怎么跑起来对照学习**：把 DeerFlow clone 到本项目下的 `deer-flow-lab/`（已加入 `.gitignore`，完全独立、零代码耦合、不提交），跟着它自己的 `make setup && make dev` 起服务，边跑边对照读源码。详细步骤和验证记录见 [docs/DEERFLOW-NOTES.md](../docs/DEERFLOW-NOTES.md)。`crm-ai-h5` 是只读参考（内部项目，不 clone 进来），直接读源码即可。
 
-**学习子目标：**
+**学习子目标（按优先级排序，P0 先做）：**
 
-1. **Harness / App 边界检查**（工程卫生，最容易落地）
+#### 🟢 P0 — 成本低、见效快，建议最先动手
+
+1. **工具调用人话翻译**
+   - `crm-ai-h5` 的 `constants.ts` 把底层工具名（Bash / Write / MCP 工具）翻译成中文业务语义——不是展示 `get_weather`，而是展示"正在查询天气…"
+   - 对照你的项目：`catalog.py` 产出的 `tool_calls`/`tool_result` chunk 目前是原始技术名称直传到前端，`TestingView.vue` 和 `ChatView.vue` 展示的也是原始工具名
+   - 加一个 `TOOL_DISPLAY_NAMES` 映射表（前端或后端均可，建议放前端 `apps/web/src/composables/` 下，改动不影响后端协议）：`get_weather` → "正在查询天气"，`calculator` → "正在计算"，新增 MCP 工具时同步补一条映射；查不到映射时 fallback 到原始工具名，不阻塞展示
+
+2. **流式工具调用可视化**
+   - `crm-ai-h5` 能从**未完成的流式 JSON** 里增量解析出中间状态，实时展示"正在生成文件…已生成约 N 字"这类进度提示，而不是等工具调用彻底结束才显示一个结果
+   - 对照你的项目：目前 `tool_calls` chunk 是"调用开始"和"调用结束"两个离散事件，中间过程在 UI 上是空白/loading，用户看不到工具在做什么、做到哪了
+   - 落地思路：给耗时较长的工具调用（比如生成报告类操作）设计一个中间进度事件类型（如 `tool_progress`），Agent 侧在工具执行过程中定期 yield 一次；前端收到后实时更新同一张"工具调用卡片"的文案，而不是重新渲染一条新消息
+   - 和子目标1是同一个 UI 组件的一体化改造，建议一起做：先做静态的"人话翻译"，再叠加"实时进度"
+
+#### 🟡 P1 — 中等成本，架构/可观测性价值高
+
+3. **Harness / App 边界检查**（工程卫生，实现依然便宜，越早加越省心）
    - DeerFlow 把"可发布的 Agent 框架代码"（`packages/harness/deerflow/*`）和"不发布的业务代码"（`app/*`，路由/鉴权/IM 集成）严格分层，并写了 CI 测试 `test_harness_boundary.py` 用 AST 检查 harness 绝不 import app
    - 对照你的项目：`app/agents/` + `app/core/` 是"可复用的 Agent 核心能力"，`app/api/` 是"业务路由"。给这条边界写一个静态检查测试：断言 `app/agents/*.py` 和 `app/core/*.py` 不 import `app.api.*`
    - 加到 pytest，作为架构守护测试跑在 CI 里
 
-2. **全链路 Trace-ID 关联**（可观测性补强，两个参考互补）
+4. **全链路 Trace-ID 关联**（可观测性补强，两个参考互补）
    - DeerFlow 的做法：给每个请求生成/复用一个 trace_id，注入 Langfuse trace 的 `metadata.deerflow_trace_id`，同时通过 `X-Trace-Id` 响应头回传，前端出错时能直接拿这个 ID 去 Langfuse 里查
    - `crm-ai-h5` 的做法更轻量：`middleware.ts` 在请求入口处统一注入 `x-request-id`/`x-trace-id`/`x-user-uid`/`x-real-ip`，日志（winston）和 API 调用全链路带着这几个 header 走，**不需要先接好 Langfuse 才能做**
    - 落地顺序建议：先照 `crm-ai-h5` 的思路加一个轻量中间件（生成/复用请求头 + 结构化日志带 trace_id），验证链路打通后，再把同一个 trace_id 塞进 Langfuse callback 的 metadata（对齐 DeerFlow 的做法），两步都做完才算完整关闭这个子目标
    - 你项目已经接了 Langfuse（`tracing.py`），缺的正是这层"请求级 ID ↔ trace 关联"
 
-3. **Goal 自动续跑护栏**（进阶，可选加分项）
+#### 🔴 P3 — 成本高、非必需，最后再评估要不要做
+
+5. **Goal 自动续跑护栏**（进阶，可选加分项）
    - DeerFlow 的 `/goal` 命令：设置一个"完成条件"，每轮结束后用一个非思考模型评估任务是否达成，未达成就自动续跑一次；但有明确的安全上限（默认最多 8 次自动续跑）+ 停滞检测（连续 2 次评估结果没有进展就停止）
    - 这是"让 Agent 自动跑到任务完成"这类需求的标准护栏设计——上限和停滞检测两者缺一不可，否则容易死循环烧 token
    - 实现量较大，作为可选加分项，不强制在这个里程碑完成
 
-4. **工具调用人话翻译**（体验补强，实现成本低）
-   - `crm-ai-h5` 的 `constants.ts` 把底层工具名（Bash / Write / MCP 工具）翻译成中文业务语义——不是展示 `get_weather`，而是展示"正在查询天气…"；还能从**未完成的流式 JSON** 里增量解析出文件内容和生成进度（"正在生成文件…已生成约 N 字"）
-   - 对照你的项目：`catalog.py` 产出的 `tool_calls`/`tool_result` chunk 目前是原始技术名称直传到前端，`TestingView.vue` 和 `ChatView.vue` 展示的也是原始工具名
-   - 加一个 `TOOL_DISPLAY_NAMES` 映射表（前端或后端均可，建议放前端 `apps/web/src/composables/` 下，改动不影响后端协议）：`get_weather` → "正在查询天气"，`calculator` → "正在计算"，新增 MCP 工具时同步补一条映射；查不到映射时 fallback 到原始工具名，不阻塞展示
-
 **可验收：**
+- [ ] Web UI 里工具调用展示的是人话（"正在查询天气"），不是原始函数名（`get_weather`），且新工具没配映射时能优雅 fallback
+- [ ] 耗时较长的工具调用在执行过程中有中间进度更新，不是"loading → 突然出结果"的两段式体验
 - [ ] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过
 - [ ] 请求响应头里有 `X-Trace-Id`（或 `X-Request-Id`），结构化日志和 Langfuse trace 详情页能用同一个 ID 关联起来
 - [ ] （可选）设置一个目标后，Agent 会自动续跑直到目标达成，且有安全上限和停滞检测两道护栏
-- [ ] Web UI 里工具调用展示的是人话（"正在查询天气"），不是原始函数名（`get_weather`），且新工具没配映射时能优雅 fallback
 
 **配套阅读：**
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `backend/AGENTS.md`（Harness / App Split 章节）
