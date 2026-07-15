@@ -55,6 +55,7 @@ npm run dev
 | 会话持久化（SQLite + SQLAlchemy 异步） | `apps/api/app/models/models.py` |
 | 真实工具调用（天气走 Open-Meteo） | `apps/api/app/mcp_servers/weather_server.py` |
 | 前端模型切换（`/api/v1/models` + UI 下拉） | `apps/web/src/` (Vue 3) |
+| 工具调用可视化（中文名 + 执行中→完成状态化 + 实时耗时，M12 P0） | `apps/web/src/composables/toolDisplay.ts` + `components/ToolCallBlock.vue` |
 | Agent 注册中心 + 多能力切换（M0/M3/M4/M5） | `apps/api/app/agents/registry.py` + `catalog.py` |
 | Web UI（Vue 3：对话 + 会话切换 + Skill 商店 + 日志面板） | `apps/web/src/`（构建产物 `dist/` 由 FastAPI 在 `/ui` 托管） |
 | **AsyncSqliteSaver Checkpoint 持久化（重启不丢）** | `apps/api/app/core/checkpointer.py` |
@@ -96,6 +97,7 @@ npm run dev
 | M8 | Skills 框架（渐进式加载能力包） | ✅ 已完成 |
 | M9 | RAG 知识库检索（ChromaDB + 引用标注） | ✅ 已完成 |
 | M11 | AI 应用测试（6 种测试类型 + Web UI + 历史记录） | ✅ 已完成 |
+| M12 | 生产级设计借鉴（DeerFlow / crm-ai-h5）：P0 工具调用可视化 | 🚧 P0 已完成，P1/P3 待办 |
 
 ---
 

@@ -87,10 +87,11 @@ agents-cli-learn/
 │   │   │   └── agent.ts         — Agent/模型选择
 │   │   ├── composables/
 │   │   │   ├── useStream.ts     — NDJSON 流式解析
-│   │   │   └── useApi.ts        — API 请求封装
+│   │   │   ├── useApi.ts        — API 请求封装
+│   │   │   └── toolDisplay.ts   — 工具名人话翻译映射（M12 P0，未知工具 fallback 原名）
 │   │   ├── components/
 │   │   │   ├── ChatMessage.vue  — 消息气泡（Markdown 渲染）
-│   │   │   ├── ToolCallBlock.vue — 工具调用折叠块
+│   │   │   ├── ToolCallBlock.vue — 工具调用卡片（M12 P0：执行中→完成状态化 + 实时耗时 + 中文名）
 │   │   │   ├── TokenStats.vue   — Token 消耗面板
 │   │   │   ├── AgentSelector.vue — Agent 模式切换
 │   │   │   ├── ModelSelector.vue — 模型选择
@@ -297,3 +298,5 @@ agents-cli-learn/
 | 切换模型 | `.env.dev` 的 OPENAI_MODEL |
 | 加新 API 端点 | `app/api/v1/` 加路由文件 + `main.py` 注册 |
 | 加新 AI 测试类型 | `app/core/ai_testing.py` 的 `TEST_TYPES` 注册表加 runner + `ai_testing_cases.py` 加预置用例 |
+| 加工具的中文展示名 | `apps/web/src/composables/toolDisplay.ts` 的 `TOOL_DISPLAY_NAMES` 加一条映射（不配也会 fallback 原名） |
+| 改工具调用卡片样式/状态 | `apps/web/src/components/ToolCallBlock.vue`；配对逻辑在 `stores/chat.ts`（addToolCall / resolveToolResult / settleDanglingToolCalls） |
