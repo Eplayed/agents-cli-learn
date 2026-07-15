@@ -45,7 +45,8 @@ agents-cli-learn/
 │   │   │   ├── auth.py          — Bearer Token 中间件 + ContextVar 协程隔离
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
-│   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪）
+│   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
+│   │   │   ├── trace.py         — 全链路 Trace-ID 中间件 + ContextVar + loguru 结构化日志（M12 P1）
 │   │   │   ├── rag.py           — ChromaDB 向量检索（docs/*.md 知识库）
 │   │   │   ├── skills.py        — SKILL.md 解析 + 打分匹配（词边界/CJK/top-K）+ 安装管理
 │   │   │   ├── token_tracker.py — Token 消耗统计 + 费用计算
@@ -69,10 +70,12 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/                   — 45 tests（含 test_skills_match.py Skill 打分匹配）
+│   └── tests/                   — 52 tests
 │       ├── test_health.py / test_session.py / test_chat.py
 │       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
-│       └── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
+│       ├── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
+│       ├── test_harness_boundary.py — 架构守护：核心层不 import 业务层（M12 P1）
+│       └── test_trace.py       — Trace-ID 响应头 + 入站复用（M12 P1）
 │
 ├── apps/web/                    — Vue 3 + Vite 前端
 │   ├── package.json             — 前端依赖
@@ -300,3 +303,5 @@ agents-cli-learn/
 | 加新 AI 测试类型 | `app/core/ai_testing.py` 的 `TEST_TYPES` 注册表加 runner + `ai_testing_cases.py` 加预置用例 |
 | 加工具的中文展示名 | `apps/web/src/composables/toolDisplay.ts` 的 `TOOL_DISPLAY_NAMES` 加一条映射（不配也会 fallback 原名） |
 | 改工具调用卡片样式/状态 | `apps/web/src/components/ToolCallBlock.vue`；配对逻辑在 `stores/chat.ts`（addToolCall / resolveToolResult / settleDanglingToolCalls） |
+| 在日志里带上 trace_id | `from app.core.trace import get_logger`，用 `get_logger().info(...)` 自动带当前请求的 trace/req |
+| 改 Trace-ID 头名/行为 | `app/core/trace.py`（TRACE_HEADER / REQUEST_HEADER / TraceMiddleware） |

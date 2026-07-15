@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
+from app.core.trace import TraceMiddleware
 from app.api.v1 import chat, team, session, runs, skills, ai_testing
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
@@ -48,6 +49,11 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_cr
 # M5：Bearer Token 鉴权中间件
 # AUTH_SECRET 为空时完全放开（开发模式），设值后必须带 Bearer token
 app.add_middleware(AuthMiddleware)
+
+# M12 P1：全链路 Trace-ID 中间件
+# 放在最后 add → Starlette 中它是最外层，最先执行，
+# 保证 trace_id 在鉴权/业务逻辑之前就已注入，所有日志都能带上。
+app.add_middleware(TraceMiddleware)
 
 # 路由挂载：Phase 3 的 HTTP API 入口都从这里开始
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Single Agent"])

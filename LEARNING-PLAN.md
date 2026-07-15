@@ -335,8 +335,8 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 **可验收：**
 - [x] Web UI 里工具调用展示的是人话（"正在查询天气"），不是原始函数名（`get_weather`），且新工具没配映射时能优雅 fallback
 - [x] 工具调用在 UI 上是"执行中（转圈 + 实时耗时）→ 完成"的同一张卡片状态化展示，不是"loading → 突然冒出一条新结果消息"的割裂体验；报错/中止时不会永久转圈（注：现有工具均为一次性返回，暂无内容级百分比进度）
-- [ ] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过
-- [ ] 请求响应头里有 `X-Trace-Id`（或 `X-Request-Id`），结构化日志和 Langfuse trace 详情页能用同一个 ID 关联起来
+- [x] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过（`tests/test_harness_boundary.py`：AST 检查 `app/agents`、`app/core` 不 import `app.api`/`app.main`）
+- [x] 请求响应头里有 `X-Trace-Id` / `X-Request-Id`，结构化日志用同一个 ID 关联（`app/core/trace.py` 中间件 + loguru）；同一 trace_id 已写入 Langfuse callback 的 metadata/tags（代码就位，因本环境未配 Langfuse key 未做运行时验证）
 - [ ] （可选）设置一个目标后，Agent 会自动续跑直到目标达成，且有安全上限和停滞检测两道护栏
 
 **配套阅读：**
