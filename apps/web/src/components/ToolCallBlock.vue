@@ -44,6 +44,29 @@ watch(isRunning, (running) => {
 
 const elapsedLabel = computed(() => `${(elapsedMs.value / 1000).toFixed(1)}s`)
 
+// 归一化工具输出用于展示：
+// - 内嵌工具返回纯字符串 → 直接显示
+// - MCP 工具返回内容块数组 [{type:'text', text:'...'}] → 抽出各块文本拼接
+//   （否则模板直接插值数组会渲染成 "[object Object]"）
+// - 其他对象 → JSON 展示；无输出 → 返回 null（回退展示入参）
+const outputText = computed<string | null>(() => {
+  const out = props.msg.data?.output as unknown
+  if (out == null) return null
+  if (typeof out === 'string') return out
+  if (Array.isArray(out)) {
+    const parts = out.map((b) => {
+      if (typeof b === 'string') return b
+      if (b && typeof b === 'object' && 'text' in (b as Record<string, unknown>)) {
+        return String((b as Record<string, unknown>).text)
+      }
+      return JSON.stringify(b)
+    })
+    return parts.filter((s) => s !== '').join('\n')
+  }
+  if (typeof out === 'object') return JSON.stringify(out, null, 2)
+  return String(out)
+})
+
 const statusLabel = computed(() => {
   if (isPseudo.value) return '通知'
   return isRunning.value ? `正在调用…（${elapsedLabel.value}）` : '调用完成'
@@ -66,7 +89,7 @@ const statusLabel = computed(() => {
     </button>
     <div v-if="expanded" class="border-t border-gray-200 dark:border-gray-700 px-3 py-2 bg-gray-50 dark:bg-gray-900">
       <div v-if="rawName !== displayName" class="text-[10px] text-gray-400 mb-1 font-mono">原始工具名：{{ rawName }}</div>
-      <pre v-if="!isRunning" class="whitespace-pre-wrap break-all text-gray-700 dark:text-gray-300">{{ msg.data?.output ?? JSON.stringify(msg.data?.input ?? msg.data, null, 2) }}</pre>
+      <pre v-if="!isRunning" class="whitespace-pre-wrap break-all text-gray-700 dark:text-gray-300">{{ outputText ?? JSON.stringify(msg.data?.input ?? msg.data, null, 2) }}</pre>
       <pre v-else class="whitespace-pre-wrap break-all text-gray-500 dark:text-gray-400">入参：{{ JSON.stringify(msg.data?.input ?? {}, null, 2) }}</pre>
     </div>
   </div>
