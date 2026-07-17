@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useStream, type StreamChunk } from '../composables/useStream'
+import { useResumableStream } from '../composables/useResumableStream'
 import { useSessionStore } from './session'
 import { useAgentStore } from './agent'
 import type { ImageAttachment } from '../composables/useApi'
@@ -23,7 +24,14 @@ export interface ChatMessage {
 
 export const useChatStore = defineStore('chat', () => {
   const chatMessages = ref<ChatMessage[]>([])
-  const { isStreaming, startStream, stopStream } = useStream()
+  // 单 Agent 走「任务化 SSE + 断线续传」（改法 B）；Multi-Agent 仍走 NDJSON
+  const teamStream = useStream()
+  const singleStream = useResumableStream()
+  const isStreaming = computed(() => singleStream.isStreaming.value || teamStream.isStreaming.value)
+  function stopStream() {
+    singleStream.stopResumableStream()
+    teamStream.stopStream()
+  }
 
   let msgCounter = 0
   function genId() {
@@ -110,8 +118,8 @@ export const useChatStore = defineStore('chat', () => {
     let fullContent = ''
 
     try {
-      await startStream(
-        '/api/v1/chat/stream_ndjson',
+      const sid = await singleStream.startResumableStream(
+        '/api/v1/chat/tasks',
         {
           message: text,
           session_id: sessionStore.currentSessionId,
@@ -126,6 +134,10 @@ export const useChatStore = defineStore('chat', () => {
           })
         }
       )
+      // 后端可能新建了会话，回填 currentSessionId 保证后续消息接续同一会话
+      if (sid && sid !== sessionStore.currentSessionId) {
+        sessionStore.currentSessionId = sid
+      }
     } finally {
       // 无论正常结束 / 服务端报错 / 用户点"停止"中止请求，都要把还卡在 running 的
       // 工具调用卡片收尾成 done，避免转圈动画永久卡住（M12 P0）
@@ -151,7 +163,7 @@ export const useChatStore = defineStore('chat', () => {
     const assistantMsg = addMessage('assistant', '', 'text')
     let fullContent = ''
 
-    await startStream(
+    await teamStream.startStream(
       '/api/v1/team/stream_ndjson',
       { topic, mode: agentStore.teamMode, session_id: sessionStore.currentSessionId },
       (chunk: StreamChunk) => {

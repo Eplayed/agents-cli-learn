@@ -58,6 +58,7 @@ npm run dev
 | 工具调用可视化（中文名 + 执行中→完成状态化 + 实时耗时，M12 P0） | `apps/web/src/composables/toolDisplay.ts` + `components/ToolCallBlock.vue` |
 | 全链路 Trace-ID（X-Trace-Id/X-Request-Id 头 + 结构化日志 + Langfuse metadata，M12 P1） | `apps/api/app/core/trace.py` |
 | 架构守护测试（核心层不反向依赖业务层，M12 P1） | `apps/api/tests/test_harness_boundary.py` |
+| 流式断线续传（任务化 SSE + 事件重放：POST 建任务 + GET 观察，Last-Event-ID 续传） | `apps/api/app/core/task_stream.py` + `apps/web/src/composables/useResumableStream.ts` |
 | Agent 注册中心 + 多能力切换（M0/M3/M4/M5） | `apps/api/app/agents/registry.py` + `catalog.py` |
 | Web UI（Vue 3：对话 + 会话切换 + Skill 商店 + 日志面板） | `apps/web/src/`（构建产物 `dist/` 由 FastAPI 在 `/ui` 托管） |
 | **AsyncSqliteSaver Checkpoint 持久化（重启不丢）** | `apps/api/app/core/checkpointer.py` |
@@ -99,7 +100,7 @@ npm run dev
 | M8 | Skills 框架（渐进式加载能力包） | ✅ 已完成 |
 | M9 | RAG 知识库检索（ChromaDB + 引用标注） | ✅ 已完成 |
 | M11 | AI 应用测试（6 种测试类型 + Web UI + 历史记录） | ✅ 已完成 |
-| M12 | 生产级设计借鉴（DeerFlow / crm-ai-h5）：P0 工具调用可视化 + P1 Trace-ID/架构守护 | 🚧 P0/P1 已完成，P3 可选 |
+| M12 | 生产级设计借鉴：P0 工具可视化 + P1 Trace-ID/架构守护 + P2 流式断线续传 | 🚧 P0/P1/P2 已完成，P3 可选 |
 
 ---
 

@@ -50,6 +50,18 @@ def get_request_id() -> str:
     return _request_id.get()
 
 
+def set_trace_context(trace_id: str, request_id: str = "") -> None:
+    """在当前协程/任务里显式设置 trace 上下文。
+
+    用途：后台 asyncio 任务（如任务化流式的 Agent 后台运行）脱离了原始请求，
+    请求级 ContextVar 已被 reset。在后台任务开头调用它，把创建时捕获的
+    trace_id 续上，保证后台产生的日志 / Langfuse trace 仍能与原请求关联。
+    """
+    _trace_id.set(trace_id)
+    if request_id:
+        _request_id.set(request_id)
+
+
 def _gen_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
 

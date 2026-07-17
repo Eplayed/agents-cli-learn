@@ -1,17 +1,24 @@
 """
 Database Connection - SQLAlchemy Async
 """
+import sys
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 # 创建异步数据库引擎（AsyncEngine）
 # - SQLite: sqlite+aiosqlite
 # - Postgres: postgresql+asyncpg
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-)
+_engine_kwargs = {"echo": settings.DEBUG}
+# 测试环境用 NullPool：pytest-asyncio 每个用例一个独立 event loop，
+# 连接池会在多个 loop 间保留连接，跨 loop 被 GC 回收时报
+# "non-checked-in connection" 告警。NullPool 用完即关，避免这一问题。
+# 仅在检测到 pytest 时启用，不影响生产（生产是单一长驻 loop）。
+if "pytest" in sys.modules:
+    _engine_kwargs["poolclass"] = NullPool
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 # AsyncSession 工厂：每次请求从这里创建独立的 Session
 AsyncSessionLocal = async_sessionmaker(

@@ -33,7 +33,7 @@ agents-cli-learn/
 │   │   │   └── multi/
 │   │   │       └── team.py      — MultiAgentTeam：Sequential/Parallel/Supervisor/GroupChat
 │   │   ├── api/v1/
-│   │   ├── chat.py          — /chat/send + /stream_ndjson（核心对话 API + 运行持久化 + 幂等 + 配额）
+│   │   ├── chat.py          — /chat/send + /stream_ndjson + /tasks(任务化SSE断线续传)（核心对话 API + 运行持久化 + 幂等 + 配额）
 │   │   │   ├── session.py       — 会话 CRUD + 消息历史
 │   │   │   ├── team.py          — Multi-Agent API
 │   │   │   ├── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
@@ -47,6 +47,7 @@ agents-cli-learn/
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
 │   │   │   ├── trace.py         — 全链路 Trace-ID 中间件 + ContextVar + loguru 结构化日志（M12 P1）
+│   │   │   ├── task_stream.py   — 任务化流式内核：StreamTask 事件缓冲/重放 + TaskRegistry（M12 断线续传）
 │   │   │   ├── rag.py           — ChromaDB 向量检索（docs/*.md 知识库）
 │   │   │   ├── skills.py        — SKILL.md 解析 + 打分匹配（词边界/CJK/top-K）+ 安装管理
 │   │   │   ├── token_tracker.py — Token 消耗统计 + 费用计算
@@ -70,12 +71,14 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/                   — 52 tests
+│   └── tests/                   — 62 tests
 │       ├── test_health.py / test_session.py / test_chat.py
 │       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
 │       ├── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
 │       ├── test_harness_boundary.py — 架构守护：核心层不 import 业务层（M12 P1）
-│       └── test_trace.py       — Trace-ID 响应头 + 入站复用（M12 P1）
+│       ├── test_trace.py       — Trace-ID 响应头 + 入站复用（M12 P1）
+│       ├── test_task_stream.py — StreamTask 事件缓冲/重放/跟随 + 回收（M12 断线续传）
+│       └── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
 │
 ├── apps/web/                    — Vue 3 + Vite 前端
 │   ├── package.json             — 前端依赖
@@ -91,7 +94,8 @@ agents-cli-learn/
 │   │   ├── composables/
 │   │   │   ├── useStream.ts     — NDJSON 流式解析
 │   │   │   ├── useApi.ts        — API 请求封装
-│   │   │   └── toolDisplay.ts   — 工具名人话翻译映射（M12 P0，未知工具 fallback 原名）
+│   │   │   ├── toolDisplay.ts   — 工具名人话翻译映射（M12 P0，未知工具 fallback 原名）
+│   │   │   └── useResumableStream.ts — 任务化 SSE 客户端 + 断线重连/事件重放（M12 断线续传）
 │   │   ├── components/
 │   │   │   ├── ChatMessage.vue  — 消息气泡（Markdown 渲染）
 │   │   │   ├── ToolCallBlock.vue — 工具调用卡片（M12 P0：执行中→完成状态化 + 实时耗时 + 中文名）
@@ -167,6 +171,8 @@ agents-cli-learn/
 | GET | /api/v1/agents | 可用 Agent 列表 |
 | POST | /api/v1/chat/stream_ndjson | 流式对话（核心，支持幂等 key） |
 | POST | /api/v1/chat/send | 非流式对话 |
+| POST | /api/v1/chat/tasks | 创建流式任务（后台跑 Agent，返回 task_id，M12 断线续传） |
+| GET | /api/v1/chat/tasks/{id}/stream | SSE 观察任务，支持 Last-Event-ID/?after_id= 断线续传 |
 | POST | /api/v1/session/ | 创建会话 |
 | DELETE | /api/v1/session/{id} | 删除会话 |
 | GET | /api/v1/session/{id}/messages | 获取历史消息 |
@@ -305,3 +311,4 @@ agents-cli-learn/
 | 改工具调用卡片样式/状态 | `apps/web/src/components/ToolCallBlock.vue`；配对逻辑在 `stores/chat.ts`（addToolCall / resolveToolResult / settleDanglingToolCalls） |
 | 在日志里带上 trace_id | `from app.core.trace import get_logger`，用 `get_logger().info(...)` 自动带当前请求的 trace/req |
 | 改 Trace-ID 头名/行为 | `app/core/trace.py`（TRACE_HEADER / REQUEST_HEADER / TraceMiddleware） |
+| 改流式断线续传/事件重放 | 后端 `app/core/task_stream.py`（缓冲/重放）+ `app/api/v1/chat.py` 的 `/tasks`、`/tasks/{id}/stream`；前端 `apps/web/src/composables/useResumableStream.ts` |

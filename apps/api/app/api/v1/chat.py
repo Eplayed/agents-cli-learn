@@ -341,4 +341,268 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
     )
 
 
+def _sse_pack(data: str, event: str | None = None, event_id: str | None = None) -> bytes:
+    """把一个事件序列化成 SSE 帧（text/event-stream）。
+
+    手写 SSE 而不用 sse-starlette 的 EventSourceResponse：后者用一个模块级全局
+    Event 做优雅关闭检测，在 pytest 每用例独立 event loop 下会 "bound to a
+    different event loop" 报错。手写 StreamingResponse 无此依赖，更可控。
+    """
+    lines = []
+    if event_id is not None:
+        lines.append(f"id: {event_id}")
+    if event is not None:
+        lines.append(f"event: {event}")
+    for dl in data.split("\n"):
+        lines.append(f"data: {dl}")
+    return ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
+
+
+# ============================================================
+# 任务化流式 + 断线续传（M12「改法 B」）
+#
+# 两步式：
+#   1) POST /chat/tasks           创建任务，后台跑 Agent，立即返回 task_id
+#   2) GET  /chat/tasks/{id}/stream  用 SSE 观察该任务的事件，可带
+#      Last-Event-ID / ?after_id= 断线重连、从上次事件之后接着收
+#
+# 事件 id 用 StreamTask 内部单调序号；断开重连时服务端做事件重放。
+# ============================================================
+
+
+async def _run_agent_task(task, agent, message, images, run_id, quota_uid, trace_id):
+    """后台运行 Agent，把每个 chunk 写入任务缓冲区（含 text，供全保真重放）。
+
+    与 HTTP 连接解耦：客户端断开也不影响它继续跑，事件留在缓冲区等重连。
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.core.run_tracker import RunTracker
+    from app.core.quota import record_usage
+    from app.core.trace import set_trace_context, get_logger
+
+    if trace_id:
+        set_trace_context(trace_id)
+
+    log = get_logger()
+    full_response = ""
+    token_stats = {}
+    run_status = "completed"
+    run_error = None
+    sid = task.session_id
+
+    tracker_db_ctx = AsyncSessionLocal()
+    tracker_db = await tracker_db_ctx.__aenter__()
+    tracker = RunTracker(tracker_db)
+
+    try:
+        async for chunk in agent.stream(message, images=images):
+            if chunk["type"] == "done":
+                break
+            if chunk["type"] == "text":
+                full_response += chunk.get("content", "")
+            if chunk["type"] == "token_stats":
+                token_stats = chunk.get("data", {})
+
+            # 内存缓冲：全部事件（含 text），供在线断线续传全保真回放
+            await task.emit(chunk)
+
+            # DB 持久化：只存非 text 事件（控制存储量），供跨重启的审计/回放
+            if run_id and chunk["type"] != "text":
+                try:
+                    await tracker.record_event(
+                        run_id, chunk["type"], chunk.get("data") or {"content": chunk.get("content", "")}
+                    )
+                except Exception:
+                    pass
+
+        # 落库 assistant 完整回答 + 更新会话统计
+        async with AsyncSessionLocal() as inner_db:
+            agent_msg = Message(session_id=sid, role="assistant", content=full_response)
+            inner_db.add(agent_msg)
+            stmt = select(Session).where(Session.id == sid)
+            sess = (await inner_db.execute(stmt)).scalar_one()
+            sess.message_count += 2
+            sess.updated_at = utcnow()
+            await inner_db.commit()
+    except Exception as e:
+        run_status = "failed"
+        run_error = str(e)
+        log.warning(f"[task {task.task_id}] agent stream failed: {e}")
+        await task.emit({"type": "error", "content": str(e)})
+    finally:
+        if run_id:
+            try:
+                await tracker.finish_run(
+                    run_id=run_id,
+                    status=run_status,
+                    error_message=run_error,
+                    input_tokens=token_stats.get("input_tokens", 0),
+                    output_tokens=token_stats.get("output_tokens", 0),
+                    total_tokens=token_stats.get("total_tokens", 0),
+                    cost_usd=token_stats.get("cost_usd", 0.0),
+                )
+            except Exception as _e:
+                print(f"[RunTracker] finish_run failed (non-blocking): {_e}")
+        record_usage(quota_uid, token_stats.get("total_tokens", 0))
+        try:
+            await tracker_db_ctx.__aexit__(None, None, None)
+        except Exception:
+            pass
+        # done 事件 + 标记完成（唤醒观察者收尾）
+        await task.emit({"type": "done", "content": ""})
+        await task.finish(run_error)
+
+
+@router.post("/tasks")
+async def create_task(request: ChatRequest, raw_request: FastAPIRequest, db: AsyncSession = Depends(get_db)):
+    """创建一个流式任务，后台运行 Agent，返回 task_id 供 GET stream 观察。"""
+    import asyncio
+    from app.core.task_stream import registry
+    from app.core.quota import check_quota
+    from app.core.auth import get_current_user_optional
+    from app.core.trace import get_trace_id
+
+    # 配额检查（超限同步返回 429）
+    user = get_current_user_optional()
+    quota_uid = user.user_id if user else None
+    check_quota(quota_uid)
+
+    session, _ = await get_or_create_session(request.session_id, db)
+
+    from app.core.uploads import save_images
+    img_urls = save_images(request.images, session.id)
+
+    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
+    db.add(user_msg)
+    await db.commit()
+
+    trace_id = get_trace_id()
+
+    # API Key 缺失：仍创建任务，但后台只发 config_error + done（保持 SSE 契约统一）
+    if _is_api_key_missing():
+        task = registry.create(f"task_{session.id}_{int(datetime.now().timestamp()*1000)}", session.id)
+
+        async def _config_err_task():
+            await task.emit(_config_error_payload())
+            await task.emit({"type": "done", "content": ""})
+            await task.finish()
+
+        asyncio.create_task(_config_err_task())
+        return {"task_id": task.task_id, "session_id": session.id}
+
+    # 起 run（run_id 复用为 task_id，统一 DB 回放）
+    from app.core.database import AsyncSessionLocal
+    from app.core.run_tracker import RunTracker
+
+    run_id = None
+    try:
+        async with AsyncSessionLocal() as run_db:
+            tracker = RunTracker(run_db)
+            run = await tracker.start_run(
+                session_id=session.id,
+                prompt=request.message,
+                user_id=quota_uid,
+                agent_key=request.agent_key,
+                model=request.model,
+                idempotency_key=request.idempotency_key,
+            )
+            run_id = run.id
+    except Exception as _e:
+        print(f"[RunTracker] start_run failed (non-blocking): {_e}")
+
+    task_id = run_id or f"task_{session.id}_{int(datetime.now().timestamp()*1000)}"
+    task = registry.create(task_id, session.id)
+
+    agent = _resolve_agent(request, raw_request, session.id)
+    asyncio.create_task(
+        _run_agent_task(task, agent, request.message, request.images, run_id, quota_uid, trace_id)
+    )
+
+    return {"task_id": task_id, "session_id": session.id}
+
+
+async def _replay_completed_run_from_db(task_id: str, start_after: int):
+    """任务不在内存（进程重启/已过期回收）时，从 DB 回放已完成 run 的事件。
+
+    注意：DB 只持久化了非 text 事件，所以这里补发一条 assistant 完整回答的 text 事件，
+    让重连的前端仍能看到最终答案（诚实取舍：跨重启不保真 token 级流式）。
+
+    用独立的 AsyncSessionLocal（而不是请求注入的 db）：SSE 响应体是在端点函数
+    返回之后才流式产出的，此时依赖注入的 session 生命周期已结束，复用会导致连接泄漏。
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models.models import AgentRun, AgentEvent
+
+    async with AsyncSessionLocal() as db:
+        run = (await db.execute(select(AgentRun).where(AgentRun.id == task_id))).scalar_one_or_none()
+        if not run:
+            yield {"event": "message", "data": json.dumps({"type": "error", "content": "任务不存在或已过期"})}
+            yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
+            return
+
+        ev_stmt = (
+            select(AgentEvent)
+            .where(AgentEvent.run_id == task_id, AgentEvent.seq_no > start_after)
+            .order_by(AgentEvent.seq_no)
+        )
+        for ev in (await db.execute(ev_stmt)).scalars().all():
+            yield {
+                "id": str(ev.seq_no),
+                "event": "message",
+                "data": json.dumps({"type": ev.event_type, "data": ev.event_data}),
+            }
+
+        # 补发最终答案文本
+        last_msg = (
+            await db.execute(
+                select(Message)
+                .where(Message.session_id == run.session_id, Message.role == "assistant")
+                .order_by(Message.created_at.desc())
+            )
+        ).scalars().first()
+        if last_msg and last_msg.content:
+            yield {"event": "message", "data": json.dumps({"type": "text", "content": last_msg.content})}
+
+        yield {"event": "message", "data": json.dumps({"type": "done", "content": ""})}
+
+
+@router.get("/tasks/{task_id}/stream")
+async def stream_task(task_id: str, raw_request: FastAPIRequest, after_id: int = 0):
+    """SSE 观察某个任务的事件流，支持断线续传。
+
+    续传起点优先级：Last-Event-ID 请求头 > ?after_id= 查询参数 > 0。
+    """
+    from app.core.task_stream import registry
+
+    last_event_header = raw_request.headers.get("Last-Event-ID", "").strip()
+    start_after = after_id
+    if last_event_header.isdigit():
+        start_after = int(last_event_header)
+
+    task = registry.get(task_id)
+
+    async def gen():
+        # 首帧告知客户端：这是新连接还是重连（附续传起点）
+        first_event = "reconnect" if start_after > 0 else "open"
+        yield _sse_pack(
+            json.dumps({"type": "resume", "task_id": task_id, "after_id": start_after}),
+            event=first_event,
+        )
+
+        if task is not None:
+            # 在线任务：从内存缓冲区全保真回放 + 实时跟随
+            async for e in task.follow(start_after):
+                yield _sse_pack(json.dumps(e["chunk"]), event="message", event_id=str(e["id"]))
+        else:
+            # 不在内存：从 DB 回放已完成 run
+            async for item in _replay_completed_run_from_db(task_id, start_after):
+                yield _sse_pack(item["data"], event=item.get("event"), event_id=item.get("id"))
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
 from sqlalchemy import select

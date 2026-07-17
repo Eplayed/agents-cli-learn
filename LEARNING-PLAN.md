@@ -325,9 +325,17 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
    - 落地顺序建议：先照 `crm-ai-h5` 的思路加一个轻量中间件（生成/复用请求头 + 结构化日志带 trace_id），验证链路打通后，再把同一个 trace_id 塞进 Langfuse callback 的 metadata（对齐 DeerFlow 的做法），两步都做完才算完整关闭这个子目标
    - 你项目已经接了 Langfuse（`tracing.py`），缺的正是这层"请求级 ID ↔ trace 关联"
 
+#### 🔵 P2 — 流式断线续传（架构改造，源自 SSE vs NDJSON 的「改法 B」讨论）
+
+5. **任务化 SSE + 事件重放（断线续传）**
+   - 背景：`crm-ai-h5` 用「POST 建任务 + GET 观察 SSE 流」两步式，靠 SSE 的 `id:` + `Last-Event-ID` + `?after_id=` 做断线续传/事件重放；本项目原来是「单 POST 边发边收」的 NDJSON，用不上原生 SSE 的这套能力，也没有流式中途续传
+   - 改造：新增 `POST /chat/tasks` 建任务（后台跑 Agent，立即返回 `task_id`）+ `GET /chat/tasks/{id}/stream` 用 SSE 观察，事件带单调 `id:`；客户端断开可带 `Last-Event-ID`/`?after_id=` 重连，服务端从该 id 之后重放
+   - 关键点：Agent 在后台任务里独立运行，与 HTTP 连接解耦（客户端断开也不停）；进程内 `StreamTask` 缓冲区做全保真在线重放（含 text token），既有 `RunTracker`/`AgentEvent` 兜底跨重启的 DB 回放（只存非 text 事件 + 补发最终答案）
+   - 前端 `useResumableStream.ts`：POST 建任务 → fetch 读 SSE，逐帧解析 `id/event/data`，断线后带 `Last-Event-ID` 退避重连；chunk 负载与 NDJSON 完全一致，复用同一套 `onChunk`/工具卡片逻辑。单 Agent 走此路径，Multi-Agent 仍走 NDJSON
+
 #### 🔴 P3 — 成本高、非必需，最后再评估要不要做
 
-5. **Goal 自动续跑护栏**（进阶，可选加分项）
+6. **Goal 自动续跑护栏**（进阶，可选加分项）
    - DeerFlow 的 `/goal` 命令：设置一个"完成条件"，每轮结束后用一个非思考模型评估任务是否达成，未达成就自动续跑一次；但有明确的安全上限（默认最多 8 次自动续跑）+ 停滞检测（连续 2 次评估结果没有进展就停止）
    - 这是"让 Agent 自动跑到任务完成"这类需求的标准护栏设计——上限和停滞检测两者缺一不可，否则容易死循环烧 token
    - 实现量较大，作为可选加分项，不强制在这个里程碑完成
@@ -337,6 +345,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - [x] 工具调用在 UI 上是"执行中（转圈 + 实时耗时）→ 完成"的同一张卡片状态化展示，不是"loading → 突然冒出一条新结果消息"的割裂体验；报错/中止时不会永久转圈（注：现有工具均为一次性返回，暂无内容级百分比进度）
 - [x] 有一个类似 `test_harness_boundary` 的静态检查测试，CI 跑得过（`tests/test_harness_boundary.py`：AST 检查 `app/agents`、`app/core` 不 import `app.api`/`app.main`）
 - [x] 请求响应头里有 `X-Trace-Id` / `X-Request-Id`，结构化日志用同一个 ID 关联（`app/core/trace.py` 中间件 + loguru）；同一 trace_id 已写入 Langfuse callback 的 metadata/tags（代码就位，因本环境未配 Langfuse key 未做运行时验证）
+- [x] 单 Agent 走「任务化 SSE」：`POST /chat/tasks` 建任务 + `GET /chat/tasks/{id}/stream` 观察，事件带单调 `id:`；断开后带 `Last-Event-ID`/`?after_id=` 重连能从上次事件之后重放（已用真实 LLM curl 验证：首连 id 1/2/3，重连 after_id=2 从 id 3 续上）
 - [ ] （可选）设置一个目标后，Agent 会自动续跑直到目标达成，且有安全上限和停滞检测两道护栏
 
 **配套阅读：**
