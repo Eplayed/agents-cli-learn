@@ -140,7 +140,7 @@ agents-cli-learn/
 │       ├── index.html           — 游戏入口
 │       ├── css/styles.css       — 全部样式
 │       ├── data/               — ⚠️ gitignore 用 /data/（根锚定）避免误伤
-│       │   ├── levels.js        — 关卡注册中心（10 学习关卡 + 5 面试题库）
+│       │   ├── levels.js        — 关卡注册中心（10 学习关卡 + 7 面试题库）
 │       │   ├── m0.js ~ m9.js    — 10 个学习关卡
 │       │   ├── interview-agent.js       — 面试题：Agent 核心（15 题）
 │       │   ├── interview-advanced.js    — 面试题：进阶（13 题）
@@ -148,6 +148,7 @@ agents-cli-learn/
 │       │   ├── interview-realbugs.js    — 面试题：真实踩坑（5 题）
 │       │   ├── interview-runtime.js     — 面试题：生产 Runtime（6 题）
 │       │   ├── interview-testing.js     — 面试题：AI 测试原理与实践（8 题）
+│       │   ├── interview-production.js  — 面试题：生产化进阶（Trace/断线续传/JWT/Postgres/安全，8 题）
 │       │   └── techFlows.js     — 通关后技术流程图数据
 │       └── js/                  — ES Module 模块化 JS
 │           ├── app.js / router.js / store.js / utils.js

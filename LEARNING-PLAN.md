@@ -533,15 +533,18 @@ ToolHive 是企业级 MCP 托管平台的落地案例，其设计思想对本项
 | **Agent 核心** | ReAct 循环怎么实现？和 Function Calling 什么关系？ | `agent.py::_build_graph` 的 tools_condition 循环 | M0/M3 |
 | **LangGraph** | StateGraph vs Chain 区别？Checkpoint 怎么跨请求恢复？ | `_build_graph` + `_GLOBAL_CHECKPOINTER` 单例 | M3 |
 | **MCP 协议** | MCP 三原语？stdio vs http？无状态 session 含义？ | `mcp_servers/` 全套 + `loader.py` docstring | M4 |
-| **流式协议** | SSE vs NDJSON 区别？前端怎么解析流？ | `chat.py::chat_stream_ndjson` + `index.html::streamNDJSON` | M2 |
 | **工具工程** | 工具 description 怎么写？annotations 四字段含义？ | `weather_server.py` docstring + ToolHive 最佳实践 | M4 |
 | **异步并发** | 为什么 LLM 调用必须 async？依赖注入怎么隔离请求？ | `chat.py` 的 `Depends(get_db)` + `database.py` | M1 |
-| **鉴权安全** | Bearer Token 中间件怎么写？ContextVar 为什么不能用全局变量？ | M5 待实现（参考 ToolHive §4） | M5 |
-| **可观测** | trace_id 怎么贯穿全链路？Langfuse vs LangSmith？ | M6 待实现 | M6 |
-| **评测** | trajectory eval 是什么？怎么防止 prompt 改了能力退化？ | M7 待实现 | M7 |
-| **RAG** | 向量检索 + 引用可解释？chunking 策略？ | M9 待实现 | M9 |
+| **鉴权安全** | Bearer 中间件 + ContextVar 隔离？多用户 JWT/bcrypt 怎么做？ | `auth.py`（Bearer+JWT）+ `security.py`（bcrypt/HS256） | M5 / M13 |
+| **可观测** | trace_id 怎么贯穿全链路？Langfuse vs LangSmith？ | `trace.py` 中间件 + `tracing.py` Langfuse metadata | M6 / M12 P1 |
+| **评测** | trajectory eval 是什么？怎么防止 prompt 改了能力退化？ | `eval/run_eval.py`（10 用例 + 4 断言） | M7 |
+| **RAG** | 向量检索 + 引用可解释？chunking 策略？ | `core/rag.py`（ChromaDB + 引用标注） | M9 |
 | **Multi-Agent** | Sequential / Parallel / Supervisor 适用场景？ | `agents/multi/team.py` 四种模式实现 | M3 |
 | **AI 测试** | LLM 输出非确定性怎么测？RAG 命中率怎么验证？ | `app/core/ai_testing.py` 六种测试类型 | M11 |
+| **流式协议** | SSE vs NDJSON？断线续传/事件重放怎么做？ | `chat.py::/tasks` + `task_stream.py` + `useResumableStream.ts` | M2 / M12 P2 |
+| **架构守护** | 怎么防止核心层反向依赖业务层？ | `tests/test_harness_boundary.py`（AST 静态检查） | M12 P1 |
+| **DB 迁移/扩展** | create_all vs Alembic？怎么支持水平扩展？ | `migrations/` + `database.py` 分方言 + `checkpointer.py` | M13.5 |
+| **生产安全** | eval 为什么危险？高危工具怎么门禁？启动校验查什么？ | `safe_tools.py` + `loader` 门禁 + `config.validate_runtime` | M13.6 |
 | **系统设计** | 设计一个支持 10w QPS 的 Agent 服务？ | 整体架构图（docs/ARCHITECTURE.md） | 综合 |
 
 ### 6.3 学习游戏接入规划
@@ -557,6 +560,7 @@ docs/learn-game/data/
   ├── interview-realbugs.js        ← 面试题：真实踩坑（5 题）✅
   ├── interview-runtime.js         ← 面试题：生产 Runtime（6 题）✅
   ├── interview-testing.js         ← 面试题：AI 测试（8 题）✅
+  ├── interview-production.js      ← 面试题：生产化进阶 Trace/断线续传/JWT/Postgres/安全（8 题）✅
   └── levels.js                    ← 注册所有关卡（LEVELS_ALL）
 ```
 

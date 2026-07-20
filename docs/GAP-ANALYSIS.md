@@ -5,6 +5,24 @@
 
 ---
 
+## 0. 当前状态速览（2026 更新）
+
+> 本文最初写于项目早期，下面 5 个"差距"里多数已经补齐。原文的改造步骤保留作为**学习/对照参考**，
+> 但**当前真实状态**以下表为准（避免读者误以为还没做）。
+
+| 差距 | 状态 | 在哪实现 / 说明 |
+|---|---|---|
+| 差距 1：Agent 注册中心 | ✅ 已完成（M3/M4） | `app/agents/registry.py` + `catalog.py`，9 种 Agent 工厂 + `GET /api/v1/agents` |
+| 差距 2：协议 Schema 严格化 | 🟡 部分 | 流式事件仍是约定好的 dict（type/content/data 一致）；未做 Pydantic StreamEvent 强类型 |
+| 差距 3：Checkpointer 持久化 | ✅ 已完成（M5 + M13.5） | `core/checkpointer.py`：AsyncSqliteSaver(dev) / AsyncPostgresSaver(Postgres 多机共享)，lifespan 注入 |
+| 差距 4：鉴权 | ✅ 已完成（M5 + M13） | Bearer 中间件 + 多用户 JWT/bcrypt（`core/auth.py` + `core/security.py`），per-user 配额生效 |
+| 差距 5：客户端 SDK | 🟡 部分 | 前端 `useStream.ts` / `useResumableStream.ts` 已封装；未做独立的 Python `AgentClient` SDK |
+
+> 另外，项目在对标之外还补了不少工业级能力：全链路 Trace-ID、流式断线续传、Alembic 迁移、
+> 安全加固（去 eval/证书校验/高危工具门禁）、生产启动校验、AI 测试引擎等（见 `LEARNING-PLAN.md` M10–M13.6）。
+
+---
+
 ## 1. 为什么选 agent-service-toolkit 当对标？
 
 | 选它的理由 | 说明 |
@@ -18,10 +36,13 @@
 
 ## 2. 5 个核心差距（按优先级）
 
-### 差距 1：Agent 注册中心（🔴 最重要的架构升级）
+### 差距 1：Agent 注册中心（✅ 已完成，M3/M4）
 
-#### 现状
-你的 `apps/api/app/api/v1/chat.py` 里**写死**了只调用 `SingleAgent`：
+> **当前状态**：已实现 `app/agents/registry.py`（`register_agent` 装饰器 + `list_agents`）
+> 和 `catalog.py`（9 种 Agent 工厂），并有 `GET /api/v1/agents` 列表端点。下面是当初的改造记录，供对照学习。
+
+#### （历史）现状
+项目早期 `apps/api/app/api/v1/chat.py` 里**写死**了只调用 `SingleAgent`：
 ```python
 # 现状：硬编码 agent
 agent = SingleAgent(session_id=session.id)
@@ -117,10 +138,13 @@ async def list_agents_endpoint():
 
 ---
 
-### 差距 2：协议 Schema 严格化（🔴 影响前后端协作）
+### 差距 2：协议 Schema 严格化（🟡 部分完成）
+
+> **当前状态**：流式事件仍是"约定好字段的 dict"（type + content/data，前后端一致，已在 M12 P0 统一工具卡片渲染），
+> 但**尚未**做成 Pydantic 强类型 `StreamEvent`。若要进一步类型安全，可按下面步骤升级。
 
 #### 现状
-你的 `chat.py` 流式事件用裸 dict：
+`chat.py` 流式事件用（约定字段的）dict：
 ```python
 yield {"type": "text", "content": "..."}
 yield {"type": "tool_calls", "data": {"name": ..., "input": ...}}
@@ -181,9 +205,14 @@ class StreamEvent(BaseModel):
 
 ---
 
-### 差距 3：Checkpointer 持久化（🔴 重启不丢状态）
+### 差距 3：Checkpointer 持久化（✅ 已完成，M5 + M13.5）
 
-#### 现状
+> **当前状态**：已实现 `core/checkpointer.py`——dev 用 `AsyncSqliteSaver`，Postgres 下自动切
+> `AsyncPostgresSaver`（多机共享，支持水平扩展），在 lifespan 里初始化并注入 `app.state.checkpointer`。
+> `MemorySaver` 仅作为没跑 lifespan（如单测）时的回退。下面是当初的改造记录。
+
+#### （历史）现状
+项目早期：
 ```python
 # apps/api/app/agents/single/agent.py
 self.checkpointer = MemorySaver()  # 内存版，重启就丢
@@ -263,10 +292,14 @@ agent = SingleAgent(session_id=session.id, checkpointer=request.app.state.checkp
 
 ---
 
-### 差距 4：可选的 Bearer Token 鉴权（🟡 上线必备）
+### 差距 4：鉴权（✅ 已完成，M5 + M13）
 
-#### 现状
-所有接口都裸奔，任何人 curl 都能调你的 OpenAI key。
+> **当前状态**：已实现 Bearer 中间件（`core/auth.py`），并在 M13 升级为多用户 JWT + bcrypt
+> （`core/security.py` + `api/v1/auth.py` 的 register/login/me），真实 user_id 打通 per-user 配额。
+> 下面是当初"可选 Bearer 鉴权"的改造记录。
+
+#### （历史）现状
+项目早期所有接口都裸奔，任何人 curl 都能调你的 OpenAI key。
 
 #### 参考做法（[service.py verify_bearer](https://github.com/JoshuaC215/agent-service-toolkit/blob/main/src/service/service.py)）
 
@@ -304,10 +337,13 @@ router = APIRouter(dependencies=[Depends(verify_bearer)])
 
 ---
 
-### 差距 5：客户端 SDK（🟡 减少前端重复代码）
+### 差距 5：客户端 SDK（🟡 部分完成）
+
+> **当前状态**：前端已封装 `useStream.ts`（NDJSON）与 `useResumableStream.ts`（任务化 SSE 断线续传）。
+> **尚未**提供独立的 Python `AgentClient` SDK（供 pytest/命令行复用）；若要做可按下面步骤。
 
 #### 现状
-你的 `apps/web/src/composables/useStream.ts`（Vue 3）封装了 `fetch()` 调 NDJSON。如果将来加别的前端 / 或者写测试脚本，仍可复用这个 composable。
+`apps/web/src/composables/useStream.ts`（Vue 3）封装了 `fetch()` 调 NDJSON，`useResumableStream.ts` 封装了任务化 SSE。如果将来加别的前端 / 或者写测试脚本，仍可复用这些 composable。
 
 #### 参考做法
 agent-service-toolkit 有 `src/client/client.py`：
@@ -362,7 +398,9 @@ async def main():
 
 ---
 
-## 3. 改造顺序建议
+## 3. 改造顺序建议（历史）
+
+> 下面是当初规划的改造顺序；差距 1/3/4 已完成，差距 2/5 仍部分待做（见第 0 节状态速览）。
 
 按以下顺序做，每步独立可验证：
 
