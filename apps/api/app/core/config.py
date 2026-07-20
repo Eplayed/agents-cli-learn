@@ -51,8 +51,12 @@ class Settings(BaseSettings):
     # 鉴权配置（M5）
     # =========================
     # AUTH_SECRET 为空 → 不鉴权（开发友好）
-    # AUTH_SECRET 有值 → 请求必须带 Authorization: Bearer <AUTH_SECRET>
+    # AUTH_SECRET 有值 → 请求必须带 Authorization: Bearer <AUTH_SECRET>（遗留共享密钥，向后兼容）
     AUTH_SECRET: str = ""
+
+    # 多用户 JWT 鉴权（M13）
+    # 用 SECRET_KEY 做 HS256 签名密钥；token 有效期（分钟）
+    JWT_EXPIRE_MINUTES: int = 1440  # 24h
 
     # =========================
     # 配额控制（M10+）

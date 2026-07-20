@@ -53,7 +53,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | 预算控制 | 无 | `recursion_limit` + max_tokens + timeout | 🔴 高 |
 | 评测 | 无 | DeepEval / pytest + trajectory eval | 🟡 中 |
 | HITL | 无 | `interrupt()` + Web UI 审批 | 🟡 中 |
-| 鉴权/限流 | 无 | JWT + slowapi | 🟡 中 |
+| 鉴权/限流 | 多用户 JWT + bcrypt（M13）+ per-user 配额 | JWT + slowapi | ✅ 鉴权已完成（限流/RPS 待补） |
 | 长期记忆 | 无 | `Store` API + 向量检索 | 🟢 低 |
 | 前端 | Vue 3（对话/Skill商店/AI测试/日志面板，dist 提交 git 零构建） | Next.js + agent-chat-ui | ✅ 已完成 |
 | AI 测试 | 6 种测试类型 + Web UI（prompt稳定性/多轮/RAG/工具调用/幻觉/越狱） | DeepEval / trajectory eval | ✅ 已完成 |
@@ -78,7 +78,7 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 ---
 
-## 3. 学习路线（M4 → M12）
+## 3. 学习路线（M4 → M14）
 
 ### M4：MCP 工具协议（🔴 最高优先级）
 
@@ -352,6 +352,73 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `backend/AGENTS.md`（Harness / App Split 章节）
 - [bytedance/deer-flow](https://github.com/bytedance/deer-flow) 的 `README.md`（Langfuse Tracing / Session Goals 章节）
 - `crm-ai-h5` 的 `docs/项目导读.md`（亮点 2、5）+ `middleware.ts` + `constants.ts`
+
+---
+
+## M13：多用户鉴权（生产化硬缺口，已完成）
+
+**动机**：原来是「全局共享一个 `AUTH_SECRET`」——所有通过认证的请求 `user_id` 相同，
+导致 per-user 配额形同虚设，也没有真正的用户概念。这是上生产前的头号缺口。
+
+**做了什么：**
+1. **用户表 + 密码哈希**：新增 `User` 模型（`models.py`），密码用 **bcrypt** 哈希存储（`app/core/security.py`），从不存明文。
+2. **JWT 签发/验签**：HS256，用 stdlib（hmac/hashlib/base64）实现，不引入新依赖；签名密钥用 `SECRET_KEY`，带 `exp` 过期校验，验签用恒定时间比较。
+3. **鉴权端点**（`app/api/v1/auth.py`）：`POST /auth/register`、`POST /auth/login`、`GET /auth/me`。
+4. **中间件升级**（`app/core/auth.py`）：Bearer token 先按遗留 `AUTH_SECRET` 恒定时间比较（**向后兼容**），否则按 JWT 验签解析出真实 `user_id`/`username`/`role`；未设密钥且无 token 仍为开发模式匿名（保持既有行为）。真实 `user_id` 一路带进配额，per-user 配额从此生效。
+5. **顺带修测试债**：`conftest.py` 在 `client` fixture 里显式 `init_db()`，修复「fresh clone / 新增表未创建」时 `no such table` 的历史问题（配合 `database.py` 在 pytest 下用 `NullPool`）。
+
+**可验收：**
+- [x] 注册/登录返回 JWT；`/auth/me` 带 JWT 返回真实用户身份，篡改 token 返回 401，错误密码返回 401（已用真实 curl + 70 项 pytest 验证）
+- [x] 遗留 `AUTH_SECRET` 共享密钥仍可用（向后兼容），且比较改为恒定时间
+- [x] fresh clone / 全新 DB 下 `pytest tests/ -q` 全绿（用临时 DATABASE_URL 验证 70 passed）
+
+**未做（诚实标注，后续 A 类缺口）：**
+- 前端登录 UI（当前仅后端 API + 中间件）
+- token 刷新 / 登出黑名单、RBAC 细粒度权限、多租户数据隔离
+- 生产启动校验（DEBUG 默认关、SECRET_KEY 非默认值 fail-fast）、Postgres + Alembic 迁移
+- 计算器 `eval()` 收敛、关闭的证书校验、高危工具审批门
+
+---
+
+## M14：定时任务 + MCP 双层 JSON 兼容（草案 · 先设计不实现）
+
+> 来源：对照 `crm-ai-h5` 最新 master（MOT-350 Scheduled、`8b9d0ab`）筛出的两条**有工程学习价值**的点。
+> 本节仅为设计草案，尚未实现；实现前需再确认范围与优先级。
+
+### 子目标 A：定时任务 Scheduled（借鉴 crm-ai-h5 MOT-350）
+
+**要解决的问题**：目前 Agent 只能「用户发一条 → 立即跑一次」。定时任务让 Agent 能
+**按计划（cron / 一次性延时）自动运行**，并在 UI 上有「运行面板」看每次运行的生命周期。
+
+**设计思路（待定）：**
+- **数据模型**：新增 `ScheduledTask`（id、session_id、user_id、cron 表达式或 next_run_at、prompt/agent_key、enabled、last_run_at、状态），每次触发复用现有 `AgentRun`/`AgentEvent` 记录运行。
+- **调度器**：进程内用 `asyncio` 定时循环（学习项目够用，不引 Celery/APScheduler）；在 lifespan 启动一个后台 tick 协程，扫到期任务 → 复用 M12 的任务化流式内核（`task_stream.py`）后台跑。
+- **API**：`POST /scheduled`（建）、`GET /scheduled`（列）、`DELETE /scheduled/{id}`、`GET /scheduled/{id}/runs`（运行历史）。
+- **前端**：Runs 面板 + 响应内 `scheduled_task_card` 卡片（复用 `ToolCallBlock` 的卡片式渲染思路）。
+- **护栏**：单任务并发上限、最大运行时长、失败重试上限、禁止无限自触发。
+
+**开放问题**：cron 解析要不要引依赖（croniter）还是只支持固定间隔？多副本部署时的调度去重（学习项目暂单机，先不解决）。
+
+**可验收（待实现后勾选）：**
+- [ ] 能创建一个「每 N 分钟/指定时间」运行的任务，到点自动触发并产生 `AgentRun`
+- [ ] Runs 面板能看到每次运行的状态与事件流；任务可启停/删除
+- [ ] 有并发/时长/重试护栏，异常任务不会打满资源
+
+### 子目标 B：MCP 双层 JSON 工具结果兼容（借鉴 crm-ai-h5 `8b9d0ab`）
+
+**要解决的问题**：部分 MCP server 返回的工具结果，其 `content` 里的 `text` **本身又是一段 JSON 字符串**（结果被包了两层）。我们后端 `on_tool_end` 目前只取 `tool_output.content`，前端也只做了「内容块数组抽 text」（M12 修的 `[object Object]`），**没有处理再套一层 JSON 的情况**——这类结果在 UI 上会显示成一坨转义 JSON 字符串，而不是结构化内容。
+
+**设计思路（待定）：**
+- 后端 `agent.py` 的 `on_tool_end`：对工具输出做一次「尝试解析内层 JSON」——若 `text` 能 `json.loads` 成 dict/list，则解析后作为结构化 `data` 一并下发（保留原始文本兜底）。
+- 前端 `ToolCallBlock`：优先渲染结构化 `data`，无则回退当前的文本展示。
+- 需要一个开关/白名单，避免把「本来就是普通字符串、恰好长得像 JSON」的输出误解析。
+
+**开放问题**：是否所有 MCP server 都有此问题，还是个别？需要先抓一个真实双层 JSON 的样本再定解析策略（避免过度设计）。
+
+**可验收（待实现后勾选）：**
+- [ ] 对返回双层 JSON 的 MCP 工具，UI 能展示解析后的结构化内容，而不是转义字符串
+- [ ] 普通字符串输出不受影响（不误解析）
+- [ ] 有单测覆盖：双层 JSON / 普通字符串 / 内容块数组三种形状
 
 ---
 

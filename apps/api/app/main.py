@@ -13,7 +13,7 @@ from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
 from app.core.trace import TraceMiddleware
-from app.api.v1 import chat, team, session, runs, skills, ai_testing
+from app.api.v1 import chat, team, session, runs, skills, ai_testing, auth
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -56,6 +56,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(TraceMiddleware)
 
 # 路由挂载：Phase 3 的 HTTP API 入口都从这里开始
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Single Agent"])
 app.include_router(team.router, prefix="/api/v1/team", tags=["Multi-Agent"])
 app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])

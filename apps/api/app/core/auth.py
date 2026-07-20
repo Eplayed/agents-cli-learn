@@ -34,8 +34,10 @@ from app.core.config import settings
 @dataclass
 class UserContext:
     """当前请求的用户身份信息"""
-    user_id: str          # Bearer token 值的哈希前8位（简化版身份标识）
-    authenticated: bool   # 是否通过认证
+    user_id: str                    # 真实用户 id（JWT sub）/ 匿名 / 遗留密钥哈希
+    authenticated: bool             # 是否通过认证
+    username: str = "anonymous"     # 用户名（JWT 携带）
+    role: str = "user"              # 角色：user / admin
 
 
 # ContextVar：每个协程独立的"用户上下文"
@@ -79,28 +81,48 @@ class AuthMiddleware(BaseHTTPMiddleware):
             _current_user.reset(cv_token)
 
     def _resolve_user(self, request: Request) -> Optional[UserContext]:
-        """从请求中解析用户身份"""
+        """从请求中解析用户身份。
+
+        解析顺序：
+        1. 带 Bearer token：
+           a. 与遗留 AUTH_SECRET 恒定时间比较相等 → 遗留管理身份（向后兼容）
+           b. 否则按 JWT 验签解析 → 真实用户身份（sub/username/role）
+           c. 都不通过 → None（无效 token）
+        2. 不带 token：
+           a. 设了 AUTH_SECRET → None（必须鉴权）
+           b. 未设 AUTH_SECRET → 匿名已认证（开发模式，保持既有行为）
+        """
+        import hashlib
+        import hmac
+
         auth_secret = settings.AUTH_SECRET
-
-        # 没设密钥 → 开发模式，所有人都是匿名已认证
-        if not auth_secret:
-            return UserContext(user_id="anonymous", authenticated=True)
-
-        # 取 Authorization header
         auth_header = request.headers.get("Authorization", "").strip()
-        if not auth_header.lower().startswith("bearer "):
-            return None  # 没带 token
+        token = ""
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
 
-        token = auth_header.split(" ", 1)[1].strip()
+        if token:
+            # a) 遗留共享密钥：恒定时间比较，防时序侧信道
+            if auth_secret and hmac.compare_digest(token, auth_secret):
+                uid = hashlib.sha256(token.encode()).hexdigest()[:8]
+                return UserContext(user_id=uid, authenticated=True, username="_legacy_", role="admin")
+            # b) 新版 JWT
+            from app.core.security import decode_access_token
+            payload = decode_access_token(token)
+            if payload:
+                return UserContext(
+                    user_id=str(payload.get("sub", "")),
+                    authenticated=True,
+                    username=str(payload.get("username", "")),
+                    role=str(payload.get("role", "user")),
+                )
+            # c) token 无效
+            return None
 
-        # 简单比对（生产环境换 JWT 验签）
-        if token == auth_secret:
-            # 用 token 哈希前 8 位做 user_id（简化版）
-            import hashlib
-            uid = hashlib.sha256(token.encode()).hexdigest()[:8]
-            return UserContext(user_id=uid, authenticated=True)
-
-        return None  # token 不对
+        # 无 token
+        if auth_secret:
+            return None  # 设了密钥 → 必须带 token
+        return UserContext(user_id="anonymous", authenticated=True)  # 开发模式
 
 
 # ============================================================

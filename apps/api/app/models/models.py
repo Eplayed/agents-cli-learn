@@ -3,7 +3,7 @@ Database Models - SQLAlchemy ORM
 """
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, Integer, Float, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, String, Text, Integer, Float, DateTime, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -15,6 +15,23 @@ def utcnow() -> datetime:
     避免 tz-aware 与 naive 混用导致的比较问题。
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+class User(Base):
+    """平台用户（M13 多用户鉴权）
+
+    替代原来「全局共享一个 AUTH_SECRET」的方案：每个用户有独立身份，
+    JWT 的 sub 即 user.id，配额/运行历史等按真实 user_id 隔离。
+    密码用 bcrypt 哈希存储（见 app/core/security.py），从不存明文。
+    """
+    __tablename__ = "users"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"user_{uuid.uuid4().hex[:16]}")
+    username = Column(String(64), unique=True, index=True, nullable=False)
+    password_hash = Column(String(200), nullable=False)
+    role = Column(String(20), nullable=False, default="user")  # user / admin
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class Session(Base):

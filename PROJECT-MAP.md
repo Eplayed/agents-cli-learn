@@ -33,6 +33,7 @@ agents-cli-learn/
 │   │   │   └── multi/
 │   │   │       └── team.py      — MultiAgentTeam：Sequential/Parallel/Supervisor/GroupChat
 │   │   ├── api/v1/
+│   │   ├── auth.py          — 多用户鉴权 API：/auth/register /login /me（M13）
 │   │   ├── chat.py          — /chat/send + /stream_ndjson + /tasks(任务化SSE断线续传)（核心对话 API + 运行持久化 + 幂等 + 配额）
 │   │   │   ├── session.py       — 会话 CRUD + 消息历史
 │   │   │   ├── team.py          — Multi-Agent API
@@ -42,7 +43,8 @@ agents-cli-learn/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db 依赖注入
 │   │   │   ├── checkpointer.py  — AsyncSqliteSaver（LangGraph 对话持久化）
-│   │   │   ├── auth.py          — Bearer Token 中间件 + ContextVar 协程隔离
+│   │   │   ├── auth.py          — 鉴权中间件（JWT + 遗留密钥兼容）+ ContextVar 协程隔离
+│   │   │   ├── security.py      — bcrypt 密码哈希 + HS256 JWT 签发/验签（M13 多用户鉴权）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
@@ -71,14 +73,15 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/                   — 62 tests
+│   └── tests/                   — 70 tests
 │       ├── test_health.py / test_session.py / test_chat.py
 │       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
 │       ├── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
 │       ├── test_harness_boundary.py — 架构守护：核心层不 import 业务层（M12 P1）
 │       ├── test_trace.py       — Trace-ID 响应头 + 入站复用（M12 P1）
 │       ├── test_task_stream.py — StreamTask 事件缓冲/重放/跟随 + 回收（M12 断线续传）
-│       └── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
+│       ├── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
+│       └── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
 │
 ├── apps/web/                    — Vue 3 + Vite 前端
 │   ├── package.json             — 前端依赖
@@ -168,6 +171,9 @@ agents-cli-learn/
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | /health | 健康检查 |
+| POST | /api/v1/auth/register | 注册用户，返回 JWT（M13） |
+| POST | /api/v1/auth/login | 登录，返回 JWT（M13） |
+| GET | /api/v1/auth/me | 当前用户身份（需 Bearer JWT，M13） |
 | GET | /api/v1/models | 可用模型列表 |
 | GET | /api/v1/agents | 可用 Agent 列表 |
 | POST | /api/v1/chat/stream_ndjson | 流式对话（核心，支持幂等 key） |
@@ -275,7 +281,8 @@ agents-cli-learn/
 | **上下文压缩** | `app/core/context_compressor.py` | 滑动窗口 + 摘要压缩 |
 | **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/AI测试/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
 | **Schema** | `app/schemas/chat.py` | ChatRequest（含 images / idempotency_key） |
-| **数据模型** | `app/models/models.py` | Session / Message(含attachments) / AgentRun / AgentEvent / TestRun |
+| **数据模型** | `app/models/models.py` | User(M13) / Session / Message(含attachments) / AgentRun / AgentEvent / TestRun |
+| **多用户鉴权** | `app/core/security.py` + `app/api/v1/auth.py` | bcrypt 密码哈希 + HS256 JWT，向后兼容遗留 AUTH_SECRET |
 | **AI 测试引擎** | `app/core/ai_testing.py` + `ai_testing_cases.py` | 6 种测试类型 runner + 预置用例，详见 `docs/AI-TESTING.md` |
 
 ### 关键设计决策
@@ -313,3 +320,4 @@ agents-cli-learn/
 | 在日志里带上 trace_id | `from app.core.trace import get_logger`，用 `get_logger().info(...)` 自动带当前请求的 trace/req |
 | 改 Trace-ID 头名/行为 | `app/core/trace.py`（TRACE_HEADER / REQUEST_HEADER / TraceMiddleware） |
 | 改流式断线续传/事件重放 | 后端 `app/core/task_stream.py`（缓冲/重放）+ `app/api/v1/chat.py` 的 `/tasks`、`/tasks/{id}/stream`；前端 `apps/web/src/composables/useResumableStream.ts` |
+| 改鉴权/JWT/密码规则 | `app/core/security.py`（哈希/JWT）+ `app/core/auth.py`（中间件解析）+ `app/api/v1/auth.py`（端点） |
