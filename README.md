@@ -105,6 +105,7 @@ npm run dev
 | M12 | 生产级设计借鉴：P0 工具可视化 + P1 Trace-ID/架构守护 + P2 流式断线续传 | 🚧 P0/P1/P2 已完成，P3 可选 |
 | M13 | 多用户鉴权（bcrypt + JWT + per-user 配额生效，修复 fresh-DB 测试债） | ✅ 已完成 |
 | M13.5 | Postgres + Alembic 迁移（SQLite dev / Postgres 生产双库，Checkpointer 多机共享） | ✅ 已完成 |
+| M13.6 | 安全加固（去 eval / 证书校验 / 高危工具默认禁用）+ 生产启动校验 | ✅ 已完成 |
 | M14 | 定时任务 Scheduled + MCP 双层 JSON 兼容 | 📝 草案（先设计不实现） |
 
 ---

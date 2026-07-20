@@ -401,6 +401,37 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 
 ---
 
+## M13.6：安全加固 + 生产启动校验（生产化硬缺口，已完成）
+
+**动机**：几个上生产前必须堵的口子——计算器用 `eval()`（任意代码执行/幂运算 DoS）、
+天气工具关闭了证书校验（中间人攻击）、删除/转账等高危工具默认就加载给 Agent、
+生产配置不安全（默认 SECRET_KEY 可伪造 JWT）也能照常启动。
+
+**做了什么：**
+1. **去 eval()**（`app/core/safe_tools.py::safe_eval_math`）：AST 白名单求值替代 `eval`，
+   显式不含 `**`（防 `9**9**9` 打满 CPU），禁变量/函数调用/属性。MCP 主路径
+   `utils_server.calculator` 与内嵌 fallback `_calculator_fallback` 都换成它。
+2. **恢复证书校验**（`safe_tools.secure_ssl_context`）：用 certifi CA 包的 `create_default_context`
+   替代 `ssl._create_unverified_context()`。`weather_server` 与内嵌天气 fallback 都改。
+3. **高危工具默认门禁**（`config.ALLOW_DANGEROUS_TOOLS=False` + `loader` 过滤 `_dangerous` server）：
+   删除/转账工具默认不加载，Agent 无法自主调用；需演示 HITL 时显式开启。
+4. **生产启动校验**（`config.validate_runtime()` + `main.py` lifespan 调用）：
+   `ENVIRONMENT=production` 时，SECRET_KEY 为默认/空值 → **拒绝启动**；DEBUG=True /
+   AUTH_SECRET 空 / 配额白名单含 `*` / 高危工具开启 → 打印警告。开发环境不打扰。
+
+**可验收：**
+- [x] `safe_eval_math`：正常计算对、`9**9**9` 幂运算被拒、代码注入被拒、除零报错（单测覆盖）
+- [x] `secure_ssl_context` 的 `verify_mode==CERT_REQUIRED`、`check_hostname==True`
+- [x] 计算器工具真实调用返回正确结果（走 MCP 主路径，已用真实请求验证 `(3+5)*12=96`）
+- [x] 高危工具默认不加载：`_load_config()` 不含 `dangerous`；真实请求让 Agent 删数据时它无该工具可用
+- [x] 生产 + 默认 SECRET_KEY → `validate_runtime()` 抛 RuntimeError 拒绝启动；开发环境静默
+- [x] 全量 `pytest tests/ -q` 81 passed
+
+**未做（诚实标注）：** 请求级限流（RPS）未做；高危工具目前是"默认禁用"门禁，未做完整的
+LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
+
+---
+
 ## M14：定时任务 + MCP 双层 JSON 兼容（草案 · 先设计不实现）
 
 > 来源：对照 `crm-ai-h5` 最新 master（MOT-350 Scheduled、`8b9d0ab`）筛出的两条**有工程学习价值**的点。

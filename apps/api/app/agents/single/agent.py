@@ -276,7 +276,8 @@ def _get_weather_fallback(city: str) -> str:
     name = aliases.get(city.strip(), city.strip())
 
     try:
-        ctx = ssl._create_unverified_context()
+        from app.core.safe_tools import secure_ssl_context
+        ctx = secure_ssl_context()
 
         def _get_json(url: str) -> dict:
             req = urllib.request.Request(url, headers={"User-Agent": "noah-agent/1.0"})
@@ -314,10 +315,13 @@ def _get_weather_fallback(city: str) -> str:
 def _calculator_fallback(expr: str) -> str:
     """简单数学表达式（内嵌回退版本）。仅允许数字与 +-*/.() 空格。"""
     try:
-        allowed = set("0123456789+-*/.() ")
+        allowed = set("0123456789+-*/%.() ")
         if set(expr) - allowed:
             return "Error: invalid chars"
-        return str(eval(expr))
+        from app.core.safe_tools import safe_eval_math
+        return str(safe_eval_math(expr))
+    except ZeroDivisionError:
+        return "Error: division by zero"
     except Exception as e:
         return f"Error: {e}"
 

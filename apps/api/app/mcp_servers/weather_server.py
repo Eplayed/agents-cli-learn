@@ -60,9 +60,9 @@ def get_weather(city: str) -> str:
     name = aliases.get(city.strip(), city.strip())
 
     def _get_json(url: str) -> dict:
-        # 注意：urllib + ssl 是为了避免某些环境的证书问题
-        # 生产环境建议用 httpx 并启用证书校验
-        ctx = ssl._create_unverified_context()
+        # 校验证书的 HTTPS context（不再用 _create_unverified_context，防中间人攻击）
+        from app.core.safe_tools import secure_ssl_context
+        ctx = secure_ssl_context()
         req = urllib.request.Request(url, headers={"User-Agent": "noah-agent-cli-learn/1.0"})
         with urllib.request.urlopen(req, timeout=12, context=ctx) as resp:
             raw = resp.read().decode("utf-8", errors="replace")

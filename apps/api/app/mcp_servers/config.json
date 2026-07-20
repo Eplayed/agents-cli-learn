@@ -17,7 +17,8 @@
       "command": "python",
       "args": ["-m", "app.mcp_servers.dangerous_server"],
       "transport": "stdio",
-      "_description": "危险工具（删除/转账）· M5 HITL 演示 · destructive"
+      "_dangerous": true,
+      "_description": "危险工具（删除/转账）· destructive · 默认禁用，需 ALLOW_DANGEROUS_TOOLS=true"
     }
   }
 }

@@ -26,6 +26,11 @@ async def lifespan(app: FastAPI):
     # - 启动：初始化数据库 + Checkpointer
     # - 关闭：Checkpointer 连接自动通过 contextmanager 释放
     print("Starting Noah Agent Platform...")
+
+    # M13.6：生产化启动校验。生产环境配置不安全（如 SECRET_KEY 为默认值）直接拒绝启动。
+    for _w in settings.validate_runtime():
+        print(f"[启动校验][警告] {_w}")
+
     await init_db()
     print("Database initialized")
 

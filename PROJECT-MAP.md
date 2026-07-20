@@ -40,11 +40,12 @@ agents-cli-learn/
 │   │   │   ├── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
 │   │   │   └── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
 │   │   ├── core/
-│   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）
+│   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）+ validate_runtime 生产启动校验（M13.6）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db；init_db 分方言（SQLite create_all / Postgres 交给 Alembic，M13.5）
 │   │   │   ├── checkpointer.py  — Checkpointer 分方言：AsyncSqliteSaver / AsyncPostgresSaver（多机共享，M13.5）
 │   │   │   ├── auth.py          — 鉴权中间件（JWT + 遗留密钥兼容）+ ContextVar 协程隔离
 │   │   │   ├── security.py      — bcrypt 密码哈希 + HS256 JWT 签发/验签（M13 多用户鉴权）
+│   │   │   ├── safe_tools.py    — 安全数学求值(AST替代eval) + 校验证书的 SSL context（M13.6）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
@@ -81,7 +82,8 @@ agents-cli-learn/
 │       ├── test_trace.py       — Trace-ID 响应头 + 入站复用（M12 P1）
 │       ├── test_task_stream.py — StreamTask 事件缓冲/重放/跟随 + 回收（M12 断线续传）
 │       ├── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
-│       └── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
+│       ├── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
+│       └── test_security_hardening.py — safe_eval/证书校验/启动校验/高危工具门禁（M13.6）
 │   ├── alembic.ini              — Alembic 配置（url 动态取自 settings，M13.5）
 │   └── migrations/              — DB 迁移（env.py 异步引擎 + versions/ 迁移文件）
 │
@@ -326,3 +328,5 @@ agents-cli-learn/
 | 改鉴权/JWT/密码规则 | `app/core/security.py`（哈希/JWT）+ `app/core/auth.py`（中间件解析）+ `app/api/v1/auth.py`（端点） |
 | 改表结构 / 加迁移 | 改 `app/models/models.py`，再 `cd apps/api && alembic revision --autogenerate -m "..."`（人工 review），详见 `docs/DATABASE.md` |
 | 切换 SQLite/Postgres | 改 `DATABASE_URL`；Postgres 需 `alembic upgrade head`，见 `docs/DATABASE.md` |
+| 加/改生产启动校验 | `app/core/config.py::validate_runtime`（生产不安全配置 fail-fast） |
+| 开启高危工具（删除/转账） | 设 `ALLOW_DANGEROUS_TOOLS=true`（默认禁用，`loader` 过滤 `_dangerous` server） |

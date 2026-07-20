@@ -16,6 +16,8 @@ from typing import List
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
+from app.core.config import settings
+
 
 # 全局缓存：避免每次请求都重新连接所有 MCP Server
 _TOOLS_CACHE: List[BaseTool] | None = None
@@ -67,6 +69,12 @@ def _load_config() -> dict:
     # 同时将 command 为 "python" 的替换为 venv python 路径
     clean = {}
     for name, spec in servers.items():
+        # 安全门禁（M13.6）：标了 _dangerous 的 server 默认不加载，
+        # 除非 ALLOW_DANGEROUS_TOOLS=true。防止 Agent 自主调用删除/转账等高危工具。
+        if spec.get("_dangerous") and not settings.ALLOW_DANGEROUS_TOOLS:
+            print(f"[MCP Loader] 跳过高危工具集 '{name}'（ALLOW_DANGEROUS_TOOLS=false）")
+            continue
+
         server_conf = {k: v for k, v in spec.items() if not k.startswith("_")}
 
         # 动态替换 python 命令为 venv 路径

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # =========================
     APP_NAME: str = "Noah Agent Platform"
     DEBUG: bool = True
+    # 运行环境：development / production。生产会触发 validate_runtime() 的严格校验
+    ENVIRONMENT: str = "development"
 
     # =========================
     # 数据库配置（默认使用本地 SQLite）
@@ -70,6 +72,13 @@ class Settings(BaseSettings):
     QUOTA_WHITELIST: str = "*"
 
     # =========================
+    # 高危工具开关（M13.6 安全加固）
+    # =========================
+    # 默认禁用：删除/转账这类 destructive 工具不加载，Agent 无法自主调用。
+    # 需要演示 HITL 时显式设为 True。
+    ALLOW_DANGEROUS_TOOLS: bool = False
+
+    # =========================
     # RAG 配置（M9）
     # =========================
     # False = 不加载 embedding 模型（首次启动快，默认关闭）
@@ -84,6 +93,45 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: str = ""
     LANGFUSE_SECRET_KEY: str = ""
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() in ("production", "prod")
+
+    def validate_runtime(self) -> list[str]:
+        """生产化启动校验（M13.6）。
+
+        - 严重项（生产必须修）→ 抛 RuntimeError 拒绝启动
+        - 警告项 → 返回列表由 main.py 打印，不阻断启动
+        开发环境只返回空列表（不打扰）。
+        """
+        if not self.is_production:
+            return []
+
+        critical: list[str] = []
+        warnings: list[str] = []
+
+        # 严重：SECRET_KEY 是 JWT 签名密钥，默认值意味着任何人都能伪造 token
+        if self.SECRET_KEY == "dev-secret-key-change-in-production" or not self.SECRET_KEY:
+            critical.append("SECRET_KEY 仍是默认/空值——JWT 可被伪造，必须换成强随机值")
+
+        # 警告项
+        if self.DEBUG:
+            warnings.append("DEBUG=True：生产会打印 SQL、泄漏错误细节，建议关闭")
+        if not self.AUTH_SECRET:
+            warnings.append("AUTH_SECRET 为空：无 token 时按匿名放行，注意是否符合预期")
+        if "*" in [w.strip() for w in self.QUOTA_WHITELIST.split(",")]:
+            warnings.append("QUOTA_WHITELIST 含 '*'：所有用户不限额")
+        if self.ALLOW_DANGEROUS_TOOLS:
+            warnings.append("ALLOW_DANGEROUS_TOOLS=True：删除/转账等高危工具已启用")
+
+        if critical:
+            raise RuntimeError(
+                "生产配置校验失败（ENVIRONMENT=production）：\n  - "
+                + "\n  - ".join(critical)
+                + "\n请修正后再启动。"
+            )
+        return warnings
 
     class Config:
         # 读取环境变量的优先级：

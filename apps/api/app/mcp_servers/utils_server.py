@@ -27,13 +27,15 @@ def calculator(expr: str) -> str:
     Args:
         expr: 数学表达式，仅允许数字与 +-*/.() 空格，例如 "(3+5)*12"
     """
-    # 安全：白名单字符 + eval（仅允许纯数学）
-    # 警告：生产环境不要用 eval，应该用 ast.literal_eval 或专用解析器
+    # 安全：字符白名单 + AST 白名单求值（不用 eval，防任意代码执行/幂运算 DoS）
     try:
-        allowed = set("0123456789+-*/.() ")
+        allowed = set("0123456789+-*/%.() ")
         if set(expr) - allowed:
-            return "Error: invalid chars (only digits and +-*/.() allowed)"
-        return str(eval(expr))
+            return "Error: invalid chars (only digits and +-*/%.() allowed)"
+        from app.core.safe_tools import safe_eval_math
+        return str(safe_eval_math(expr))
+    except ZeroDivisionError:
+        return "Error: division by zero"
     except Exception as e:
         return f"Error: {e}"
 
