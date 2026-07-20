@@ -48,7 +48,8 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 | 维度 | 当前实现 | 2026 主流 | 差距优先级 |
 |---|---|---|---|
 | 工具协议 | stdio MCP 已完成（weather/utils），HTTP transport 待完成 | MCP Client/Server（stdio + http 混用） | 🟡 部分完成 |
-| Checkpoint | `MemorySaver`（每次构造都新建，重启即丢；DB 仅保存业务消息，LangGraph 图状态未持久化） | `AsyncSqliteSaver` / `AsyncPostgresSaver`（lifespan 内全局共享） | 🔴 高 |
+| Checkpoint | `AsyncSqliteSaver`（dev）/ `AsyncPostgresSaver`（Postgres 时自动切，M13.5）；lifespan 内全局共享 | `AsyncSqliteSaver` / `AsyncPostgresSaver` | ✅ 已完成 |
+| DB 迁移/扩展 | Alembic 迁移 + SQLite(dev)/Postgres(生产) 双库（M13.5） | Alembic + Postgres | ✅ 已完成 |
 | 可观测 | print + DB 落库 | OpenTelemetry GenAI + Langfuse | 🔴 高 |
 | 预算控制 | 无 | `recursion_limit` + max_tokens + timeout | 🔴 高 |
 | 评测 | 无 | DeepEval / pytest + trajectory eval | 🟡 中 |
@@ -377,6 +378,26 @@ archive/cli/            # TS CLI（Phase 1-2 学习资产，归档）
 - token 刷新 / 登出黑名单、RBAC 细粒度权限、多租户数据隔离
 - 生产启动校验（DEBUG 默认关、SECRET_KEY 非默认值 fail-fast）、Postgres + Alembic 迁移
 - 计算器 `eval()` 收敛、关闭的证书校验、高危工具审批门
+
+---
+
+## M13.5：Postgres + Alembic 迁移（生产化硬缺口，已完成）
+
+**动机**：原来只有 SQLite + `create_all` + 手写 ALTER，只能单机、没有版本化迁移，谈不上水平扩展。
+
+**做了什么：**
+1. **Alembic 落地**（`alembic.ini` + `migrations/env.py` 异步引擎 + 初始迁移 `initial_schema`）：url 取自 `settings.DATABASE_URL`，迁移和运行时同一个库；模型用 SQLAlchemy 通用类型，同一套迁移 SQLite/Postgres 都能跑。
+2. **init_db 分方言**（`database.py`）：SQLite（dev）保留 `create_all` 零配置；Postgres（生产）不自动建表，只校验连通性并提示 `alembic upgrade head`，避免和版本管理打架。
+3. **Checkpointer 分方言**（`checkpointer.py`）：Postgres 时自动用 `AsyncPostgresSaver`（多机共享对话状态，真正水平扩展的关键），未装 pg checkpointer 时优雅降级到本地 SQLite 并告警。
+4. **操作指南**：`docs/DATABASE.md`（双库切换、生产上线流程、常用 Alembic 命令、注意事项）。
+
+**可验收：**
+- [x] `alembic upgrade head` 在全新 SQLite 上建出全部 6 张表 + `alembic_version`（已验证）
+- [x] Postgres 离线 DDL（`--sql`）渲染出合法 Postgres SQL（VARCHAR/JSON/BOOLEAN/CREATE INDEX），证明迁移跨库兼容
+- [x] SQLite dev 路径不受影响：`pytest tests/ -q` 70 passed，真实服务启动 + 对话正常
+- [x] Postgres 时 Checkpointer 自动切 AsyncPostgresSaver（代码就位 + 降级路径；本环境无 Postgres 服务，未做真机连库验证）
+
+**未做（诚实标注）：** 本机无 Postgres 服务，未做真实 Postgres 端到端连库验证（迁移已用离线 DDL + SQLite 真跑双重验证）；多副本部署、连接池调优、读写分离等运维层未覆盖。
 
 ---
 

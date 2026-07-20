@@ -31,16 +31,34 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 
+def _is_sqlite() -> bool:
+    return settings.DATABASE_URL.startswith("sqlite")
+
+
 async def init_db():
-    # 启动时建表（学习/演示友好）
-    # 确保所有 model 都被 import，这样 create_all 能创建全部表
-    import app.models.models  # noqa: F401
-    # 生产环境通常用 Alembic 迁移来管理 schema
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # 轻量自动迁移：为已存在的旧表补充新增列（SQLite）
-        # create_all 不会 ALTER 已存在的表，这里手动补列，避免删库丢数据
-        await conn.run_sync(_ensure_columns)
+    """初始化数据库 schema。
+
+    - SQLite（开发默认）：create_all 零配置直接建表 + 轻量补列，方便 setup.sh 一键起。
+      Alembic 在 dev 可选（也能用 `alembic upgrade head`）。
+    - Postgres 等（生产）：schema 由 Alembic 管理，这里不建表，只校验连通性并提示。
+      生产上线流程：先 `alembic upgrade head`，再启动应用。
+    """
+    import app.models.models  # noqa: F401  确保所有 model 注册到 metadata
+
+    if _is_sqlite():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            # create_all 不会 ALTER 已存在的表，这里手动补列，避免删库丢数据
+            await conn.run_sync(_ensure_columns)
+    else:
+        # 生产库（Postgres）：不自动建表，避免和 Alembic 版本管理打架
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        print(
+            "[DB] 检测到非 SQLite 数据库：schema 由 Alembic 管理。"
+            "请确保已执行 `alembic upgrade head` 应用迁移。"
+        )
 
 
 def _ensure_columns(sync_conn):

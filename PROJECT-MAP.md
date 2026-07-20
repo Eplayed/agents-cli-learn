@@ -41,8 +41,8 @@ agents-cli-learn/
 │   │   │   └── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
 │   │   ├── core/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）
-│   │   │   ├── database.py      — AsyncSqlAlchemy + get_db 依赖注入
-│   │   │   ├── checkpointer.py  — AsyncSqliteSaver（LangGraph 对话持久化）
+│   │   │   ├── database.py      — AsyncSqlAlchemy + get_db；init_db 分方言（SQLite create_all / Postgres 交给 Alembic，M13.5）
+│   │   │   ├── checkpointer.py  — Checkpointer 分方言：AsyncSqliteSaver / AsyncPostgresSaver（多机共享，M13.5）
 │   │   │   ├── auth.py          — 鉴权中间件（JWT + 遗留密钥兼容）+ ContextVar 协程隔离
 │   │   │   ├── security.py      — bcrypt 密码哈希 + HS256 JWT 签发/验签（M13 多用户鉴权）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
@@ -82,6 +82,8 @@ agents-cli-learn/
 │       ├── test_task_stream.py — StreamTask 事件缓冲/重放/跟随 + 回收（M12 断线续传）
 │       ├── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
 │       └── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
+│   ├── alembic.ini              — Alembic 配置（url 动态取自 settings，M13.5）
+│   └── migrations/              — DB 迁移（env.py 异步引擎 + versions/ 迁移文件）
 │
 ├── apps/web/                    — Vue 3 + Vite 前端
 │   ├── package.json             — 前端依赖
@@ -122,6 +124,7 @@ agents-cli-learn/
 │   ├── GAP-ANALYSIS.md          — 对标 agent-service-toolkit 差距分析
 │   ├── AI-TESTING.md            — AI 测试原理详解（6 类型 + 断言方法论 + API/UI 用法）
 │   ├── ACCEPTANCE-M12.md        — M12（P0/P1/P2）自助验收清单：命令 + 预期 + 勾选框
+│   ├── DATABASE.md              — 数据库与迁移指南：SQLite/Postgres 双库 + Alembic（M13.5）
 │   ├── DEERFLOW-NOTES.md        — DeerFlow 对照学习笔记（M12，独立 clone 在 deer-flow-lab/，不进 git）
 │   ├── MCP-INTEGRATION.md       — M4 MCP 集成实施记录 + annotations 最佳实践
 │   ├── RUNNING.md               — 本地运行手册
@@ -321,3 +324,5 @@ agents-cli-learn/
 | 改 Trace-ID 头名/行为 | `app/core/trace.py`（TRACE_HEADER / REQUEST_HEADER / TraceMiddleware） |
 | 改流式断线续传/事件重放 | 后端 `app/core/task_stream.py`（缓冲/重放）+ `app/api/v1/chat.py` 的 `/tasks`、`/tasks/{id}/stream`；前端 `apps/web/src/composables/useResumableStream.ts` |
 | 改鉴权/JWT/密码规则 | `app/core/security.py`（哈希/JWT）+ `app/core/auth.py`（中间件解析）+ `app/api/v1/auth.py`（端点） |
+| 改表结构 / 加迁移 | 改 `app/models/models.py`，再 `cd apps/api && alembic revision --autogenerate -m "..."`（人工 review），详见 `docs/DATABASE.md` |
+| 切换 SQLite/Postgres | 改 `DATABASE_URL`；Postgres 需 `alembic upgrade head`，见 `docs/DATABASE.md` |

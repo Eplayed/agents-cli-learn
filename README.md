@@ -65,6 +65,7 @@ npm run dev
 | **预算控制（recursion_limit + max_tokens + timeout）** | `apps/api/app/agents/single/agent.py` |
 | **Bearer Token 鉴权中间件（ContextVar 协程隔离）** | `apps/api/app/core/auth.py` |
 | **多用户鉴权（bcrypt + HS256 JWT，register/login/me，M13）** | `apps/api/app/core/security.py` + `apps/api/app/api/v1/auth.py` |
+| **Alembic 迁移 + SQLite/Postgres 双库（M13.5，见 docs/DATABASE.md）** | `apps/api/migrations/` + `apps/api/app/core/database.py` + `checkpointer.py` |
 | **危险工具 + HITL 确认机制** | `apps/api/app/mcp_servers/dangerous_server.py` |
 
 ### 生产 Runtime 能力（M10+）
@@ -103,6 +104,7 @@ npm run dev
 | M11 | AI 应用测试（6 种测试类型 + Web UI + 历史记录） | ✅ 已完成 |
 | M12 | 生产级设计借鉴：P0 工具可视化 + P1 Trace-ID/架构守护 + P2 流式断线续传 | 🚧 P0/P1/P2 已完成，P3 可选 |
 | M13 | 多用户鉴权（bcrypt + JWT + per-user 配额生效，修复 fresh-DB 测试债） | ✅ 已完成 |
+| M13.5 | Postgres + Alembic 迁移（SQLite dev / Postgres 生产双库，Checkpointer 多机共享） | ✅ 已完成 |
 | M14 | 定时任务 Scheduled + MCP 双层 JSON 兼容 | 📝 草案（先设计不实现） |
 
 ---

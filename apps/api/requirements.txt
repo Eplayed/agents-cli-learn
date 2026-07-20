@@ -25,6 +25,12 @@ langchain-mcp-adapters>=0.1.0
 # Checkpoint 持久化（M5）
 langgraph-checkpoint-sqlite>=3.0.0
 
+# 生产用 Postgres（可选，水平扩展时装）：
+#   业务库：asyncpg（已在上方 Database 区）+ Alembic 迁移（已含）
+#   对话状态 Checkpointer 多机共享：
+#     pip install "psycopg[binary]" langgraph-checkpoint-postgres
+#   然后把 DATABASE_URL 换成 postgresql+asyncpg://...，并 `alembic upgrade head`
+
 # 可观测（M6 - Langfuse）
 langfuse>=2.0.0
 

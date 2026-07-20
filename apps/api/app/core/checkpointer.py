@@ -27,14 +27,37 @@ CHECKPOINT_DB_PATH = "./checkpoints.db"
 
 @asynccontextmanager
 async def create_checkpointer():
-    """创建并初始化 AsyncSqliteSaver。
+    """创建并初始化 Checkpointer，按 DATABASE_URL 选择后端。
+
+    - Postgres（生产，多机共享）：AsyncPostgresSaver —— 这是"真正水平扩展"的关键，
+      多个副本共享同一份对话图状态。需 `pip install "psycopg[binary]" langgraph-checkpoint-postgres`。
+      未安装时优雅降级到本地 SQLite（并打印警告：无法多机共享）。
+    - 其它（SQLite dev）：AsyncSqliteSaver —— 本地文件，单机够用。
 
     用法（在 FastAPI lifespan 中）：
         async with create_checkpointer() as saver:
             app.state.checkpointer = saver
             yield
     """
+    url = settings.DATABASE_URL
+    if url.startswith("postgresql"):
+        try:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            # AsyncPostgresSaver 用 psycopg(3) DSN，去掉 +asyncpg 驱动后缀
+            conn_str = url.replace("postgresql+asyncpg", "postgresql")
+            async with AsyncPostgresSaver.from_conn_string(conn_str) as saver:
+                await saver.setup()  # 自动建 checkpoint 相关表
+                print("[Checkpointer] 使用 AsyncPostgresSaver（多机共享，支持水平扩展）")
+                yield saver
+                return
+        except ImportError:
+            print(
+                "[Checkpointer] 未安装 langgraph-checkpoint-postgres，回退到本地 SQLite "
+                "（单机，无法多副本共享对话状态）。生产请 "
+                "`pip install \"psycopg[binary]\" langgraph-checkpoint-postgres`"
+            )
+
+    # 默认/回退：SQLite 本地文件
     async with AsyncSqliteSaver.from_conn_string(CHECKPOINT_DB_PATH) as saver:
-        # setup() 会自动建 checkpoint 相关表（如果不存在）
         await saver.setup()
         yield saver
