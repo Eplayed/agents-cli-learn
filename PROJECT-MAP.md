@@ -131,6 +131,7 @@ agents-cli-learn/
 │   ├── GAP-ANALYSIS.md          — 对标 agent-service-toolkit 差距分析
 │   ├── AI-TESTING.md            — AI 测试原理详解（6 类型 + 断言方法论 + API/UI 用法）
 │   ├── ACCEPTANCE-M12.md        — M12（P0/P1/P2）自助验收清单：命令 + 预期 + 勾选框
+│   ├── VERIFICATION.md          — 全功能验证清单：20 类 + 一键回归，命令+预期+勾选框
 │   ├── DATABASE.md              — 数据库与迁移指南：SQLite/Postgres 双库 + Alembic（M13.5）
 │   ├── DEERFLOW-NOTES.md        — DeerFlow 对照学习笔记（M12，独立 clone 在 deer-flow-lab/，不进 git）
 │   ├── MCP-INTEGRATION.md       — M4 MCP 集成实施记录 + annotations 最佳实践
