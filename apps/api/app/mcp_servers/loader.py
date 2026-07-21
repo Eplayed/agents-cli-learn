@@ -69,10 +69,12 @@ def _load_config() -> dict:
     # 同时将 command 为 "python" 的替换为 venv python 路径
     clean = {}
     for name, spec in servers.items():
-        # 安全门禁（M13.6）：标了 _dangerous 的 server 默认不加载，
-        # 除非 ALLOW_DANGEROUS_TOOLS=true。防止 Agent 自主调用删除/转账等高危工具。
-        if spec.get("_dangerous") and not settings.ALLOW_DANGEROUS_TOOLS:
-            print(f"[MCP Loader] 跳过高危工具集 '{name}'（ALLOW_DANGEROUS_TOOLS=false）")
+        # 安全门禁：标了 _dangerous 的 server
+        # - ALLOW_DANGEROUS_TOOLS=true → 直接加载（完全放开，无审批）
+        # - 否则 HITL_ENABLED=true → 加载，但会在 agent 侧套人审包装（M14）
+        # - 都不满足 → 不加载（M13.6 默认拒绝）
+        if spec.get("_dangerous") and not settings.ALLOW_DANGEROUS_TOOLS and not getattr(settings, "HITL_ENABLED", False):
+            print(f"[MCP Loader] 跳过高危工具集 '{name}'（未开 ALLOW_DANGEROUS_TOOLS / HITL_ENABLED）")
             continue
 
         server_conf = {k: v for k, v in spec.items() if not k.startswith("_")}

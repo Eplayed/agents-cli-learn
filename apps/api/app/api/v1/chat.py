@@ -3,7 +3,7 @@ Chat API - Single Agent endpoints
 """
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.requests import Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -138,7 +138,10 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     from app.core.uploads import save_images
     img_urls = save_images(request.images, session.id)
 
-    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
+    # M14 内容安全：落库前对用户消息做 PII 脱敏（拦截逻辑在 agent.stream 里执行）
+    from app.core.content_safety import mask_pii
+    stored_content, _ = mask_pii(request.message)
+    user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 
@@ -225,7 +228,10 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
     from app.core.uploads import save_images
     img_urls = save_images(request.images, session.id)
 
-    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
+    # M14 内容安全：落库前对用户消息做 PII 脱敏（拦截逻辑在 agent.stream 里执行）
+    from app.core.content_safety import mask_pii
+    stored_content, _ = mask_pii(request.message)
+    user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 
@@ -394,26 +400,44 @@ async def _run_agent_task(task, agent, message, images, run_id, quota_uid, trace
     tracker_db = await tracker_db_ctx.__aenter__()
     tracker = RunTracker(tracker_db)
 
-    try:
-        async for chunk in agent.stream(message, images=images):
-            if chunk["type"] == "done":
-                break
-            if chunk["type"] == "text":
+    async def _consume(gen) -> str:
+        """消费一段 stream/resume 生成器，把事件写入缓冲+DB；返回该段如何结束：done / approval。"""
+        nonlocal full_response, token_stats
+        async for chunk in gen:
+            t = chunk["type"]
+            if t == "done":
+                return "done"
+            if t == "approval_required":
+                # M14 HITL：补 task_id 供前端审批卡片回调，emit 后进入等待
+                data = dict(chunk.get("data") or {})
+                data["task_id"] = task.task_id
+                await task.emit({"type": "approval_required", "data": data})
+                if run_id:
+                    try:
+                        await tracker.record_event(run_id, "approval_required", data)
+                    except Exception:
+                        pass
+                return "approval"
+            if t == "text":
                 full_response += chunk.get("content", "")
-            if chunk["type"] == "token_stats":
+            if t == "token_stats":
                 token_stats = chunk.get("data", {})
-
             # 内存缓冲：全部事件（含 text），供在线断线续传全保真回放
             await task.emit(chunk)
-
             # DB 持久化：只存非 text 事件（控制存储量），供跨重启的审计/回放
-            if run_id and chunk["type"] != "text":
+            if run_id and t != "text":
                 try:
-                    await tracker.record_event(
-                        run_id, chunk["type"], chunk.get("data") or {"content": chunk.get("content", "")}
-                    )
+                    await tracker.record_event(run_id, t, chunk.get("data") or {"content": chunk.get("content", "")})
                 except Exception:
                     pass
+        return "done"
+
+    try:
+        # 审批循环：首段 stream；若停在人审 → 等决定 → resume；可多轮
+        outcome = await _consume(agent.stream(message, images=images))
+        while outcome == "approval" and hasattr(agent, "resume"):
+            decision = await task.wait_approval(getattr(settings, "HITL_APPROVAL_TIMEOUT", 300))
+            outcome = await _consume(agent.resume(decision))
 
         # 落库 assistant 完整回答 + 更新会话统计
         async with AsyncSessionLocal() as inner_db:
@@ -472,7 +496,10 @@ async def create_task(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     from app.core.uploads import save_images
     img_urls = save_images(request.images, session.id)
 
-    user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
+    # M14 内容安全：落库前对用户消息做 PII 脱敏（拦截逻辑在 agent.stream 里执行）
+    from app.core.content_safety import mask_pii
+    stored_content, _ = mask_pii(request.message)
+    user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
 
@@ -603,6 +630,25 @@ async def stream_task(task_id: str, raw_request: FastAPIRequest, after_id: int =
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
+
+
+@router.post("/tasks/{task_id}/approve")
+async def approve_task(task_id: str, body: dict = Body(default={})):
+    """M14 HITL：对任务当前等待的工具审批提交决定 {approved: bool, reason?: str}。
+
+    被批准 → 后台任务 resume 执行真实工具；被拒绝 → 工具不执行、图继续。
+    观察流（GET /tasks/{id}/stream）会继续收到后续事件。
+    """
+    from app.core.task_stream import registry
+
+    task = registry.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在或已过期")
+    decision = {"approved": bool(body.get("approved")), "reason": body.get("reason")}
+    accepted = task.submit_approval(decision)
+    if not accepted:
+        raise HTTPException(status_code=409, detail="该任务当前不在等待审批状态")
+    return {"ok": True, "approved": decision["approved"]}
 
 
 from sqlalchemy import select

@@ -65,6 +65,8 @@ npm run dev
 | **预算控制（recursion_limit + max_tokens + timeout）** | `apps/api/app/agents/single/agent.py` |
 | **Bearer Token 鉴权中间件（ContextVar 协程隔离）** | `apps/api/app/core/auth.py` |
 | **多用户鉴权（bcrypt + HS256 JWT，register/login/me，M13）** | `apps/api/app/core/security.py` + `apps/api/app/api/v1/auth.py` |
+| **HITL 人审闭环（interrupt() 审批高危工具 + 审批卡片，M14）** | `apps/api/app/core/hitl.py` + `apps/web/src/components/ApprovalCard.vue` |
+| **内容安全（PII 脱敏 + 敏感词拦截，送 LLM/落库前，M14）** | `apps/api/app/core/content_safety.py` |
 | **Alembic 迁移 + SQLite/Postgres 双库（M13.5，见 docs/DATABASE.md）** | `apps/api/migrations/` + `apps/api/app/core/database.py` + `checkpointer.py` |
 | **危险工具 + HITL 确认机制** | `apps/api/app/mcp_servers/dangerous_server.py` |
 
@@ -106,6 +108,8 @@ npm run dev
 | M13 | 多用户鉴权（bcrypt + JWT + per-user 配额生效，修复 fresh-DB 测试债） | ✅ 已完成 |
 | M13.5 | Postgres + Alembic 迁移（SQLite dev / Postgres 生产双库，Checkpointer 多机共享） | ✅ 已完成 |
 | M13.6 | 安全加固（去 eval / 证书校验 / 高危工具默认禁用）+ 生产启动校验 | ✅ 已完成 |
+| M14 | HITL 人审闭环（interrupt 审批高危工具）+ 内容安全（PII 脱敏 + 敏感词拦截） | ✅ 已完成 |
+| M15–M18 | 限流/配置热更新、长期记忆/文件链路、企业基建、定时任务/MCP双层JSON | 📝 草案 |
 | M14 | 定时任务 Scheduled + MCP 双层 JSON 兼容 | 📝 草案（先设计不实现） |
 
 ---

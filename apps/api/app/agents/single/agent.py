@@ -96,7 +96,10 @@ class SingleAgent:
         # 工具来源（按优先级）：
         # 1. 调用方显式传入（测试/特殊场景用）
         # 2. 默认调 _resolve_tools()（先 MCP，失败回退内嵌）
-        self.tools = tools if tools is not None else _resolve_tools_sync()
+        resolved = tools if tools is not None else _resolve_tools_sync()
+        # M14 HITL：给命中审批名单的工具套审批包装（HITL 关闭时原样返回）
+        from app.core.hitl import apply_hitl
+        self.tools = apply_hitl(resolved)
 
         # bind_tools：把工具的 schema 注入 LLM，模型才能输出 tool_calls
         self.llm_with_tools = self.llm.bind_tools(self.tools)
@@ -123,67 +126,32 @@ class SingleAgent:
         response = await self.llm_with_tools.ainvoke(state["messages"])
         return {"messages": [response]}
 
-    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
-        thread_id = thread_id or self.session_id
+    def _make_config(self, thread_id: str) -> dict:
+        """构建 astream 的 config：thread_id + 预算 + tracing + token 统计。每次调用新建 token tracker。"""
         config = {
             "configurable": {"thread_id": thread_id},
             "recursion_limit": RECURSION_LIMIT,  # M5：防 LLM 死循环
         }
-
-        # M6：注入 Langfuse tracing（如果配置了的话）
         from app.core.tracing import get_tracing_config
         tracing = get_tracing_config(session_id=thread_id)
         if tracing:
             config.update(tracing)
-
-        # M10：Token 统计
         from app.core.token_tracker import TokenTracker
         model_name = self.llm.model_name if hasattr(self.llm, 'model_name') else settings.OPENAI_MODEL
         self._token_tracker = TokenTracker(model=model_name)
-        if "callbacks" not in config:
-            config["callbacks"] = []
+        config.setdefault("callbacks", [])
         config["callbacks"].append(self._token_tracker)
+        return config
 
-        sys = SystemMessage(
-            content=(
-                "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
-                "必须先调用 get_weather(city) 获取数据后再给结论。"
-                "回答时先给结论（适合/不适合/观望），再给 1-3 条依据（降雨概率/风速/降水量），最后附天气摘要。"
-                "如果用户发送了图片，请仔细分析图片内容并结合文字回答。"
-            )
-        )
+    async def _drive(self, graph_input, config) -> AsyncGenerator[dict, None]:
+        """驱动图执行并产出流式 chunk。
 
-        # 构建 HumanMessage：支持多模态（文本 + 图片）
-        if images:
-            # 多模态格式：content 是 list[dict]
-            content_parts = [{"type": "text", "text": message}]
-            for img in images[:3]:  # 最多 3 张
-                data_uri = f"data:{img.media_type};base64,{img.data}"
-                content_parts.append({
-                    "type": "image_url",
-                    "image_url": {"url": data_uri}
-                })
-            human_msg = HumanMessage(content=content_parts)
-        else:
-            human_msg = HumanMessage(content=message)
-
-        messages = [sys, human_msg]
-
-        # --- 输入长度预检：估算 token 数，超限时提前拒绝 ---
-        # 粗略估算：中文 1 字符 ≈ 1.5 token，英文 1 word ≈ 1.3 token
-        # 这里用简单的字符数 / 2 估算（偏保守）
-        MAX_CONTEXT_TOKENS = 30000  # 留 2K 给输出
-        text_content = message if isinstance(message, str) else str(message)
-        estimated_input_tokens = len(text_content) // 2 + 200  # +200 for system prompt
-        if estimated_input_tokens > MAX_CONTEXT_TOKENS:
-            yield {"type": "error", "content": f"输入过长（约 {estimated_input_tokens} tokens，上限 {MAX_CONTEXT_TOKENS}）。请精简内容后重试。"}
-            yield {"type": "done", "content": ""}
-            return
-
+        结束时分两种情况：
+        - 图停在 interrupt（M14 HITL 工具审批）→ 发 approval_required，不发 done（等 resume）
+        - 正常结束 → 发 token_stats + done
+        """
         try:
-            async for event in self.graph.astream_events(
-                {"messages": messages}, config=config, version="v2"
-            ):
+            async for event in self.graph.astream_events(graph_input, config=config, version="v2"):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
                     content = event["data"]["chunk"].content
@@ -202,19 +170,82 @@ class SingleAgent:
                     yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
         except Exception as e:
             err_msg = str(e)
-            # 捕获 context_length_exceeded：提示用户并建议新建会话
             if "context_length" in err_msg.lower() or "maximum context" in err_msg.lower() or "too many tokens" in err_msg.lower():
                 yield {"type": "error", "content": "对话历史过长，已超出模型上下文窗口限制。建议新建 Session 开始新对话。"}
             else:
                 yield {"type": "error", "content": err_msg}
+            yield {"type": "done", "content": ""}
+            return
 
-        # M10：返回 token 统计（如果有）
-        if hasattr(self, '_token_tracker') and self._token_tracker:
+        # M14 HITL：图停在工具审批 interrupt 时，发审批请求并暂停（等前端批准后 resume）
+        try:
+            state = await self.graph.aget_state(config)
+            interrupts = getattr(state, "interrupts", None) or ()
+        except Exception:
+            interrupts = ()
+        if interrupts:
+            yield {"type": "approval_required", "data": interrupts[0].value}
+            return
+
+        if getattr(self, '_token_tracker', None):
             from app.core.token_tracker import format_token_stats
             stats = self._token_tracker.get_stats()
             yield {"type": "token_stats", "data": format_token_stats(stats)}
-
         yield {"type": "done", "content": ""}
+
+    async def stream(self, message: str, thread_id: str | None = None, images: list | None = None) -> AsyncGenerator[dict, None]:
+        thread_id = thread_id or self.session_id
+        config = self._make_config(thread_id)
+
+        # M14 内容安全：敏感词拦截（拒绝优先）+ PII 脱敏
+        from app.core.content_safety import check_input
+        safety = check_input(message)
+        if not safety.allowed:
+            yield {"type": "error", "content": safety.reason or "输入内容不被允许。"}
+            yield {"type": "done", "content": ""}
+            return
+        message = safety.text  # 脱敏后的文本（后续送 LLM）
+
+        sys = SystemMessage(
+            content=(
+                "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
+                "必须先调用 get_weather(city) 获取数据后再给结论。"
+                "回答时先给结论（适合/不适合/观望），再给 1-3 条依据（降雨概率/风速/降水量），最后附天气摘要。"
+                "如果用户发送了图片，请仔细分析图片内容并结合文字回答。"
+            )
+        )
+
+        # 构建 HumanMessage：支持多模态（文本 + 图片）
+        if images:
+            content_parts = [{"type": "text", "text": message}]
+            for img in images[:3]:  # 最多 3 张
+                data_uri = f"data:{img.media_type};base64,{img.data}"
+                content_parts.append({"type": "image_url", "image_url": {"url": data_uri}})
+            human_msg = HumanMessage(content=content_parts)
+        else:
+            human_msg = HumanMessage(content=message)
+
+        messages = [sys, human_msg]
+
+        # 输入长度预检：估算 token 数，超限时提前拒绝
+        MAX_CONTEXT_TOKENS = 30000
+        text_content = message if isinstance(message, str) else str(message)
+        estimated_input_tokens = len(text_content) // 2 + 200
+        if estimated_input_tokens > MAX_CONTEXT_TOKENS:
+            yield {"type": "error", "content": f"输入过长（约 {estimated_input_tokens} tokens，上限 {MAX_CONTEXT_TOKENS}）。请精简内容后重试。"}
+            yield {"type": "done", "content": ""}
+            return
+
+        async for chunk in self._drive({"messages": messages}, config):
+            yield chunk
+
+    async def resume(self, decision, thread_id: str | None = None) -> AsyncGenerator[dict, None]:
+        """M14 HITL：人工批准/拒绝后恢复被 interrupt 暂停的图。decision 形如 {"approved": bool}。"""
+        thread_id = thread_id or self.session_id
+        config = self._make_config(thread_id)
+        from langgraph.types import Command
+        async for chunk in self._drive(Command(resume=decision), config):
+            yield chunk
 
 
 # ============================================================

@@ -432,7 +432,93 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 
 ---
 
-## M14：定时任务 + MCP 双层 JSON 兼容（草案 · 先设计不实现）
+## 企业级对标补全（M14–M17，对照 DeerFlow / noah-chat-svc）
+
+> 来源：与 `bytedance/deer-flow`（可嵌入 harness，HITL/记忆/配置热更新等有生产级实现）
+> 和 `noah-chat-svc`（企业级中台，内容安全/KMS/智能路由等）对比后，筛出"通用 + 学习价值高"的能力。
+> **不嵌 DeerFlow 作为依赖**（它是整套并行架构，会和本项目冲突），而是照它的思路在本项目自己实现。
+> DeerFlow 能当参照的：HITL、长期记忆、配置热更新、文件转换、secret 卫生、guardrail 骨架。
+
+## M14：HITL 人审闭环 + 内容安全（安全刚需，已完成）
+
+### 子目标 A：HITL 人审闭环（参照 DeerFlow ClarificationMiddleware）
+
+**要解决的问题**：高危工具（转账/删数据）目前是"默认禁用"（M13.6），要么完全不能用、要么完全放开。
+生产需要的是"能用但每次执行前必须人工确认"。
+
+**设计思路：**
+- 用 LangGraph `interrupt()`：给"需审批"的工具套一层审批包装器（主进程内，dangerous 工具经 MCP adapter 也是 BaseTool，可包装），调用前 `interrupt({tool, args})` 暂停图。
+- 暂停后 `stream()` 检测到中断 → 发 `approval_required` 事件（工具名 + 参数），任务进入等待态。
+- 前端渲染"人审卡片"（批准/拒绝）→ `POST /chat/tasks/{id}/approve {decision}`。
+- 背景任务 `_run_agent_task`（M12）已和 HTTP 解耦，是等待审批 + `Command(resume=decision)` 恢复的天然位置。
+- 批准 → 执行真实工具；拒绝 → 注入"已被用户拒绝"的 ToolMessage，图继续。
+- 配置 `HITL_ENABLED` / `HITL_APPROVAL_TOOLS`（默认含 transfer_money、delete_all_data）。
+
+**可验收：**
+- [x] 调用需审批工具时，执行前暂停并发 `approval_required`，不直接执行（真实 LLM 实测：transfer_money → 暂停）
+- [x] 批准后工具真实执行并把结果接回对话（实测 approve → tool_result → 最终回答）；拒绝后工具不执行（单测覆盖）
+- [x] 超时/未审批不会永久卡死（`wait_approval` 超时兜底）；`approval_required` 写入 run_events 可回放
+- [x] 单测覆盖：批准路径 / 拒绝路径 / 非审批工具不受影响（tests/test_hitl.py）
+
+### 子目标 B：内容安全（PII 脱敏 + 敏感词，参照 DeerFlow InputSanitization 骨架 + noah-chat-svc）
+
+**要解决的问题**：用户输入可能含手机号/身份证/银行卡等 PII，直接送 LLM/存库有合规风险；也可能含需拦截的敏感词。
+
+**设计思路：**
+- 新增 `app/core/content_safety.py`：
+  - `mask_pii(text)`：正则脱敏手机号/身份证/银行卡/邮箱（保留尾号，如 `138****8888`）。
+  - `scan_sensitive(text)`：本地词表命中检测（预留 `provider` 接口，未来可接阿里云 Green）。
+  - `check_input(text)`：返回 `(allowed, masked_text, hits)`。
+- 送 LLM 前对用户输入做脱敏；命中拦截词直接拒绝（返回友好提示，不进 LLM）。
+- 在 `agent.stream()` 入口接入；落库前也用脱敏后的文本。
+- 配置 `CONTENT_SAFETY_ENABLED`、敏感词表可配。
+
+**可验收：**
+- [x] 手机号/身份证/银行卡/邮箱在送 LLM 前被脱敏；落库（create_task）也用脱敏后文本
+- [x] 命中拦截词的输入被拒绝，返回友好提示，不调用 LLM（实测 banned_demo → error）
+- [x] 关闭开关时行为不变；单测覆盖脱敏/拦截/放行三类（tests/test_content_safety.py）
+
+---
+
+## M15：请求级限流 + 配置热更新（韧性与运维，草案 · 先设计不实现）
+
+### 子目标 A：请求级限流（RPS）
+- 用 slowapi（或自写中间件）按 user_id / IP 限 RPS + 并发上限，配额之外的第二道闸。
+- 复用 M13 的真实 user_id；超限返回 429 + Retry-After。
+- **可验收**：同一用户高频请求触发 429；正常请求不受影响；限流阈值可配。
+
+### 子目标 B：配置热更新 + 启动校验分级（参照 DeerFlow reload_boundary）
+- 把配置分「热字段（下次请求生效）」和「重启字段（infra，需重启）」，像 DeerFlow 的 `STARTUP_ONLY_FIELDS` 那样注册。
+- 文件签名变化时自动重载热字段；重启字段变更给出明确提示。
+- **可验收**：改热字段（如温度/系统提示）不重启即生效；改 DB/鉴权等重启字段有提示且不误热更。
+
+---
+
+## M16：长期记忆 + 文件处理链路（重能力，草案 · 先设计不实现）
+
+### 子目标 A：长期记忆（参照 DeerFlow Memory，用本项目自己的表）
+- 事实抽取（LLM）+ 每用户隔离存储 + 注入系统提示 + 过期修剪（staleness）。
+- 数据模型 `UserMemory`（user_id、facts[]、context 摘要）；异步防抖更新队列。
+- **可验收**：多轮后能记住用户偏好并在新会话注入；按 user_id 隔离；可关可清。
+
+### 子目标 B：文件处理链路（参照 DeerFlow uploads + markitdown）
+- 上传 → 自动转换（PDF/PPT/Excel/Word → markitdown）→ 供 Agent 读取/预览。
+- 抽象一个 `Storage` 接口（本地实现 + 预留 S3/MinIO），不写死本地盘。
+- **可验收**：上传 PDF/Word 能被转成文本供问答；存储层可切换实现；大小/类型校验。
+
+---
+
+## M17：企业基建对接（偏运维/前端，按需，草案 · 先设计不实现）
+
+- **密钥管理**：先做 secret 卫生（密钥不进日志/trace/响应），KMS 加解密留接口。
+- **指标/APM/告警**：接 Prometheus `/metrics`（请求量/时延/token/成本），可选 Sentry 错误上报。
+- **智能路由**：LLM 判意图分流（如"闲聊 vs 定时任务 vs 检索"），参照 noah-chat-svc。
+- **富文本渲染**：前端补 KaTeX 公式 / mermaid 图 / Office 预览（纯前端）。
+- **可验收**：按各子项单独定义（优先级最低，学习价值有限，视需要再展开）。
+
+---
+
+## M18：定时任务 + MCP 双层 JSON 兼容（草案 · 先设计不实现）
 
 > 来源：对照 `crm-ai-h5` 最新 master（MOT-350 Scheduled、`8b9d0ab`）筛出的两条**有工程学习价值**的点。
 > 本节仅为设计草案，尚未实现；实现前需再确认范围与优先级。

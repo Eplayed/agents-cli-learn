@@ -89,17 +89,27 @@ def test_validate_runtime_dev_is_silent():
 
 # ---------------- 高危工具门禁 ----------------
 
-def test_dangerous_tools_disabled_by_default(monkeypatch):
-    from app.core import config as config_module
+def test_dangerous_tools_disabled_when_both_off(monkeypatch):
+    """ALLOW_DANGEROUS_TOOLS 和 HITL_ENABLED 都关时，高危工具集不加载（硬拒绝）"""
     from app.mcp_servers import loader
-    monkeypatch.setattr(config_module.settings, "ALLOW_DANGEROUS_TOOLS", False)
     monkeypatch.setattr(loader.settings, "ALLOW_DANGEROUS_TOOLS", False)
+    monkeypatch.setattr(loader.settings, "HITL_ENABLED", False)
     cfg = loader._load_config()
-    assert "dangerous" not in cfg, "默认应过滤掉高危工具集"
+    assert "dangerous" not in cfg
 
 
 def test_dangerous_tools_enabled_when_flag_on(monkeypatch):
     from app.mcp_servers import loader
     monkeypatch.setattr(loader.settings, "ALLOW_DANGEROUS_TOOLS", True)
+    monkeypatch.setattr(loader.settings, "HITL_ENABLED", False)
     cfg = loader._load_config()
-    assert "dangerous" in cfg, "开启开关后应加载高危工具集"
+    assert "dangerous" in cfg, "ALLOW_DANGEROUS_TOOLS 开启后应加载高危工具集"
+
+
+def test_dangerous_tools_loaded_under_hitl(monkeypatch):
+    """HITL 开启时高危工具集应加载（供 agent 侧套人审包装），而非硬拒绝"""
+    from app.mcp_servers import loader
+    monkeypatch.setattr(loader.settings, "ALLOW_DANGEROUS_TOOLS", False)
+    monkeypatch.setattr(loader.settings, "HITL_ENABLED", True)
+    cfg = loader._load_config()
+    assert "dangerous" in cfg

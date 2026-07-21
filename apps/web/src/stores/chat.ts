@@ -100,6 +100,29 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /**
+   * M14 HITL：对某任务当前等待的工具审批提交决定。
+   * 提交后后台会 resume，后续事件继续通过同一条 SSE 流回来。
+   */
+  async function approveTask(taskId: string, approved: boolean, reason?: string) {
+    try {
+      await fetch(`/api/v1/chat/tasks/${encodeURIComponent(taskId)}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved, reason }),
+      })
+    } finally {
+      // 标记对应审批卡片为已处理，前端隐藏按钮
+      for (let i = chatMessages.value.length - 1; i >= 0; i--) {
+        const m = chatMessages.value[i]
+        if (m.type === 'approval_required' && (m.data?.task_id as string) === taskId && !m.data?.resolved) {
+          m.data = { ...m.data, resolved: true, approved }
+          break
+        }
+      }
+    }
+  }
+
+  /**
    * 发送单 Agent 流式消息（支持图片）
    */
   async function sendSingle(text: string, images: ImageAttachment[] = []) {
@@ -201,6 +224,10 @@ export const useChatStore = defineStore('chat', () => {
       case 'token_stats':
         addMessage('event', '', 'token_stats', chunk.data as Record<string, unknown>)
         break
+      case 'approval_required':
+        // M14 HITL：高危工具执行前的人审卡片（含 task_id / tool / args）
+        addMessage('event', '', 'approval_required', chunk.data as Record<string, unknown>)
+        break
       case 'config_error':
         addMessage('event', chunk.content || 'API Key 未配置', 'config_error', chunk.details as Record<string, unknown>)
         break
@@ -222,5 +249,6 @@ export const useChatStore = defineStore('chat', () => {
     sendSingle,
     sendTeam,
     stopStream,
+    approveTask,
   }
 })

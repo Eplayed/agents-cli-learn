@@ -34,6 +34,31 @@ class StreamTask:
         self.finished_at: Optional[float] = None
         self._seq = 0
         self._cond = asyncio.Condition()
+        # M14 HITL：人审等待
+        self.awaiting_approval = False
+        self._approval_event = asyncio.Event()
+        self._approval_decision: Optional[dict] = None
+
+    async def wait_approval(self, timeout: float) -> dict:
+        """阻塞等待人工审批决定；超时按拒绝处理，避免永久卡死。"""
+        self._approval_decision = None
+        self._approval_event = asyncio.Event()
+        self.awaiting_approval = True
+        try:
+            await asyncio.wait_for(self._approval_event.wait(), timeout)
+            return self._approval_decision or {"approved": False, "reason": "无有效决定"}
+        except asyncio.TimeoutError:
+            return {"approved": False, "reason": "审批超时，已自动拒绝"}
+        finally:
+            self.awaiting_approval = False
+
+    def submit_approval(self, decision: dict) -> bool:
+        """提交审批决定；仅在等待态有效。返回是否被接受。"""
+        if not self.awaiting_approval:
+            return False
+        self._approval_decision = decision
+        self._approval_event.set()
+        return True
 
     async def emit(self, chunk: dict) -> int:
         """追加一个事件，返回其 event_id。会唤醒所有 follow() 观察者。"""

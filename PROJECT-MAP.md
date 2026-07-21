@@ -46,6 +46,8 @@ agents-cli-learn/
 │   │   │   ├── auth.py          — 鉴权中间件（JWT + 遗留密钥兼容）+ ContextVar 协程隔离
 │   │   │   ├── security.py      — bcrypt 密码哈希 + HS256 JWT 签发/验签（M13 多用户鉴权）
 │   │   │   ├── safe_tools.py    — 安全数学求值(AST替代eval) + 校验证书的 SSL context（M13.6）
+│   │   │   ├── content_safety.py — PII 脱敏 + 敏感词拦截（M14，送 LLM/落库前）
+│   │   │   ├── hitl.py          — 高危工具人审包装（interrupt 审批闭环，M14）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
@@ -83,7 +85,9 @@ agents-cli-learn/
 │       ├── test_task_stream.py — StreamTask 事件缓冲/重放/跟随 + 回收（M12 断线续传）
 │       ├── test_chat_tasks.py  — 任务化 SSE 端点：创建/观察/重连/未知任务（M12 断线续传）
 │       ├── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
-│       └── test_security_hardening.py — safe_eval/证书校验/启动校验/高危工具门禁（M13.6）
+│       ├── test_security_hardening.py — safe_eval/证书校验/启动校验/高危工具门禁（M13.6）
+│       ├── test_content_safety.py — PII 脱敏 + 敏感词拦截（M14）
+│       └── test_hitl.py        — HITL interrupt/approve/reject + 审批等待（M14）
 │   ├── alembic.ini              — Alembic 配置（url 动态取自 settings，M13.5）
 │   └── migrations/              — DB 迁移（env.py 异步引擎 + versions/ 迁移文件）
 │
@@ -106,6 +110,7 @@ agents-cli-learn/
 │   │   ├── components/
 │   │   │   ├── ChatMessage.vue  — 消息气泡（Markdown 渲染）
 │   │   │   ├── ToolCallBlock.vue — 工具调用卡片（M12 P0：执行中→完成状态化 + 实时耗时 + 中文名）
+│   │   │   ├── ApprovalCard.vue  — HITL 人审卡片（批准/拒绝高危工具，M14）
 │   │   │   ├── TokenStats.vue   — Token 消耗面板
 │   │   │   ├── AgentSelector.vue — Agent 模式切换
 │   │   │   ├── ModelSelector.vue — 模型选择
@@ -186,6 +191,7 @@ agents-cli-learn/
 | POST | /api/v1/chat/send | 非流式对话 |
 | POST | /api/v1/chat/tasks | 创建流式任务（后台跑 Agent，返回 task_id，M12 断线续传） |
 | GET | /api/v1/chat/tasks/{id}/stream | SSE 观察任务，支持 Last-Event-ID/?after_id= 断线续传 |
+| POST | /api/v1/chat/tasks/{id}/approve | HITL 人审：对等待中的高危工具提交批准/拒绝（M14） |
 | POST | /api/v1/session/ | 创建会话 |
 | DELETE | /api/v1/session/{id} | 删除会话 |
 | GET | /api/v1/session/{id}/messages | 获取历史消息 |
@@ -330,4 +336,6 @@ agents-cli-learn/
 | 改表结构 / 加迁移 | 改 `app/models/models.py`，再 `cd apps/api && alembic revision --autogenerate -m "..."`（人工 review），详见 `docs/DATABASE.md` |
 | 切换 SQLite/Postgres | 改 `DATABASE_URL`；Postgres 需 `alembic upgrade head`，见 `docs/DATABASE.md` |
 | 加/改生产启动校验 | `app/core/config.py::validate_runtime`（生产不安全配置 fail-fast） |
-| 开启高危工具（删除/转账） | 设 `ALLOW_DANGEROUS_TOOLS=true`（默认禁用，`loader` 过滤 `_dangerous` server） |
+| 开启高危工具（删除/转账） | `ALLOW_DANGEROUS_TOOLS=true`（完全放开）或默认 `HITL_ENABLED=true`（加载但需人审） |
+| 改人审工具名单/开关 | `HITL_ENABLED` / `HITL_APPROVAL_TOOLS`（config.py）；包装逻辑 `app/core/hitl.py` |
+| 改 PII 脱敏/敏感词 | `app/core/content_safety.py`（正则/词表）；开关 `CONTENT_SAFETY_ENABLED`、`SENSITIVE_WORDS` |

@@ -79,6 +79,21 @@ class Settings(BaseSettings):
     ALLOW_DANGEROUS_TOOLS: bool = False
 
     # =========================
+    # M14 安全能力
+    # =========================
+    # 内容安全：送 LLM / 落库前做 PII 脱敏 + 敏感词拦截
+    CONTENT_SAFETY_ENABLED: bool = True
+    # 额外敏感词（逗号分隔），会并入内置词表
+    SENSITIVE_WORDS: str = ""
+
+    # HITL 人审闭环：需审批工具执行前用 interrupt() 暂停，等人工批准
+    HITL_ENABLED: bool = True
+    # 需要人工审批的工具名（逗号分隔）
+    HITL_APPROVAL_TOOLS: str = "transfer_money,delete_all_data"
+    # 未审批的等待超时（秒），超时按拒绝处理，避免永久卡死
+    HITL_APPROVAL_TIMEOUT: int = 300
+
+    # =========================
     # RAG 配置（M9）
     # =========================
     # False = 不加载 embedding 模型（首次启动快，默认关闭）

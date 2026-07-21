@@ -10,6 +10,7 @@ import ModelSelector from '../components/ModelSelector.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ToolCallBlock from '../components/ToolCallBlock.vue'
+import ApprovalCard from '../components/ApprovalCard.vue'
 import TokenStats from '../components/TokenStats.vue'
 import TypingIndicator from '../components/TypingIndicator.vue'
 
@@ -195,6 +196,7 @@ async function cleanupEmpty() {
           <template v-for="msg in chatStore.chatMessages" :key="msg.id">
             <ChatMessage v-if="msg.role !== 'event'" :msg="msg" />
             <ToolCallBlock v-else-if="msg.type === 'tool_call' || msg.type === 'tool_result'" :msg="msg" />
+            <ApprovalCard v-else-if="msg.type === 'approval_required'" :msg="msg" />
             <TokenStats v-else-if="msg.type === 'token_stats'" :msg="msg" />
             <!-- 配置错误引导卡片 -->
             <div v-else-if="msg.type === 'config_error'" class="rounded-xl border border-accent/40 bg-accent/5 px-4 py-3 text-sm">
