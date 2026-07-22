@@ -15,6 +15,7 @@ agents-cli-learn/
 ├── .python-version              — Python 版本锁定 3.13
 ├── docker-compose.yml           — 一键部署（api + 持久化卷）
 ├── package.json                 — npm 脚本入口（dev/diagrams/learn）
+├── START-HERE.md                — 「从这里开始」一页纸学习入口（忘了怎么学就看它）
 ├── LEARNING-PLAN.md             — M0-M10 学习路线 + 面试题库规划
 ├── README.md                    — 项目介绍 + 快速开始 + 部署 + 贡献
 ├── PROJECT-MAP.md               — 本文件（目录树 + 摘要）

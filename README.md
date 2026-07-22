@@ -5,6 +5,8 @@
 > ⚠️ 旧的 TS CLI（Phase 1-2）已归档到 `archive/cli/`，不再作为主线。
 > 现在的入口是 Python FastAPI 服务（`apps/api/`）。
 
+> 📖 **不知道怎么学 / 忘了学到哪了？** 打开 [START-HERE.md](./START-HERE.md) —— 一页纸带你回到学习路径。
+
 ---
 
 ## 快速开始
