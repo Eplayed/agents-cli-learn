@@ -67,6 +67,13 @@ const outputText = computed<string | null>(() => {
   return String(out)
 })
 
+const structuredOutputText = computed<string | null>(() => {
+  const out = props.msg.data?.structured_output as unknown
+  if (out == null) return null
+  if (typeof out === 'string') return out
+  return JSON.stringify(out, null, 2)
+})
+
 const statusLabel = computed(() => {
   if (isPseudo.value) return '通知'
   return isRunning.value ? `正在调用…（${elapsedLabel.value}）` : '调用完成'
@@ -89,7 +96,13 @@ const statusLabel = computed(() => {
     </button>
     <div v-if="expanded" class="border-t border-gray-200 dark:border-gray-700 px-3 py-2 bg-gray-50 dark:bg-gray-900">
       <div v-if="rawName !== displayName" class="text-[10px] text-gray-400 mb-1 font-mono">原始工具名：{{ rawName }}</div>
-      <pre v-if="!isRunning" class="whitespace-pre-wrap break-all text-gray-700 dark:text-gray-300">{{ outputText ?? JSON.stringify(msg.data?.input ?? msg.data, null, 2) }}</pre>
+      <div v-if="!isRunning" class="space-y-2">
+        <div v-if="structuredOutputText" class="rounded border border-accent/20 bg-accent/5 p-2">
+          <div class="mb-1 text-[10px] font-medium text-accent">结构化结果（M18 双层 JSON 已解析）</div>
+          <pre class="whitespace-pre-wrap break-all text-gray-700 dark:text-gray-300">{{ structuredOutputText }}</pre>
+        </div>
+        <pre class="whitespace-pre-wrap break-all text-gray-700 dark:text-gray-300">{{ outputText ?? JSON.stringify(msg.data?.input ?? msg.data, null, 2) }}</pre>
+      </div>
       <pre v-else class="whitespace-pre-wrap break-all text-gray-500 dark:text-gray-400">入参：{{ JSON.stringify(msg.data?.input ?? {}, null, 2) }}</pre>
     </div>
   </div>

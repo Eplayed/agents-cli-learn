@@ -6,7 +6,7 @@
 const BASE = '' // Vite proxy handles /api -> localhost:8000
 
 export interface ApiOptions {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
   signal?: AbortSignal
 }
@@ -277,4 +277,117 @@ export function getTestHistoryDetail(runId: string) {
 
 export function deleteTestHistory(runId: string) {
   return api(`/api/v1/ai-testing/history/${runId}`, { method: 'DELETE' })
+}
+
+// ---- M16 Memory & Files ----
+
+export interface MemoryItem {
+  id: string
+  key: string
+  value: string
+  category: string
+  source: string
+  confidence: number
+  created_at: string
+  updated_at: string
+}
+
+export function listMemories() {
+  return api<{ memories: MemoryItem[]; count: number }>('/api/v1/memory/')
+}
+
+export function createMemory(body: { key: string; value: string; category?: string; session_id?: string }) {
+  return api<MemoryItem>('/api/v1/memory/', { method: 'POST', body })
+}
+
+export function deleteMemory(id: string) {
+  return api(`/api/v1/memory/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export interface UploadedFileItem {
+  id: string
+  filename: string
+  media_type: string | null
+  size_bytes: number
+  status: string
+  error_message: string | null
+  text_preview: string | null
+  created_at: string
+}
+
+export function listFiles() {
+  return api<{ files: UploadedFileItem[]; count: number }>('/api/v1/files/')
+}
+
+export async function uploadKnowledgeFile(file: File, sessionId?: string) {
+  const form = new FormData()
+  form.append('file', file)
+  if (sessionId) form.append('session_id', sessionId)
+  const res = await fetch('/api/v1/files/upload', { method: 'POST', body: form })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status} - ${await res.text()}`)
+  return res.json() as Promise<UploadedFileItem>
+}
+
+export function getFileText(id: string) {
+  return api<{ id: string; filename: string; text: string }>(`/api/v1/files/${encodeURIComponent(id)}/text`)
+}
+
+export function deleteUploadedFile(id: string) {
+  return api(`/api/v1/files/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+// ---- M18 Scheduled Tasks ----
+
+export interface ScheduledTaskItem {
+  id: string
+  name: string
+  prompt: string
+  agent_key: string | null
+  model: string | null
+  enabled: boolean
+  interval_seconds: number | null
+  next_run_at: string | null
+  last_run_at: string | null
+  max_runs: number | null
+  run_count: number
+  created_at: string
+}
+
+export interface ScheduledRunItem {
+  id: string
+  task_id: string
+  agent_run_id: string | null
+  trigger: string
+  status: string
+  started_at: string
+  finished_at: string | null
+  error_message: string | null
+}
+
+export function listScheduledTasks() {
+  return api<{ tasks: ScheduledTaskItem[]; count: number }>('/api/v1/scheduled/')
+}
+
+export function createScheduledTask(body: { name: string; prompt: string; interval_seconds?: number; once_at?: string; agent_key?: string; model?: string; max_runs?: number }) {
+  return api<ScheduledTaskItem>('/api/v1/scheduled/', { method: 'POST', body })
+}
+
+export function pauseScheduledTask(id: string) {
+  return api(`/api/v1/scheduled/${encodeURIComponent(id)}/pause`, { method: 'POST' })
+}
+
+export function resumeScheduledTask(id: string) {
+  return api(`/api/v1/scheduled/${encodeURIComponent(id)}/resume`, { method: 'POST' })
+}
+
+export function triggerScheduledTask(id: string) {
+  return api<{ triggered: boolean; scheduled_task_run_id: string }>(`/api/v1/scheduled/${encodeURIComponent(id)}/trigger`, { method: 'POST' })
+}
+
+export function deleteScheduledTask(id: string) {
+  return api(`/api/v1/scheduled/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function listScheduledRuns(id: string) {
+  return api<{ runs: ScheduledRunItem[]; count: number }>(`/api/v1/scheduled/${encodeURIComponent(id)}/runs`)
 }

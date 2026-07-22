@@ -20,6 +20,16 @@ export const router = createRouter({
       component: () => import('../views/TestingView.vue'),
     },
     {
+      path: '/memory',
+      name: 'memory',
+      component: () => import('../views/MemoryFilesView.vue'),
+    },
+    {
+      path: '/scheduled',
+      name: 'scheduled',
+      component: () => import('../views/ScheduledView.vue'),
+    },
+    {
       path: '/logs',
       name: 'logs',
       component: () => import('../views/LogView.vue'),

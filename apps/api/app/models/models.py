@@ -184,3 +184,95 @@ class TestRun(Base):
     cases = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, default=utcnow)
+
+
+# ============================================================
+# M16 长期记忆 + 文件处理链路
+# ============================================================
+
+
+class UserMemory(Base):
+    """按用户隔离的长期记忆事实。
+
+    MVP 先存结构化 fact 文本和少量元数据；事实抽取采用本地启发式，
+    后续可替换为 LLM 抽取 + staleness review。
+    """
+    __tablename__ = "user_memories"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"mem_{uuid.uuid4().hex[:16]}")
+    user_id = Column(String(64), nullable=False, index=True)
+    key = Column(String(120), nullable=False, index=True)
+    value = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False, default="preference")
+    source = Column(String(50), nullable=False, default="manual")
+    session_id = Column(String(64), nullable=True, index=True)
+    confidence = Column(Float, nullable=False, default=0.8)
+    metadata_ = Column("metadata", JSON, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class UploadedFile(Base):
+    """上传文件的存储和文本化结果。
+
+    存储路径只保存在服务端；接口返回 URL/摘要，不返回本机绝对路径。
+    """
+    __tablename__ = "uploaded_files"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"file_{uuid.uuid4().hex[:16]}")
+    user_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(64), nullable=True, index=True)
+    filename = Column(String(255), nullable=False)
+    media_type = Column(String(120), nullable=True)
+    size_bytes = Column(Integer, nullable=False, default=0)
+    storage_path = Column(Text, nullable=False)
+    text_path = Column(Text, nullable=True)
+    text_preview = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="processed")
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+
+# ============================================================
+# M18 定时任务
+# ============================================================
+
+
+class ScheduledTask(Base):
+    """单机学习版定时任务。
+
+    支持 interval_seconds 周期任务和 once_at 一次性任务；cron 留到生产版。
+    """
+    __tablename__ = "scheduled_tasks"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"sched_{uuid.uuid4().hex[:16]}")
+    user_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(64), nullable=True, index=True)
+    name = Column(String(120), nullable=False)
+    prompt = Column(Text, nullable=False)
+    agent_key = Column(String(50), nullable=True)
+    model = Column(String(100), nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True, index=True)
+    interval_seconds = Column(Integer, nullable=True)
+    next_run_at = Column(DateTime, nullable=True, index=True)
+    last_run_at = Column(DateTime, nullable=True)
+    max_runs = Column(Integer, nullable=True)
+    run_count = Column(Integer, nullable=False, default=0)
+    overlap_policy = Column(String(20), nullable=False, default="skip")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class ScheduledTaskRun(Base):
+    """定时任务每次触发的运行历史。"""
+    __tablename__ = "scheduled_task_runs"
+
+    id = Column(String(64), primary_key=True, default=lambda: f"srun_{uuid.uuid4().hex[:16]}")
+    task_id = Column(String(64), ForeignKey("scheduled_tasks.id"), nullable=False, index=True)
+    agent_run_id = Column(String(64), ForeignKey("agent_runs.id"), nullable=True, index=True)
+    trigger = Column(String(20), nullable=False, default="manual")
+    status = Column(String(20), nullable=False, default="running")
+    scheduled_for = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, default=utcnow)
+    finished_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)

@@ -71,6 +71,11 @@ npm run dev
 | **内容安全（PII 脱敏 + 敏感词拦截，送 LLM/落库前，M14）** | `apps/api/app/core/content_safety.py` |
 | **请求级限流（滑动窗口，按 user/IP，429+Retry-After，M15）** | `apps/api/app/core/rate_limit.py` |
 | **配置热更新 + 字段分级（热字段/重启字段，admin 端点，M15）** | `apps/api/app/core/config_reload.py` + `api/v1/admin.py` |
+| **长期记忆（用户隔离、手动/自动记忆、Agent prompt 注入，M16）** | `apps/api/app/core/memory.py` + `api/v1/memory.py` |
+| **文件处理链路（上传、类型/大小校验、文本化、Agent 文件上下文注入，M16）** | `apps/api/app/core/file_processing.py` + `api/v1/files.py` |
+| **企业基建（secret 脱敏、Prometheus 指标、智能路由预览，M17）** | `apps/api/app/core/secrets.py` + `metrics.py` + `smart_routing.py` |
+| **定时任务（interval/once、手动触发、运行历史、后台 tick，M18）** | `apps/api/app/core/scheduled.py` + `api/v1/scheduled.py` |
+| **MCP 双层 JSON 工具结果兼容（结构化结果下发 + 前端展示，M18）** | `apps/api/app/core/tool_output.py` + `ToolCallBlock.vue` |
 | **本地编码 Agent（工作区受限读改文件+跑命令，写/跑走 HITL 审批，M19 学习版）** | `apps/api/app/core/coding_tools.py` + `catalog.py` 的 code-agent |
 | **Alembic 迁移 + SQLite/Postgres 双库（M13.5，见 docs/DATABASE.md）** | `apps/api/migrations/` + `apps/api/app/core/database.py` + `checkpointer.py` |
 | **危险工具 + HITL 确认机制** | `apps/api/app/mcp_servers/dangerous_server.py` |
@@ -116,7 +121,9 @@ npm run dev
 | M14 | HITL 人审闭环（interrupt 审批高危工具）+ 内容安全（PII 脱敏 + 敏感词拦截） | ✅ 已完成 |
 | M15 | 请求级限流（滑动窗口）+ 配置热更新（字段分级） | ✅ 已完成 |
 | M19 | 本地编码 Agent（工作区受限 fs/bash 工具 + HITL 审批，学习版） | ✅ 已完成 |
-| M16–M18 | 长期记忆/文件链路、企业基建、定时任务/MCP双层JSON | 📝 草案 |
+| M16 | 长期记忆 + 文件处理链路 | ✅ 已完成 |
+| M17 | 企业基建（密钥卫生/指标/智能路由） | ✅ 已完成 |
+| M18 | 定时任务 + MCP 双层 JSON 兼容 | ✅ 已完成 |
 
 ---
 
@@ -160,6 +167,10 @@ agents-cli-learn/
 | API Swagger 文档 | http://localhost:8000/docs |
 | 健康检查 | http://localhost:8000/health |
 | 模型列表 | http://localhost:8000/api/v1/models |
+| 长期记忆 | http://localhost:8000/api/v1/memory |
+| 文件处理链路 | http://localhost:8000/api/v1/files |
+| 定时任务 | http://localhost:8000/api/v1/scheduled |
+| Prometheus 指标 | http://localhost:8000/api/v1/admin/metrics |
 | 启动服务 | `npm run dev` |
 | 启动架构图查看器 | `npm run diagrams` → http://localhost:9000/docs/diagrams.html |
 | 详细运行手册 | [docs/RUNNING.md](./docs/RUNNING.md) |

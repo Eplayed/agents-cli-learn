@@ -165,12 +165,12 @@ class SingleAgent:
                     yield {"type": "tool_calls", "data": {"name": event["name"], "input": tool_input}}
                 elif kind == "on_tool_end":
                     tool_output = event.get("data", {}).get("output")
-                    if tool_output is not None:
-                        try:
-                            tool_output = tool_output.content  # ToolMessage / BaseMessage
-                        except Exception:
-                            tool_output = str(tool_output)
-                    yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+                    from app.core.tool_output import normalize_tool_output
+                    normalized = normalize_tool_output(tool_output)
+                    yield {
+                        "type": "tool_result",
+                        "data": {"name": event["name"], **normalized},
+                    }
         except Exception as e:
             err_msg = str(e)
             if "context_length" in err_msg.lower() or "maximum context" in err_msg.lower() or "too many tokens" in err_msg.lower():
@@ -209,13 +209,21 @@ class SingleAgent:
             return
         message = safety.text  # 脱敏后的文本（后续送 LLM）
 
+        from app.core.auth import get_current_user_optional
+        from app.core.file_processing import load_recent_file_context
+        from app.core.memory import load_memory_context
+        user = get_current_user_optional()
+        uid = user.user_id if user else None
+        memory_context = await load_memory_context(uid)
+        file_context = await load_recent_file_context(uid, session_id=self.session_id)
+
         sys = SystemMessage(
-            content=self.system_prompt or (
+            content=(self.system_prompt or (
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
                 "必须先调用 get_weather(city) 获取数据后再给结论。"
                 "回答时先给结论（适合/不适合/观望），再给 1-3 条依据（降雨概率/风速/降水量），最后附天气摘要。"
                 "如果用户发送了图片，请仔细分析图片内容并结合文字回答。"
-            )
+            )) + memory_context + file_context
         )
 
         # 构建 HumanMessage：支持多模态（文本 + 图片）

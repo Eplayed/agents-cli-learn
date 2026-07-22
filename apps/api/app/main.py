@@ -12,9 +12,10 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
+from app.core.metrics import MetricsMiddleware
 from app.core.trace import TraceMiddleware
 from app.core.rate_limit import RateLimitMiddleware
-from app.api.v1 import chat, team, session, runs, skills, ai_testing, auth, admin
+from app.api.v1 import admin, ai_testing, auth, chat, files, memory, runs, scheduled, session, skills, team
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -41,7 +42,23 @@ async def lifespan(app: FastAPI):
     async with create_checkpointer() as checkpointer:
         app.state.checkpointer = checkpointer
         print(f"Checkpointer initialized (AsyncSqliteSaver)")
-        yield
+        scheduler_task = None
+        scheduler_service = None
+        if settings.SCHEDULER_ENABLED:
+            from app.core.scheduled import ScheduledTaskService
+            import asyncio
+
+            scheduler_service = ScheduledTaskService(checkpointer=checkpointer)
+            app.state.scheduler_service = scheduler_service
+            scheduler_task = asyncio.create_task(scheduler_service.run_loop())
+            print("Scheduled task service started")
+        try:
+            yield
+        finally:
+            if scheduler_service is not None:
+                await scheduler_service.stop()
+            if scheduler_task is not None:
+                scheduler_task.cancel()
 
     print("Shutting down...")
 
@@ -54,6 +71,9 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_cr
 
 # M15：请求级限流中间件（在 Auth 之后 add → 比 Auth 内层，能读到鉴权后的 user_id）
 app.add_middleware(RateLimitMiddleware)
+
+# M17：基础请求指标
+app.add_middleware(MetricsMiddleware)
 
 # M5：Bearer Token 鉴权中间件
 # AUTH_SECRET 为空时完全放开（开发模式），设值后必须带 Bearer token
@@ -73,6 +93,9 @@ app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observabili
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skill Store"])
 app.include_router(ai_testing.router, prefix="/api/v1/ai-testing", tags=["AI Testing"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(memory.router, prefix="/api/v1/memory", tags=["Memory"])
+app.include_router(files.router, prefix="/api/v1/files", tags=["Files"])
+app.include_router(scheduled.router, prefix="/api/v1/scheduled", tags=["Scheduled Tasks"])
 
 # 挂载 uploads 静态目录（多模态图片附件），URL: /uploads/<session>/<file>
 _uploads_dir = Path(__file__).resolve().parent.parent / "uploads"

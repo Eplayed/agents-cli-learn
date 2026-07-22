@@ -103,6 +103,29 @@ class Settings(BaseSettings):
     CODE_AGENT_BASH_TIMEOUT: int = 30
 
     # =========================
+    # M16 长期记忆 + 文件处理链路
+    # =========================
+    MEMORY_ENABLED: bool = True
+    MEMORY_MAX_INJECT_CHARS: int = 1200
+    MEMORY_MAX_FACTS_PER_USER: int = 100
+    FILE_UPLOAD_MAX_BYTES: int = 5 * 1024 * 1024
+    FILE_UPLOAD_ALLOWED_EXTENSIONS: str = ".txt,.md,.markdown,.json,.csv,.log,.py,.js,.ts,.tsx,.vue,.html,.css,.yaml,.yml,.pdf,.docx"
+
+    # =========================
+    # M17 企业基建（最小可用闭环）
+    # =========================
+    METRICS_ENABLED: bool = True
+    SMART_ROUTING_ENABLED: bool = True
+
+    # =========================
+    # M18 定时任务
+    # =========================
+    SCHEDULER_ENABLED: bool = False
+    SCHEDULER_TICK_SECONDS: int = 5
+    SCHEDULER_MAX_CONCURRENT_RUNS: int = 2
+    SCHEDULED_TASK_MAX_RUNTIME_SECONDS: int = 300
+
+    # =========================
     # 请求级限流（M15）
     # =========================
     # 默认关闭（dev 宽松），生产建议开启（validate_runtime 会提示）
@@ -159,6 +182,10 @@ class Settings(BaseSettings):
             warnings.append("ALLOW_DANGEROUS_TOOLS=True：删除/转账等高危工具已启用")
         if not self.RATE_LIMIT_ENABLED:
             warnings.append("RATE_LIMIT_ENABLED=False：未开请求级限流，生产建议开启")
+        if not self.METRICS_ENABLED:
+            warnings.append("METRICS_ENABLED=False：未开启基础指标暴露")
+        if not self.SCHEDULER_ENABLED:
+            warnings.append("SCHEDULER_ENABLED=False：定时任务后台调度未开启，仅支持手动触发")
 
         if critical:
             raise RuntimeError(

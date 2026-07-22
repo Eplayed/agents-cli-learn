@@ -40,7 +40,10 @@ agents-cli-learn/
 │   │   │   ├── team.py          — Multi-Agent API
 │   │   │   ├── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
 │   │   │   ├── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
-│   │   │   └── admin.py         — 配置分级查看 + 热更新触发（M15，生产限 admin）
+│   │   │   ├── memory.py        — 长期记忆 API（M16）
+│   │   │   ├── files.py         — 文件上传/文本化 API（M16）
+│   │   │   ├── scheduled.py     — 定时任务 API（M18）
+│   │   │   └── admin.py         — 配置分级/热更新/指标/路由预览（M15/M17，生产限 admin）
 │   │   ├── core/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）+ validate_runtime 生产启动校验（M13.6）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db；init_db 分方言（SQLite create_all / Postgres 交给 Alembic，M13.5）
@@ -52,6 +55,13 @@ agents-cli-learn/
 │   │   │   ├── hitl.py          — 高危工具人审包装（interrupt 审批闭环，M14）
 │   │   │   ├── rate_limit.py    — 请求级限流中间件（进程内滑动窗口，M15）
 │   │   │   ├── config_reload.py — 配置热更新 + 字段分级（热/重启字段，M15）
+│   │   │   ├── memory.py        — 长期记忆抽取/存储/注入（M16）
+│   │   │   ├── file_processing.py — 文件落盘、大小/类型校验、文本化、上下文注入（M16）
+│   │   │   ├── secrets.py       — secret/token/api_key 递归脱敏（M17）
+│   │   │   ├── metrics.py       — 请求量/状态码/延迟指标中间件 + Prometheus 输出（M17）
+│   │   │   ├── smart_routing.py — 可解释关键词智能路由（M17）
+│   │   │   ├── scheduled.py     — interval/once 定时任务调度服务（M18）
+│   │   │   ├── tool_output.py   — MCP 双层 JSON 工具结果规范化（M18）
 │   │   │   ├── coding_tools.py  — 编码 Agent 工具：工作区受限 read/write/str_replace/list/grep/bash（M19）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
@@ -215,6 +225,14 @@ agents-cli-learn/
 | GET/DELETE | /api/v1/ai-testing/history/{id} | 单次测试详情 / 删除 |
 | GET | /api/v1/admin/config | 配置字段分级（热/重启，只给名字，M15） |
 | POST | /api/v1/admin/config/reload | 重读 .env 热更新热字段，重启字段仅提示（M15） |
+| GET | /api/v1/admin/metrics | Prometheus/JSON 请求指标（M17） |
+| POST | /api/v1/admin/route-preview | 智能路由预览，不调用 LLM（M17） |
+| GET/POST/DELETE | /api/v1/memory | 用户长期记忆列表/新增/删除（M16） |
+| POST | /api/v1/files/upload | 上传文件并转文本（M16） |
+| GET | /api/v1/files/{id}/text | 查看文件文本化结果（M16） |
+| GET/POST/PATCH/DELETE | /api/v1/scheduled | 定时任务 CRUD（M18） |
+| POST | /api/v1/scheduled/{id}/trigger | 手动触发定时任务（M18） |
+| GET | /api/v1/scheduled/{id}/runs | 查看定时任务运行历史（M18） |
 
 ## 核心数据流
 
@@ -301,11 +319,16 @@ agents-cli-learn/
 | **配置** | `app/core/config.py` | 所有 env var（API Key / 模型 / 鉴权 / 配额 / RAG） |
 | **鉴权** | `app/core/auth.py` | Bearer Token + ContextVar 协程隔离 |
 | **MCP 工具** | `app/mcp_servers/loader.py` | 配置加载、venv Python 路径解析、Tool 缓存 |
+| **长期记忆** | `app/core/memory.py` + `app/api/v1/memory.py` | 用户隔离记忆、启发式抽取、Agent 注入 |
+| **文件处理** | `app/core/file_processing.py` + `app/api/v1/files.py` | 上传、文本化、预览、Agent 文件上下文 |
+| **企业指标/路由** | `app/core/metrics.py` + `smart_routing.py` | Prometheus 指标、智能路由预览 |
+| **定时任务** | `app/core/scheduled.py` + `app/api/v1/scheduled.py` | interval/once 任务、触发、运行历史 |
+| **工具结果规范化** | `app/core/tool_output.py` | MCP 双层 JSON 解析 + secret 脱敏 |
 | **RAG** | `app/core/rag.py` | ChromaDB 向量化 + 检索 + ENABLE_RAG 开关 |
 | **上下文压缩** | `app/core/context_compressor.py` | 滑动窗口 + 摘要压缩 |
-| **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/AI测试/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
+| **前端 UI** | `apps/web/src/` (Vue 3 + TS + Tailwind) | 对话/Skill商店/AI测试/记忆文件/定时任务/日志，构建产物在 `dist/`，FastAPI 在 `/ui` 托管 |
 | **Schema** | `app/schemas/chat.py` | ChatRequest（含 images / idempotency_key） |
-| **数据模型** | `app/models/models.py` | User(M13) / Session / Message(含attachments) / AgentRun / AgentEvent / TestRun |
+| **数据模型** | `app/models/models.py` | User(M13) / Session / Message / AgentRun / AgentEvent / TestRun / UserMemory / UploadedFile / ScheduledTask |
 | **多用户鉴权** | `app/core/security.py` + `app/api/v1/auth.py` | bcrypt 密码哈希 + HS256 JWT，向后兼容遗留 AUTH_SECRET |
 | **AI 测试引擎** | `app/core/ai_testing.py` + `ai_testing_cases.py` | 6 种测试类型 runner + 预置用例，详见 `docs/AI-TESTING.md` |
 
@@ -338,6 +361,12 @@ agents-cli-learn/
 | 开启 RAG | `.env.dev` 设 ENABLE_RAG=true |
 | 切换模型 | `.env.dev` 的 OPENAI_MODEL |
 | 加新 API 端点 | `app/api/v1/` 加路由文件 + `main.py` 注册 |
+| 改长期记忆 | `app/core/memory.py` + `app/api/v1/memory.py`；开关 `MEMORY_ENABLED` |
+| 改文件上传限制 | `FILE_UPLOAD_MAX_BYTES` / `FILE_UPLOAD_ALLOWED_EXTENSIONS`；处理逻辑在 `app/core/file_processing.py` |
+| 改指标输出 | `app/core/metrics.py` + `app/api/v1/admin.py::get_metrics` |
+| 改智能路由 | `app/core/smart_routing.py`；聊天入口 `_resolve_agent` 会使用它 |
+| 改定时任务 | `app/core/scheduled.py` + `app/api/v1/scheduled.py`；后台开关 `SCHEDULER_ENABLED` |
+| 改 MCP 工具结果展示 | 后端 `app/core/tool_output.py`；前端 `ToolCallBlock.vue` |
 | 加新 AI 测试类型 | `app/core/ai_testing.py` 的 `TEST_TYPES` 注册表加 runner + `ai_testing_cases.py` 加预置用例 |
 | 加工具的中文展示名 | `apps/web/src/composables/toolDisplay.ts` 的 `TOOL_DISPLAY_NAMES` 加一条映射（不配也会 fallback 原名） |
 | 改工具调用卡片样式/状态 | `apps/web/src/components/ToolCallBlock.vue`；配对逻辑在 `stores/chat.ts`（addToolCall / resolveToolResult / settleDanglingToolCalls） |

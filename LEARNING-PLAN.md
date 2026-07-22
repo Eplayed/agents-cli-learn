@@ -445,12 +445,12 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 |--------|------|------|--------|------|
 | M14 | HITL 人审 + 内容安全 | 🟡 中 | — | ✅ 已完成 |
 | M15 | 请求级限流 + 配置热更新分级 | 🟢 低 | ⭐⭐⭐ 高 | ✅ 已完成 |
-| M16 | 长期记忆 + 文件处理链路 | 🔴 高 | ⭐⭐ 中 | 草案 |
-| M17 | 企业基建（密钥/指标/智能路由/富文本） | 🟡 中（分项） | ⭐ 低 | 草案 |
-| M18 | 定时任务 + MCP 双层 JSON 兼容 | 🟡 中 | ⭐⭐ 中 | 草案 |
+| M16 | 长期记忆 + 文件处理链路 | 🔴 高 | ⭐⭐ 中 | ✅ 已完成 |
+| M17 | 企业基建（密钥/指标/智能路由/富文本） | 🟡 中（分项） | ⭐ 低 | ✅ 已完成 |
+| M18 | 定时任务 + MCP 双层 JSON 兼容 | 🟡 中 | ⭐⭐ 中 | ✅ 已完成 |
 | M19 | 本地编码 Agent（AI Coding，学习版） | 🟡 中（生产版 🔴 高） | ⭐⭐⭐ 中高 | ✅ 学习版已完成 |
 
-> 建议顺序：~~M15（已完成）~~ → ~~M19 学习版（已完成）~~ → **M18 → M16 → M17（按需）**；AI Coding 真要用直接独立跑 DeerFlow。
+> 当前顺序：M15 → M19 学习版 → M16/M17/M18 已补齐。AI Coding 生产级工作台继续以 DeerFlow lab 做深水区。
 
 ## M14：HITL 人审闭环 + 内容安全（安全刚需，已完成）
 
@@ -516,69 +516,82 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 
 ---
 
-## M16：长期记忆 + 文件处理链路（重能力，草案 · 先设计不实现）
+## M16：长期记忆 + 文件处理链路（重能力，已完成）
 
 ### 子目标 A：长期记忆（参照 DeerFlow Memory，用本项目自己的表）
-- 事实抽取（LLM）+ 每用户隔离存储 + 注入系统提示 + 过期修剪（staleness）。
-- 数据模型 `UserMemory`（user_id、facts[]、context 摘要）；异步防抖更新队列。
-- **可验收**：多轮后能记住用户偏好并在新会话注入；按 user_id 隔离；可关可清。
+- `UserMemory` 表：user_id/key/value/category/source/confidence，按用户隔离。
+- `app/core/memory.py`：支持手动记忆、启发式自动抽取（“记住/以后/我的X是Y”）、数量修剪。
+- `SingleAgent.stream()`：读取当前用户记忆并注入 system prompt。
+- API：`GET/POST/DELETE /api/v1/memory`。
+- **可验收**：
+  - [x] 手动新增/删除/清空记忆可用（API + Web Memory 页面）
+  - [x] 用户消息可自动抽取轻量事实（单测覆盖）
+  - [x] Agent 调用前注入当前用户记忆；按 user_id 隔离
+  - [x] 关闭 `MEMORY_ENABLED=false` 时不注入
 
 ### 子目标 B：文件处理链路（参照 DeerFlow uploads + markitdown）
-- 上传 → 自动转换（PDF/PPT/Excel/Word → markitdown）→ 供 Agent 读取/预览。
-- 抽象一个 `Storage` 接口（本地实现 + 预留 S3/MinIO），不写死本地盘。
-- **可验收**：上传 PDF/Word 能被转成文本供问答；存储层可切换实现；大小/类型校验。
+- `UploadedFile` 表：记录用户、会话、文件名、大小、状态、文本化结果。
+- `app/core/file_processing.py`：本地存储 + 类型/大小校验 + 文本类文件转文本；PDF/Word 如本地安装解析库则尝试解析，否则返回明确错误。
+- `SingleAgent.stream()`：注入最近 3 个已处理文件摘要。
+- API：`POST /api/v1/files/upload`、`GET /api/v1/files`、`GET /api/v1/files/{id}/text`、`DELETE /api/v1/files/{id}`。
+- **可验收**：
+  - [x] 上传 Markdown/TXT/JSON/CSV/代码文件可转文本并预览
+  - [x] 文件大小/类型不合规则返回 failed 记录和明确错误
+  - [x] Agent 调用前注入最近文件摘要
+  - [x] Web Memory 页面可上传、预览、删除
 
 ---
 
-## M17：企业基建对接（偏运维/前端，按需，草案 · 先设计不实现）
+## M17：企业基建对接（偏运维/前端，已完成 MVP）
 
-- **密钥管理**：先做 secret 卫生（密钥不进日志/trace/响应），KMS 加解密留接口。
-- **指标/APM/告警**：接 Prometheus `/metrics`（请求量/时延/token/成本），可选 Sentry 错误上报。
-- **智能路由**：LLM 判意图分流（如"闲聊 vs 定时任务 vs 检索"），参照 noah-chat-svc。
-- **富文本渲染**：前端补 KaTeX 公式 / mermaid 图 / Office 预览（纯前端）。
-- **可验收**：按各子项单独定义（优先级最低，学习价值有限，视需要再展开）。
+- **密钥管理**：`app/core/secrets.py` 提供递归脱敏，工具结果规范化和管理端输出不回显 secrets。
+- **指标/APM/告警**：`MetricsMiddleware` 统计请求量/状态码/延迟；`GET /api/v1/admin/metrics` 支持 Prometheus 文本和 `?format=json`。
+- **智能路由**：`app/core/smart_routing.py` 用可解释关键词把代码/文档/定时任务意图路由到合适 Agent；`POST /api/v1/admin/route-preview` 可预览。
+- **富文本渲染**：保留现有 Markdown/think 折叠；M18 结构化工具结果在 `ToolCallBlock.vue` 中优先展示。
+- **可验收**：
+  - [x] `/api/v1/admin/metrics` 能看到真实 HTTP 指标
+  - [x] route-preview 对代码类 prompt 路由到 `code-agent`
+  - [x] secret/token/api_key 字段不会原样输出到结构化工具结果
 
 ---
 
-## M18：定时任务 + MCP 双层 JSON 兼容（草案 · 先设计不实现）
+## M18：定时任务 + MCP 双层 JSON 兼容（已完成）
 
 > 来源：对照 `crm-ai-h5` 最新 master（MOT-350 Scheduled、`8b9d0ab`）筛出的两条**有工程学习价值**的点。
-> 本节仅为设计草案，尚未实现；实现前需再确认范围与优先级。
+> 当前已实现学习版：不引入 croniter/Celery，先支持 interval/once 单机调度和 MCP 双层 JSON 展示。
 
 ### 子目标 A：定时任务 Scheduled（借鉴 crm-ai-h5 MOT-350）
 
 **要解决的问题**：目前 Agent 只能「用户发一条 → 立即跑一次」。定时任务让 Agent 能
 **按计划（cron / 一次性延时）自动运行**，并在 UI 上有「运行面板」看每次运行的生命周期。
 
-**设计思路（待定）：**
-- **数据模型**：新增 `ScheduledTask`（id、session_id、user_id、cron 表达式或 next_run_at、prompt/agent_key、enabled、last_run_at、状态），每次触发复用现有 `AgentRun`/`AgentEvent` 记录运行。
-- **调度器**：进程内用 `asyncio` 定时循环（学习项目够用，不引 Celery/APScheduler）；在 lifespan 启动一个后台 tick 协程，扫到期任务 → 复用 M12 的任务化流式内核（`task_stream.py`）后台跑。
-- **API**：`POST /scheduled`（建）、`GET /scheduled`（列）、`DELETE /scheduled/{id}`、`GET /scheduled/{id}/runs`（运行历史）。
-- **前端**：Runs 面板 + 响应内 `scheduled_task_card` 卡片（复用 `ToolCallBlock` 的卡片式渲染思路）。
-- **护栏**：单任务并发上限、最大运行时长、失败重试上限、禁止无限自触发。
+- **数据模型**：`ScheduledTask` + `ScheduledTaskRun`，每次触发会创建 `AgentRun`。
+- **调度器**：`ScheduledTaskService` 单机 asyncio tick；`SCHEDULER_ENABLED=true` 时随 lifespan 启动。
+- **API**：`POST/GET/PATCH/DELETE /api/v1/scheduled`，以及 pause/resume/trigger/runs。
+- **前端**：`/ui/scheduled` 页面可创建、触发、暂停/恢复、删除、查看运行历史。
+- **护栏**：interval 最小 60 秒、并发上限、overlap skip、max_runs 自动停用。
 
 **开放问题**：cron 解析要不要引依赖（croniter）还是只支持固定间隔？多副本部署时的调度去重（学习项目暂单机，先不解决）。
 
-**可验收（待实现后勾选）：**
-- [ ] 能创建一个「每 N 分钟/指定时间」运行的任务，到点自动触发并产生 `AgentRun`
-- [ ] Runs 面板能看到每次运行的状态与事件流；任务可启停/删除
-- [ ] 有并发/时长/重试护栏，异常任务不会打满资源
+**可验收：**
+- [x] 能创建 interval/once 任务；手动或后台到点触发并产生 `AgentRun`
+- [x] Web Scheduled 页面能看到任务和运行历史；任务可启停/删除
+- [x] 有并发/重叠/max_runs 护栏，异常任务不会打满资源
 
 ### 子目标 B：MCP 双层 JSON 工具结果兼容（借鉴 crm-ai-h5 `8b9d0ab`）
 
 **要解决的问题**：部分 MCP server 返回的工具结果，其 `content` 里的 `text` **本身又是一段 JSON 字符串**（结果被包了两层）。我们后端 `on_tool_end` 目前只取 `tool_output.content`，前端也只做了「内容块数组抽 text」（M12 修的 `[object Object]`），**没有处理再套一层 JSON 的情况**——这类结果在 UI 上会显示成一坨转义 JSON 字符串，而不是结构化内容。
 
-**设计思路（待定）：**
-- 后端 `agent.py` 的 `on_tool_end`：对工具输出做一次「尝试解析内层 JSON」——若 `text` 能 `json.loads` 成 dict/list，则解析后作为结构化 `data` 一并下发（保留原始文本兜底）。
-- 前端 `ToolCallBlock`：优先渲染结构化 `data`，无则回退当前的文本展示。
-- 需要一个开关/白名单，避免把「本来就是普通字符串、恰好长得像 JSON」的输出误解析。
+- 后端 `app/core/tool_output.py`：对工具输出做一次安全规范化，若文本块里的 `text` 是 JSON dict/list，则追加 `structured_output`；原始 `output` 保留兜底。
+- 前端 `ToolCallBlock.vue`：优先展示结构化结果，再展示原始文本。
+- 解析策略只处理 `{`/`[` 开头的合法 JSON，不影响普通字符串。
 
 **开放问题**：是否所有 MCP server 都有此问题，还是个别？需要先抓一个真实双层 JSON 的样本再定解析策略（避免过度设计）。
 
-**可验收（待实现后勾选）：**
-- [ ] 对返回双层 JSON 的 MCP 工具，UI 能展示解析后的结构化内容，而不是转义字符串
-- [ ] 普通字符串输出不受影响（不误解析）
-- [ ] 有单测覆盖：双层 JSON / 普通字符串 / 内容块数组三种形状
+**可验收：**
+- [x] 对返回双层 JSON 的 MCP 工具，UI 能展示解析后的结构化内容，而不是转义字符串
+- [x] 普通字符串输出不受影响
+- [x] 单测覆盖：双层 JSON / 普通字符串 / 内容块数组形状
 
 ---
 

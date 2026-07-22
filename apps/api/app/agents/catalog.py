@@ -58,12 +58,9 @@ async def _run_graph_with_events(agent, messages, config, model_name):
                 yield {"type": "tool_calls", "data": {"name": event["name"], "input": event.get("data", {}).get("input")}}
             elif kind == "on_tool_end":
                 tool_output = event.get("data", {}).get("output")
-                if tool_output is not None:
-                    try:
-                        tool_output = tool_output.content
-                    except Exception:
-                        tool_output = str(tool_output)
-                yield {"type": "tool_result", "data": {"name": event["name"], "output": tool_output}}
+                from app.core.tool_output import normalize_tool_output
+                normalized = normalize_tool_output(tool_output)
+                yield {"type": "tool_result", "data": {"name": event["name"], **normalized}}
     except Exception as e:
         yield {"type": "error", "content": str(e)}
 

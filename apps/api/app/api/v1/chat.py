@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.requests import Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -62,7 +63,9 @@ def _resolve_agent(request, raw_request, session_id):
     当请求带图片且配置了 VISION_MODEL 时，自动切换到视觉模型，
     因为很多文本模型（如 qwen3.6-flash）不支持图片输入。
     """
-    agent_key = request.agent_key or get_default_key()
+    from app.core.smart_routing import route_agent
+    routed_agent, route_reason = route_agent(request.message, request.agent_key)
+    agent_key = routed_agent or get_default_key()
     available = [a["key"] for a in list_agents()]
     if agent_key not in available:
         raise HTTPException(
@@ -73,7 +76,27 @@ def _resolve_agent(request, raw_request, session_id):
     model = request.model
     if getattr(request, "images", None) and settings.VISION_MODEL:
         model = settings.VISION_MODEL
-    return get_agent(agent_key, session_id=session_id, model=model, checkpointer=_get_checkpointer_from_request(raw_request))
+    agent = get_agent(agent_key, session_id=session_id, model=model, checkpointer=_get_checkpointer_from_request(raw_request))
+    # 调试可见但不影响旧调用：路由原因挂在实例上，后续可用于事件/trace。
+    try:
+        agent.route_reason = route_reason
+        agent.agent_key = agent_key
+    except Exception:
+        pass
+    return agent
+
+
+async def _remember_user_message(db: AsyncSession, *, session_id: str, message: str) -> None:
+    """M16：用户消息落库后尝试抽取长期记忆；失败不影响聊天主链路。"""
+    try:
+        from app.core.auth import get_current_user_optional
+        from app.core.memory import remember_from_message
+
+        user = get_current_user_optional()
+        uid = user.user_id if user else None
+        await remember_from_message(db, user_id=uid, session_id=session_id, text=message)
+    except Exception as exc:
+        print(f"[Memory] remember_from_message failed (non-blocking): {exc}")
 
 
 async def get_or_create_session(session_id: str | None, db: AsyncSession):
@@ -111,6 +134,7 @@ async def chat_send(request: ChatRequest, raw_request: FastAPIRequest, db: Async
     user_msg = Message(session_id=session.id, role="user", content=request.message, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
+    await _remember_user_message(db, session_id=session.id, message=request.message)
 
     agent = _resolve_agent(request, raw_request, session.id)
     full_response = ""
@@ -144,6 +168,7 @@ async def chat_stream(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
+    await _remember_user_message(db, session_id=session.id, message=request.message)
 
     if _is_api_key_missing():
         async def event_generator():
@@ -234,6 +259,7 @@ async def chat_stream_ndjson(request: ChatRequest, raw_request: FastAPIRequest, 
     user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
+    await _remember_user_message(db, session_id=session.id, message=request.message)
 
     async def gen():
         if _is_api_key_missing():
@@ -502,6 +528,7 @@ async def create_task(request: ChatRequest, raw_request: FastAPIRequest, db: Asy
     user_msg = Message(session_id=session.id, role="user", content=stored_content, attachments=img_urls or None)
     db.add(user_msg)
     await db.commit()
+    await _remember_user_message(db, session_id=session.id, message=request.message)
 
     trace_id = get_trace_id()
 
@@ -649,6 +676,3 @@ async def approve_task(task_id: str, body: dict = Body(default={})):
     if not accepted:
         raise HTTPException(status_code=409, detail="该任务当前不在等待审批状态")
     return {"ok": True, "approved": decision["approved"]}
-
-
-from sqlalchemy import select

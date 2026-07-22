@@ -153,6 +153,8 @@ async function cleanupEmpty() {
           <span>Session: <strong class="text-gray-700 dark:text-gray-300">{{ sessionStore.currentSessionId || '-' }}</strong></span>
           <span :class="chatStore.isStreaming ? 'text-green-500' : ''">{{ chatStore.isStreaming ? '● streaming' : '○ idle' }}</span>
           <button class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" @click="router.push('/skills')">🛒 Skills</button>
+          <button class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" @click="router.push('/memory')">🧠 Memory</button>
+          <button class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" @click="router.push('/scheduled')">⏱ Scheduled</button>
           <button class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" @click="router.push('/testing')">🧪 AI 测试</button>
           <button class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" @click="router.push('/logs')">Logs</button>
         </div>

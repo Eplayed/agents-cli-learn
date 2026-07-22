@@ -11,17 +11,19 @@ MCP Tools Loader
 import json
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from langchain_core.tools import BaseTool
-from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from app.core.config import settings
+
+if TYPE_CHECKING:
+    from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
 # 全局缓存：避免每次请求都重新连接所有 MCP Server
 _TOOLS_CACHE: List[BaseTool] | None = None
-_CLIENT: MultiServerMCPClient | None = None
+_CLIENT: "MultiServerMCPClient | None" = None
 
 
 def _resolve_venv_python() -> str:
@@ -121,6 +123,22 @@ async def get_mcp_tools() -> List[BaseTool]:
         # 没配置任何 server 的话，agent 就只是个纯聊天机器人
         _TOOLS_CACHE = []
         return _TOOLS_CACHE
+
+    # langchain-mcp-adapters 0.3.0 imports streamable_http_client, while some
+    # mcp 1.x releases expose the same helper as streamablehttp_client.
+    # Provide a small compatibility alias so stdio/http MCP tools still load.
+    try:
+        import mcp.client.streamable_http as streamable_http
+
+        if (
+            not hasattr(streamable_http, "streamable_http_client")
+            and hasattr(streamable_http, "streamablehttp_client")
+        ):
+            streamable_http.streamable_http_client = streamable_http.streamablehttp_client
+    except Exception:
+        pass
+
+    from langchain_mcp_adapters.client import MultiServerMCPClient
 
     _CLIENT = MultiServerMCPClient(config)
     # get_tools() 在【无状态模式】下：
