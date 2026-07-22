@@ -111,7 +111,7 @@ npm run dev
 | M13.5 | Postgres + Alembic 迁移（SQLite dev / Postgres 生产双库，Checkpointer 多机共享） | ✅ 已完成 |
 | M13.6 | 安全加固（去 eval / 证书校验 / 高危工具默认禁用）+ 生产启动校验 | ✅ 已完成 |
 | M14 | HITL 人审闭环（interrupt 审批高危工具）+ 内容安全（PII 脱敏 + 敏感词拦截） | ✅ 已完成 |
-| M15–M18 | 限流/配置热更新、长期记忆/文件链路、企业基建、定时任务/MCP双层JSON | 📝 草案 |
+| M15–M19 | 限流/配置热更新、长期记忆/文件链路、企业基建、定时任务、本地编码 Agent | 📝 草案 |
 
 ---
 
