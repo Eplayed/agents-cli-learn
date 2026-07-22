@@ -16,3 +16,6 @@ skills/_installed/
 
 # 用户上传的图片附件（运行时生成，不提交）
 uploads/
+
+# M19 编码 Agent 的工作区（运行时生成，不提交）
+code_workspace/

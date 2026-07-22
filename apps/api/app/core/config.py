@@ -89,9 +89,18 @@ class Settings(BaseSettings):
     # HITL 人审闭环：需审批工具执行前用 interrupt() 暂停，等人工批准
     HITL_ENABLED: bool = True
     # 需要人工审批的工具名（逗号分隔）
-    HITL_APPROVAL_TOOLS: str = "transfer_money,delete_all_data"
+    # 含 M19 编码 Agent 的写/跑命令工具：写文件、改文件、执行命令前都要人审
+    HITL_APPROVAL_TOOLS: str = "transfer_money,delete_all_data,write_file,str_replace_in_file,run_bash"
     # 未审批的等待超时（秒），超时按拒绝处理，避免永久卡死
     HITL_APPROVAL_TIMEOUT: int = 300
+
+    # =========================
+    # M19 本地编码 Agent（学习版）
+    # =========================
+    # 编码 Agent 的工作区目录（所有文件操作/命令都限定在此目录内，防越权）
+    CODE_AGENT_WORKSPACE: str = "./code_workspace"
+    # run_bash 命令超时（秒）
+    CODE_AGENT_BASH_TIMEOUT: int = 30
 
     # =========================
     # 请求级限流（M15）

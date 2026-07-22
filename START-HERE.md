@@ -60,10 +60,11 @@ npm run learn        # 打开闯关游戏，从没通的关卡接着打
 - M14 HITL 人审闭环 + 内容安全（PII/敏感词）
 
 - M15 请求级限流 + 配置热更新（字段分级）
+- M19 本地编码 Agent（AI Coding 学习版：工作区受限工具 + HITL 审批）
 
-**草案（先设计未实现）：** M16 长期记忆+文件链路 ｜ M17 企业基建 ｜ M18 定时任务+MCP双层JSON ｜ M19 本地编码 Agent(AI Coding)
+**草案（先设计未实现）：** M16 长期记忆+文件链路 ｜ M17 企业基建 ｜ M18 定时任务+MCP双层JSON
 
-> 下一个建议做 **M19（本地编码 Agent 学习版，最有意思、串联已有能力）**。草案总览表见 `LEARNING-PLAN.md`。
+> 剩下按需做 M16–M18；AI Coding 真要用直接独立跑 `deer-flow-lab/`。草案总览表见 `LEARNING-PLAN.md`。
 
 ---
 

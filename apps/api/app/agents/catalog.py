@@ -404,6 +404,47 @@ from pathlib import Path
 
 
 # ============================================================
+# M19 · Code Agent（本地编码 Agent，学习版）
+# ============================================================
+
+_CODE_AGENT_PROMPT = (
+    "你是一个本地编码助手，只能在受限的工作区目录里操作。你有这些工具：\n"
+    "- read_file / list_dir / grep_files：读代码、看目录、搜内容\n"
+    "- write_file / str_replace_in_file：改代码（执行前会弹人工审批）\n"
+    "- run_bash：跑命令如测试/构建（执行前会弹人工审批）\n\n"
+    "工作方式（重要）：\n"
+    "1. 先用 read_file/list_dir/grep_files 看清相关代码，别凭空改。\n"
+    "2. 改动前先用一两句话说明你的计划（改哪个文件、为什么）。\n"
+    "3. 用 write_file/str_replace_in_file 做最小改动；改完可用 run_bash 跑测试自检。\n"
+    "4. 所有路径都是相对工作区的；不要尝试访问工作区外的文件（会被拒绝）。\n"
+    "回答用中文。"
+)
+
+
+@register(
+    key="code-agent",
+    name="M19 · 编码 Agent",
+    description="本地编码 Agent（学习版）：在受限工作区里读/改文件、跑命令，写文件和跑命令前需人工审批（复用 HITL）。",
+    milestone="M19",
+)
+def create_code_agent(session_id: str, model: str | None = None, checkpointer=None):
+    """编码 Agent：SingleAgent + 工作区受限的编码工具 + 编码系统提示。
+
+    用 SingleAgent（而非 Wrapper）是为了复用其 interrupt 感知的 stream/resume，
+    让 write_file/run_bash 的 HITL 审批闭环生效。
+    """
+    from app.core.coding_tools import get_coding_tools
+
+    return SingleAgent(
+        session_id=session_id,
+        model=model,
+        checkpointer=checkpointer,
+        tools=get_coding_tools(),
+        system_prompt=_CODE_AGENT_PROMPT,
+    )
+
+
+# ============================================================
 # Full · 全功能 Agent（MCP + Skills + RAG + Tracing + 预算）
 # ============================================================
 

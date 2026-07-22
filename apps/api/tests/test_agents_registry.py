@@ -43,4 +43,4 @@ def test_agent_entries_have_required_fields():
         assert "name" in a
         assert "description" in a
         assert "milestone" in a
-        assert a["milestone"] in ("M0", "M3", "M4", "M5", "M6", "M8", "M9", "Full")
+        assert a["milestone"] in ("M0", "M3", "M4", "M5", "M6", "M8", "M9", "M19", "Full")

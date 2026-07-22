@@ -77,9 +77,12 @@ class SingleAgent:
         tools: List[BaseTool] | None = None,
         model: str | None = None,
         checkpointer=None,
+        system_prompt: str | None = None,
     ):
         # session_id 用于绑定 checkpoint 的 thread_id
         self.session_id = session_id
+        # 可选自定义系统提示（如编码 Agent）；None 用默认
+        self.system_prompt = system_prompt
         # model 参数：前端可传指定模型，不传则用 config 默认值
         model_name = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
@@ -207,7 +210,7 @@ class SingleAgent:
         message = safety.text  # 脱敏后的文本（后续送 LLM）
 
         sys = SystemMessage(
-            content=(
+            content=self.system_prompt or (
                 "你是一个可调用工具的中文助手。遇到天气/出行/洗车等与天气相关的问题，"
                 "必须先调用 get_weather(city) 获取数据后再给结论。"
                 "回答时先给结论（适合/不适合/观望），再给 1-3 条依据（降雨概率/风速/降水量），最后附天气摘要。"

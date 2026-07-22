@@ -448,9 +448,9 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 | M16 | 长期记忆 + 文件处理链路 | 🔴 高 | ⭐⭐ 中 | 草案 |
 | M17 | 企业基建（密钥/指标/智能路由/富文本） | 🟡 中（分项） | ⭐ 低 | 草案 |
 | M18 | 定时任务 + MCP 双层 JSON 兼容 | 🟡 中 | ⭐⭐ 中 | 草案 |
-| M19 | 本地编码 Agent（AI Coding，学习版） | 🟡 中（生产版 🔴 高） | ⭐⭐⭐ 中高 | 草案 |
+| M19 | 本地编码 Agent（AI Coding，学习版） | 🟡 中（生产版 🔴 高） | ⭐⭐⭐ 中高 | ✅ 学习版已完成 |
 
-> 建议顺序：~~M15（已完成）~~ → **M19（最有意思、串联已有能力，下一个）** → M18 → M16 → M17（按需）。
+> 建议顺序：~~M15（已完成）~~ → ~~M19 学习版（已完成）~~ → **M18 → M16 → M17（按需）**；AI Coding 真要用直接独立跑 DeerFlow。
 
 ## M14：HITL 人审闭环 + 内容安全（安全刚需，已完成）
 
@@ -582,7 +582,7 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 
 ---
 
-## M19：本地编码 Agent（AI Coding，草案 · 先设计不实现）
+## M19：本地编码 Agent（AI Coding，学习版已完成）
 
 > 来源：对标「Noah AI Coding / Claude Code」这类 AI 编码 agent（读代码库 → 规划 →
 > 改代码 → 跑测试，带人审门）。价值在于把已有能力（HITL / 工具 / 流式 / 记忆）串成
@@ -613,12 +613,17 @@ GitLab PAT 凭证管理与远程 clone/PR、多项目管理 UI、大仓库上下
 **开放问题**：`bash` 工具的安全边界（学习版靠 HITL 审批 + cwd 限定 + 超时，够不够？）；
 写文件的 diff 预览与撤销；大仓库如何喂上下文（grep vs code RAG）。
 
-**可验收（待实现后勾选）：**
-- [ ] 能让 Agent 在 `CODE_AGENT_WORKSPACE` 里读文件、按指令改一个文件、跑一条测试命令
-- [ ] 写文件 / 跑 bash 前弹 HITL 审批卡片，拒绝则不执行（复用 M14）
-- [ ] 文件/命令操作被限定在工作区内，越权路径被拒绝
-- [ ] 有一条端到端 demo：给一个小需求 → Agent 出计划 → 批准 → 改代码 → 测试通过
-- [ ] 单测覆盖：路径越权拦截 / bash 超时 / 审批拒绝路径
+**实现记录**：`app/core/coding_tools.py`（工作区受限的 read/write/str_replace/list/grep/bash）
++ `catalog.py` 的 `code-agent`（SingleAgent + 编码系统提示，复用 interrupt 感知的 stream/resume）
++ config `CODE_AGENT_WORKSPACE`/`CODE_AGENT_BASH_TIMEOUT` + 把 write_file/str_replace_in_file/run_bash
+加进 `HITL_APPROVAL_TOOLS`（写/跑命令自动走 M14 审批）。
+
+**可验收：**
+- [x] Agent 在 `CODE_AGENT_WORKSPACE` 里读文件、改文件、跑命令（实测：list_dir → write_file → 文件真写出 `def run(): return 42`）
+- [x] 写文件 / 跑 bash 前弹 HITL 审批（实测：write_file → approval_required → 批准 → 执行）；拒绝则不执行（单测）
+- [x] 操作限定在工作区，越权路径（`../`、绝对路径）被拒绝（单测）
+- [x] 端到端 demo：需求 → list 看目录 → 计划 → 批准 → 写文件 → 回答
+- [x] 单测覆盖：路径越权 / 读写替换 / 命令 cwd 限定 / HITL 名单（bash 超时逻辑已实现，未单测以保持测试快）
 
 ---
 

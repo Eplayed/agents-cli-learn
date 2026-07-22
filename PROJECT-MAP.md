@@ -28,7 +28,7 @@ agents-cli-learn/
 │   │   ├── main.py              — FastAPI 入口：lifespan 初始化 DB + Checkpoint + 路由挂载
 │   │   ├── agents/
 │   │   │   ├── registry.py      — Agent 注册中心：register/get_agent/list_agents
-│   │   │   ├── catalog.py       — 9 种 Agent 工厂注册（M0/M3/M4×2/M5/M6/M8/M9/Full）
+│   │   │   ├── catalog.py       — 10 种 Agent 工厂注册（M0/M3/M4×2/M5/M6/M8/M9/M19/Full）
 │   │   │   ├── single/
 │   │   │   │   └── agent.py     — SingleAgent：LangGraph StateGraph + ToolNode + 流式 + 预算控制
 │   │   │   └── multi/
@@ -52,6 +52,7 @@ agents-cli-learn/
 │   │   │   ├── hitl.py          — 高危工具人审包装（interrupt 审批闭环，M14）
 │   │   │   ├── rate_limit.py    — 请求级限流中间件（进程内滑动窗口，M15）
 │   │   │   ├── config_reload.py — 配置热更新 + 字段分级（热/重启字段，M15）
+│   │   │   ├── coding_tools.py  — 编码 Agent 工具：工作区受限 read/write/str_replace/list/grep/bash（M19）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
@@ -80,7 +81,7 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/                   — 113 tests
+│   └── tests/                   — 122 tests
 │       ├── test_health.py / test_session.py / test_chat.py
 │       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
 │       ├── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
@@ -93,7 +94,8 @@ agents-cli-learn/
 │       ├── test_content_safety.py — PII 脱敏 + 敏感词拦截（M14）
 │       ├── test_hitl.py        — HITL interrupt/approve/reject + 审批等待（M14）
 │       ├── test_rate_limit.py  — 滑动窗口限流 + 中间件 429（M15）
-│       └── test_config_reload.py — 配置热更新 + 字段分级 + admin 端点（M15）
+│       ├── test_config_reload.py — 配置热更新 + 字段分级 + admin 端点（M15）
+│       └── test_coding_tools.py — 编码工具：工作区越权/读写/替换/命令 + HITL 名单（M19）
 │   ├── alembic.ini              — Alembic 配置（url 动态取自 settings，M13.5）
 │   └── migrations/              — DB 迁移（env.py 异步引擎 + versions/ 迁移文件）
 │
@@ -170,7 +172,7 @@ agents-cli-learn/
 └── archive/cli/                 — 旧 TS CLI 归档（只读保留）
 ```
 
-## Agent 模式一览（9 种）
+## Agent 模式一览（10 种）
 
 | Key | 名称 | 能力 |
 |---|---|---|
@@ -182,6 +184,7 @@ agents-cli-learn/
 | traced-agent | M6 · Traced Agent | Langfuse 追踪 |
 | skills-agent | M8 · Skills Agent | 能力包按需加载 |
 | rag-agent | M9 · RAG Agent | 知识库检索 + 引用 |
+| code-agent | M19 · 编码 Agent | 工作区受限读改文件+跑命令，写/跑走 HITL 审批 |
 | full-agent | Full · 全功能 | 以上全部整合 |
 
 ## 关键 API 端点
