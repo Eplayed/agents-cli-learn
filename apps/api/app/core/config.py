@@ -94,6 +94,15 @@ class Settings(BaseSettings):
     HITL_APPROVAL_TIMEOUT: int = 300
 
     # =========================
+    # 请求级限流（M15）
+    # =========================
+    # 默认关闭（dev 宽松），生产建议开启（validate_runtime 会提示）
+    RATE_LIMIT_ENABLED: bool = False
+    # 每个 key（user_id / IP）在 window 秒内最多 max 个请求
+    RATE_LIMIT_MAX_REQUESTS: int = 60
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # =========================
     # RAG 配置（M9）
     # =========================
     # False = 不加载 embedding 模型（首次启动快，默认关闭）
@@ -139,6 +148,8 @@ class Settings(BaseSettings):
             warnings.append("QUOTA_WHITELIST 含 '*'：所有用户不限额")
         if self.ALLOW_DANGEROUS_TOOLS:
             warnings.append("ALLOW_DANGEROUS_TOOLS=True：删除/转账等高危工具已启用")
+        if not self.RATE_LIMIT_ENABLED:
+            warnings.append("RATE_LIMIT_ENABLED=False：未开请求级限流，生产建议开启")
 
         if critical:
             raise RuntimeError(

@@ -444,13 +444,13 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 | 里程碑 | 内容 | 难度 | 优先级 | 状态 |
 |--------|------|------|--------|------|
 | M14 | HITL 人审 + 内容安全 | 🟡 中 | — | ✅ 已完成 |
-| **M15** | 请求级限流 + 配置热更新分级 | 🟢 低 | ⭐⭐⭐ 高 | 草案 |
+| M15 | 请求级限流 + 配置热更新分级 | 🟢 低 | ⭐⭐⭐ 高 | ✅ 已完成 |
 | M16 | 长期记忆 + 文件处理链路 | 🔴 高 | ⭐⭐ 中 | 草案 |
 | M17 | 企业基建（密钥/指标/智能路由/富文本） | 🟡 中（分项） | ⭐ 低 | 草案 |
 | M18 | 定时任务 + MCP 双层 JSON 兼容 | 🟡 中 | ⭐⭐ 中 | 草案 |
 | M19 | 本地编码 Agent（AI Coding，学习版） | 🟡 中（生产版 🔴 高） | ⭐⭐⭐ 中高 | 草案 |
 
-> 建议顺序：**M15（低成本高价值，先做）→ M19（最有意思、串联已有能力）→ M18 → M16 → M17（按需）**。
+> 建议顺序：~~M15（已完成）~~ → **M19（最有意思、串联已有能力，下一个）** → M18 → M16 → M17（按需）。
 
 ## M14：HITL 人审闭环 + 内容安全（安全刚需，已完成）
 
@@ -493,17 +493,26 @@ LangGraph `interrupt()` 人审闭环（那属更大的 HITL 里程碑）。
 
 ---
 
-## M15：请求级限流 + 配置热更新（韧性与运维，草案 · 先设计不实现）
+## M15：请求级限流 + 配置热更新（韧性与运维，已完成）
 
 ### 子目标 A：请求级限流（RPS）
-- 用 slowapi（或自写中间件）按 user_id / IP 限 RPS + 并发上限，配额之外的第二道闸。
-- 复用 M13 的真实 user_id；超限返回 429 + Retry-After。
-- **可验收**：同一用户高频请求触发 429；正常请求不受影响；限流阈值可配。
+- `app/core/rate_limit.py`：进程内**滑动窗口**限流中间件（不引 slowapi），按 user_id（鉴权后）/ IP 限流，是配额之外的第二道闸。
+- 中间件排在 Auth 内层 → 能读到真实 user_id；超限返回 429 + `Retry-After`；阈值 `RATE_LIMIT_*` 可配、支持热更新。
+- 默认关闭（dev 宽松），生产建议开启，`validate_runtime` 未开时给警告。
+- **可验收：**
+  - [x] 同一 key 高频请求触发 429（实测 阈值3 → `200 200 200 429 429`）
+  - [x] `/health` 等非 `/api/` 路径不限流；正常请求不受影响
+  - [x] 阈值可配；关闭开关时无限流（单测 + 实测）
 
-### 子目标 B：配置热更新 + 启动校验分级（参照 DeerFlow reload_boundary）
-- 把配置分「热字段（下次请求生效）」和「重启字段（infra，需重启）」，像 DeerFlow 的 `STARTUP_ONLY_FIELDS` 那样注册。
-- 文件签名变化时自动重载热字段；重启字段变更给出明确提示。
-- **可验收**：改热字段（如温度/系统提示）不重启即生效；改 DB/鉴权等重启字段有提示且不误热更。
+### 子目标 B：配置热更新 + 字段分级（参照 DeerFlow reload_boundary）
+- `app/core/config_reload.py`：`RESTART_ONLY_FIELDS`（DATABASE_URL/ENVIRONMENT/SECRET_KEY/CORS）+ `reload_hot_config()`。
+- 原理：`settings` 是单例，各处调用时读取；热更新 = 重读 .env → 只把热字段原地 setattr 回单例；重启字段变更只提示不应用；密钥字段报告里打码。
+- 端点：`GET /api/v1/admin/config`（字段分级，只给名字）、`POST /api/v1/admin/config/reload`（触发），生产要求 admin、dev 放行。
+- **可验收：**
+  - [x] 改热字段（如 OPENAI_MODEL）reload 后即生效，无需重启（单测）
+  - [x] 改重启字段（DATABASE_URL）只进 `needs_restart`、不原地应用（单测）
+  - [x] 密钥字段（OPENAI_API_KEY）在报告里打码为 `***(changed)`
+  - [x] 端点实测：`restart_only=[CORS_ORIGINS,DATABASE_URL,ENVIRONMENT,SECRET_KEY]`，25 个热字段
 
 ---
 

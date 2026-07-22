@@ -13,7 +13,8 @@ from app.core.database import init_db
 from app.core.checkpointer import create_checkpointer
 from app.core.auth import AuthMiddleware
 from app.core.trace import TraceMiddleware
-from app.api.v1 import chat, team, session, runs, skills, ai_testing, auth
+from app.core.rate_limit import RateLimitMiddleware
+from app.api.v1 import chat, team, session, runs, skills, ai_testing, auth, admin
 
 # 导入 catalog 触发所有 Agent 注册（必须在路由之前）
 import app.agents.catalog  # noqa: F401
@@ -51,6 +52,9 @@ app = FastAPI(title="Noah Agent Platform", description="Enterprise AI Agent Back
 # 允许 Web UI/前端跨域调用（学习项目直接全放开 methods/headers）
 app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+# M15：请求级限流中间件（在 Auth 之后 add → 比 Auth 内层，能读到鉴权后的 user_id）
+app.add_middleware(RateLimitMiddleware)
+
 # M5：Bearer Token 鉴权中间件
 # AUTH_SECRET 为空时完全放开（开发模式），设值后必须带 Bearer token
 app.add_middleware(AuthMiddleware)
@@ -68,6 +72,7 @@ app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
 app.include_router(runs.router, prefix="/api/v1/runs", tags=["Runs & Observability"])
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skill Store"])
 app.include_router(ai_testing.router, prefix="/api/v1/ai-testing", tags=["AI Testing"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 # 挂载 uploads 静态目录（多模态图片附件），URL: /uploads/<session>/<file>
 _uploads_dir = Path(__file__).resolve().parent.parent / "uploads"

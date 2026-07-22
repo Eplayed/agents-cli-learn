@@ -39,7 +39,8 @@ agents-cli-learn/
 │   │   │   ├── session.py       — 会话 CRUD + 消息历史
 │   │   │   ├── team.py          — Multi-Agent API
 │   │   │   ├── runs.py          — Agent 运行历史 + 事件溯源回放 + 配额查询
-│   │   │   └── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
+│   │   │   ├── ai_testing.py    — AI 测试 API（/types /presets/{type} /run /history）
+│   │   │   └── admin.py         — 配置分级查看 + 热更新触发（M15，生产限 admin）
 │   │   ├── core/
 │   │   │   ├── config.py        — Pydantic Settings（API Key / 模型 / 鉴权 / Langfuse）+ validate_runtime 生产启动校验（M13.6）
 │   │   │   ├── database.py      — AsyncSqlAlchemy + get_db；init_db 分方言（SQLite create_all / Postgres 交给 Alembic，M13.5）
@@ -49,6 +50,8 @@ agents-cli-learn/
 │   │   │   ├── safe_tools.py    — 安全数学求值(AST替代eval) + 校验证书的 SSL context（M13.6）
 │   │   │   ├── content_safety.py — PII 脱敏 + 敏感词拦截（M14，送 LLM/落库前）
 │   │   │   ├── hitl.py          — 高危工具人审包装（interrupt 审批闭环，M14）
+│   │   │   ├── rate_limit.py    — 请求级限流中间件（进程内滑动窗口，M15）
+│   │   │   ├── config_reload.py — 配置热更新 + 字段分级（热/重启字段，M15）
 │   │   │   ├── run_tracker.py   — Agent Run/Event 持久化（事件溯源 + 幂等）
 │   │   │   ├── quota.py         — Per-user 每日 token 配额限制
 │   │   │   ├── tracing.py       — Langfuse callback handler（可观测追踪，注入 trace_id metadata）
@@ -77,7 +80,7 @@ agents-cli-learn/
 │   ├── skills/
 │   │   ├── weather-advisor/SKILL.md — 天气顾问能力包（触发词：天气/洗车）
 │   │   └── code-reviewer/SKILL.md  — 代码审查能力包（触发词：代码/review）
-│   └── tests/                   — 70 tests
+│   └── tests/                   — 113 tests
 │       ├── test_health.py / test_session.py / test_chat.py
 │       ├── test_agents_registry.py / test_mcp_servers.py / test_auth.py
 │       ├── test_skills_match.py — Skill 匹配（词边界/CJK/排序/限量）
@@ -88,7 +91,9 @@ agents-cli-learn/
 │       ├── test_auth_users.py  — 多用户鉴权：密码哈希/JWT/注册登录/身份隔离（M13）
 │       ├── test_security_hardening.py — safe_eval/证书校验/启动校验/高危工具门禁（M13.6）
 │       ├── test_content_safety.py — PII 脱敏 + 敏感词拦截（M14）
-│       └── test_hitl.py        — HITL interrupt/approve/reject + 审批等待（M14）
+│       ├── test_hitl.py        — HITL interrupt/approve/reject + 审批等待（M14）
+│       ├── test_rate_limit.py  — 滑动窗口限流 + 中间件 429（M15）
+│       └── test_config_reload.py — 配置热更新 + 字段分级 + admin 端点（M15）
 │   ├── alembic.ini              — Alembic 配置（url 动态取自 settings，M13.5）
 │   └── migrations/              — DB 迁移（env.py 异步引擎 + versions/ 迁移文件）
 │
@@ -205,6 +210,8 @@ agents-cli-learn/
 | POST | /api/v1/ai-testing/run | 运行一次 AI 测试套件 |
 | GET | /api/v1/ai-testing/history | 测试历史记录列表 |
 | GET/DELETE | /api/v1/ai-testing/history/{id} | 单次测试详情 / 删除 |
+| GET | /api/v1/admin/config | 配置字段分级（热/重启，只给名字，M15） |
+| POST | /api/v1/admin/config/reload | 重读 .env 热更新热字段，重启字段仅提示（M15） |
 
 ## 核心数据流
 
