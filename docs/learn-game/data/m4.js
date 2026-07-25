@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
         <pre><code>{
   "mcpServers": {
-    "noah-weather": {
+    "local-weather": {
       "command": "/path/to/python",
       "args": ["-m", "app.mcp_servers.weather_server"],
       "cwd": "/your/path/to/agents-cli-learn/apps/api"

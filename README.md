@@ -1,11 +1,13 @@
-# agents-cli-learn
+# Aegis Agent Runtime
 
-一个学习型的 Agent 项目，技术栈对齐 2026 主流：**FastAPI + LangGraph 1.x + MCP + Web UI**。
+> 个人 Agent 工程化项目｜可观察、可约束、可验证的 Agent Runtime
+
+基于 **FastAPI + LangGraph 1.x + MCP + Vue 3** 构建，围绕流式任务、工具调用、人审审批、状态持久化、权限安全、可观测性与评测闭环，验证 Agent 应用从“可对话”走向“可运行”的工程路径。
 
 > ⚠️ 旧的 TS CLI（Phase 1-2）已归档到 `archive/cli/`，不再作为主线。
 > 现在的入口是 Python FastAPI 服务（`apps/api/`）。
 
-> 📖 **不知道怎么学 / 忘了学到哪了？** 打开 [START-HERE.md](./START-HERE.md) —— 一页纸带你回到学习路径。
+> 📖 项目包含 [START-HERE.md](./START-HERE.md) 的实战路线、交互学习关卡与面试题，用于沉淀设计和复盘。
 
 ---
 
@@ -130,7 +132,7 @@ npm run dev
 ## 目录结构
 
 ```
-agents-cli-learn/
+aegis-agent-runtime/
 ├── apps/
 │   ├── api/                       # Python FastAPI 后端
 │   │   ├── app/
@@ -189,11 +191,6 @@ agents-cli-learn/
 - **Next.js 前端**：[langchain-ai/agent-chat-ui](https://github.com/langchain-ai/agent-chat-ui)
 
 ---
-
-## License
-
-ISC
-
 
 ---
 
@@ -258,4 +255,4 @@ CI 自动跑（GitHub Actions）：每次 push/PR 自动执行测试。
 
 ## 📄 License
 
-MIT
+ISC. See [LICENSE](./LICENSE).

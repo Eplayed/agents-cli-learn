@@ -1,7 +1,7 @@
 {
-  "name": "agents-cli-learn",
+  "name": "aegis-agent-runtime",
   "version": "4.0.0",
-  "description": "Agent learning project - Web-only (FastAPI + LangGraph + MCP)",
+  "description": "Personal Agent runtime and engineering workbench (FastAPI + LangGraph + MCP)",
   "private": true,
   "scripts": {
     "start": "cd apps/api && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000",

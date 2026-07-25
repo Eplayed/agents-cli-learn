@@ -118,7 +118,7 @@ from app.api.v1 import chat, team, session
 # 1️⃣ 生命周期钩子
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting Noah Agent Platform...")
+    print("Starting agents-cli-learn...")
     await init_db()                    # 启动时建库表
     print("Database initialized")
     yield                              # 应用运行中
@@ -126,7 +126,7 @@ async def lifespan(app: FastAPI):
 
 # 2️⃣ 创建 FastAPI 实例
 app = FastAPI(
-    title="Noah Agent Platform",
+    title="agents-cli-learn",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -195,9 +195,9 @@ app.include_router(session.router, prefix="/api/v1/session", tags=["Session"])
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Noah Agent Platform"
+    APP_NAME: str = "agents-cli-learn"
     DEBUG: bool = True
-    DATABASE_URL: str = "sqlite+aiosqlite:///./noah_agent.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./agents_cli_learn.db"
 
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"

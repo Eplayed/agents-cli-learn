@@ -1,6 +1,6 @@
 # Agent 开发学习计划（2026 主流栈对齐版）
 
-> 仓库：https://github.com/Eplayed/agents-cli-learn
+> 仓库：https://github.com/Eplayed/aegis-agent-runtime
 > 路线：Web-only（FastAPI + LangGraph + Web 前端）
 > 最后更新：2026-05-28
 

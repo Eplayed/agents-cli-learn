@@ -2,9 +2,9 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8" />
-  <title>agents-cli-learn · AI Agent 学习站</title>
+  <title>Aegis Agent Runtime · Agent 工程化作品集</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="2026 主流栈 AI Agent 学习项目：FastAPI + LangGraph + MCP，附带可玩的关卡式学习" />
+  <meta name="description" content="Aegis Agent Runtime：FastAPI + LangGraph + MCP 的个人 Agent 工程化作品集，包含可交互展示、架构图与实战关卡。" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E⚡%3C/text%3E%3C/svg%3E" />
   <style>
     :root {
@@ -118,9 +118,9 @@
 <body>
 
 <header>
-  <div class="logo">⚡ agents-cli-learn</div>
+  <div class="logo">⚡ Aegis Agent Runtime</div>
   <div class="spacer"></div>
-  <a class="gh-btn" href="https://github.com/Eplayed/agents-cli-learn" target="_blank" rel="noopener">
+  <a class="gh-btn" href="https://github.com/Eplayed/aegis-agent-runtime" target="_blank" rel="noopener">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.6-4.04-1.6a3.18 3.18 0 0 0-1.33-1.76c-1.09-.74.08-.73.08-.73a2.52 2.52 0 0 1 1.84 1.24 2.55 2.55 0 0 0 3.5 1 2.56 2.56 0 0 1 .76-1.6c-2.67-.3-5.47-1.33-5.47-5.93a4.64 4.64 0 0 1 1.24-3.22 4.32 4.32 0 0 1 .12-3.18s1-.32 3.3 1.23a11.4 11.4 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23a4.32 4.32 0 0 1 .12 3.18 4.64 4.64 0 0 1 1.24 3.22c0 4.6-2.8 5.62-5.48 5.92a2.86 2.86 0 0 1 .82 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 12 0z"/></svg>
     GitHub
   </a>
@@ -128,9 +128,9 @@
 
 <main>
   <section class="hero">
-    <h1>AI Agent 学习站</h1>
-    <p>从 0 到 1 学习 2026 主流栈：FastAPI + LangGraph 1.x + MCP 协议。<br>
-       附带交互式学习游戏、架构图查看器、完整开发文档。</p>
+    <h1>个人 Agent 工程化作品集</h1>
+    <p>围绕 FastAPI、LangGraph、MCP 构建的可运行 Agent Runtime。<br>
+       展示任务流、工具审批、运行时架构、测试闭环与实战沉淀。</p>
     <div class="badges">
       <span class="badge">FastAPI</span>
       <span class="badge">LangGraph 1.x</span>
@@ -158,6 +158,12 @@
 
   <div class="section-title">📐 工具与可视化</div>
   <div class="cards">
+    <a class="card featured" href="./showcase.html">
+      <div class="icon">⚙️</div>
+      <h3>Agent Runtime 工程化展示</h3>
+      <p>以静态、可交互的方式展示任务化 SSE、HITL 工具审批、MCP、长期记忆、可观测性和评测能力。页面不调用模型，不暴露 API Key；每项能力都链接到对应源码。</p>
+      <span class="arrow">查看工程化亮点 →</span>
+    </a>
     <a class="card" href="./diagrams.html">
       <div class="icon">📊</div>
       <h3>架构图查看器</h3>
@@ -166,50 +172,32 @@
     </a>
   </div>
 
-  <div class="section-title">📚 学习文档</div>
+  <div class="section-title">📚 继续探索</div>
   <div class="cards">
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/LEARNING-PLAN.md" target="_blank">
-      <div class="icon">🗺</div>
-      <h3>学习路线图</h3>
-      <p>M0-M9 完整路线，对照 2026 主流栈差距分析，每个里程碑挂参考仓库。</p>
-      <span class="arrow">查看路线 →</span>
-    </a>
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/ARCHITECTURE.md" target="_blank">
+    <a class="card" href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/docs/ARCHITECTURE.md" target="_blank">
       <div class="icon">🏛</div>
       <h3>架构设计</h3>
       <p>整体架构、请求流程、Multi-Agent 模式对比、未来终态架构。</p>
       <span class="arrow">查看架构 →</span>
     </a>
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/MCP-INTEGRATION.md" target="_blank">
-      <div class="icon">🔌</div>
-      <h3>MCP 集成实施记录</h3>
-      <p>M4 里程碑实操：从 0 写一个 MCP server，并接入 LangGraph。</p>
-      <span class="arrow">查看记录 →</span>
+    <a class="card" href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/docs/AI-TESTING.md" target="_blank">
+      <div class="icon">🧪</div>
+      <h3>AI 应用测试</h3>
+      <p>Prompt 稳定性、多轮、RAG、工具调用、幻觉和越狱六类测试的设计思路。</p>
+      <span class="arrow">查看测试说明 →</span>
     </a>
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/GAP-ANALYSIS.md" target="_blank">
-      <div class="icon">🔬</div>
-      <h3>差距分析</h3>
-      <p>本项目 vs agent-service-toolkit 的 5 大差距 + 改造步骤。</p>
-      <span class="arrow">查看分析 →</span>
-    </a>
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/docs/RUNNING.md" target="_blank">
-      <div class="icon">🚀</div>
-      <h3>本地运行手册</h3>
-      <p>装依赖、配 API Key、启动后端、常见问题排查。</p>
-      <span class="arrow">查看手册 →</span>
-    </a>
-    <a class="card" href="https://github.com/Eplayed/agents-cli-learn/blob/main/README.md" target="_blank">
+    <a class="card" href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/README.md" target="_blank">
       <div class="icon">📖</div>
       <h3>README</h3>
-      <p>项目能力清单、目录结构、参考仓库。</p>
+      <p>本地运行、架构与源码入口。模型 Key 仅保留在本地环境。</p>
       <span class="arrow">查看 README →</span>
     </a>
   </div>
 </main>
 
 <footer>
-  Made for learning · MIT-style license · 
-  <a href="https://github.com/Eplayed/agents-cli-learn" target="_blank">GitHub</a>
+  Made for learning · ISC license ·
+  <a href="https://github.com/Eplayed/aegis-agent-runtime" target="_blank">GitHub</a>
 </footer>
 
 </body>

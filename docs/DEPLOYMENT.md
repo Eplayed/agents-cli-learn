@@ -10,7 +10,7 @@
 
 ```
 GitHub Pages 上：
-  https://eplayed.github.io/agents-cli-learn/
+  https://eplayed.github.io/aegis-agent-runtime/
     ├── 门户首页（docs/index.html）
     ├── 学习游戏（docs/learn-game/）
     └── 架构图查看器（docs/diagrams.html）
@@ -30,29 +30,30 @@ GitHub Pages 上：
 | 文件 | 作用 |
 |---|---|
 | `docs/index.html` | Pages 默认入口 |
+| `.github/workflows/deploy-pages.yml` | 通过 GitHub Actions 构建并部署公开静态站 |
 | `docs/.nojekyll` | **关键**：禁用 Jekyll，否则下划线开头的文件（如 `_layout.js`）会 404 |
 | `docs/learn-game/index.html` | 学习游戏入口 |
 
 ### 2. 在 GitHub 仓库启用 Pages
 
-1. 打开 `https://github.com/Eplayed/agents-cli-learn/settings/pages`
-2. **Source**：Deploy from a branch
-3. **Branch**：`main`，目录选 `/docs`
+1. 打开 `https://github.com/Eplayed/aegis-agent-runtime/settings/pages`
+2. **Source**：选择 **GitHub Actions**
+3. 推送到 `main` 后，工作流会将经过筛选的静态站发布到 Pages
 4. 点 **Save**
-5. 等 1-2 分钟，Pages 会构建。完成后顶部会出现 `Your site is live at https://eplayed.github.io/agents-cli-learn/`
+5. 等 1-2 分钟，Pages 会构建。完成后顶部会出现 `Your site is live at https://eplayed.github.io/aegis-agent-runtime/`
 
 ### 3. 验证
 
 访问下面 3 个 URL，应该都能打开：
-- `https://eplayed.github.io/agents-cli-learn/` — 门户首页
-- `https://eplayed.github.io/agents-cli-learn/learn-game/` — 学习游戏
-- `https://eplayed.github.io/agents-cli-learn/diagrams.html` — 架构图
+- `https://eplayed.github.io/aegis-agent-runtime/` — 门户首页
+- `https://eplayed.github.io/aegis-agent-runtime/learn-game/` — 学习游戏
+- `https://eplayed.github.io/aegis-agent-runtime/diagrams.html` — 架构图
 
 ---
 
 ## 后续更新流程
 
-每次改了 `docs/` 下的文件后：
+每次改了公开展示所用的 `docs/` 下文件后：
 
 ```bash
 git add docs/
@@ -60,7 +61,7 @@ git commit -m "docs: update something"
 git push
 ```
 
-push 后约 30-60 秒，Pages 会自动重新构建。可以在仓库的 **Actions** 标签页看到 "pages build and deployment" 进度。
+push 到 `main` 后约 30-60 秒，Pages 工作流会自动重新构建。可以在仓库的 **Actions** 标签页看到 "Deploy GitHub Pages" 进度。
 
 ---
 
@@ -72,7 +73,7 @@ push 后约 30-60 秒，Pages 会自动重新构建。可以在仓库的 **Actio
 ### Q: 学习游戏白屏
 **A**：F12 看 Console。常见原因：
 - 浏览器开了缓存。Cmd+Shift+R 硬刷新
-- ES Module 路径错。Pages 的子路径是 `/agents-cli-learn/learn-game/`，所有相对路径（`./css/...` `./js/...`）必须正确
+- ES Module 路径错。Pages 的子路径是 `/aegis-agent-runtime/learn-game/`，所有相对路径（`./css/...` `./js/...`）必须正确
 
 ### Q: 别人能看到我的 OpenAI Key 吗？
 **A**：**不会**。Pages 上只有静态文件（HTML/CSS/JS）。后端 `apps/api/` 完全不上传到 Pages。

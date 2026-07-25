@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Aegis Agent Runtime 的工程化能力展示：流式任务、HITL、MCP、评测、记忆与可观测性。" />
+  <title>Engineering Showcase · Aegis Agent Runtime</title>
+  <style>
+    :root { --bg:#070b18; --surface:#10182d; --surface-2:#151f38; --line:#263351; --text:#eef2ff; --muted:#99a6c4; --brand:#7c8cff; --cyan:#46d9d0; --green:#42d392; --amber:#f5b955; --red:#ff7b8b; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--text); font:15px/1.65 Inter,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:radial-gradient(900px 500px at 90% -10%,#23276199,transparent 60%),radial-gradient(700px 400px at 0 20%,#0b697a44,transparent 65%),var(--bg); }
+    a { color:inherit; }
+    .wrap { width:min(1120px,calc(100% - 40px)); margin:auto; }
+    header { height:68px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .brand { text-decoration:none; font-weight:800; letter-spacing:.2px; }
+    .brand i { color:var(--cyan); font-style:normal; }
+    .back { color:var(--muted); text-decoration:none; font-size:14px; }
+    .back:hover { color:var(--text); }
+    .hero { padding:76px 0 48px; max-width:790px; }
+    .eyebrow { color:var(--cyan); font-size:13px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; }
+    h1 { margin:12px 0 18px; font-size:clamp(36px,6vw,64px); line-height:1.08; letter-spacing:-2px; }
+    .hero p { max-width:670px; margin:0; color:var(--muted); font-size:18px; }
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:26px; }
+    .pill { border:1px solid var(--line); color:#c9d4f5; border-radius:999px; padding:5px 11px; font-size:13px; background:#111a32aa; }
+    .notice { border:1px solid #355078; background:#101f38b8; border-radius:12px; padding:12px 15px; color:#c0d4f3; margin:12px 0 44px; }
+    .notice strong { color:var(--cyan); }
+    h2 { margin:60px 0 18px; font-size:25px; letter-spacing:-.5px; }
+    .lead { color:var(--muted); margin:-8px 0 22px; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .card { min-height:198px; border:1px solid var(--line); border-radius:15px; padding:22px; background:linear-gradient(145deg,#151f39dd,#10172bdd); }
+    .card h3 { margin:12px 0 6px; font-size:17px; }
+    .card p { margin:0; color:var(--muted); font-size:14px; }
+    .icon { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:#24335c; font-size:17px; }
+    .card a { display:inline-block; color:var(--cyan); font-size:13px; margin-top:13px; text-decoration:none; }
+    .card a:hover { text-decoration:underline; }
+    .run { display:grid; grid-template-columns:1.1fr .9fr; gap:18px; padding:20px; border:1px solid var(--line); border-radius:16px; background:#0c1326d9; }
+    .terminal { border:1px solid #29385a; border-radius:12px; overflow:hidden; background:#080d1a; }
+    .terminal-top { display:flex; align-items:center; gap:6px; padding:10px 13px; border-bottom:1px solid #29385a; color:#9babca; font-size:12px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#ff7b8b; }.dot:nth-child(2){background:#f5b955}.dot:nth-child(3){background:#42d392}
+    .events { min-height:290px; padding:15px 17px; font:13px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .event { opacity:.45; transition:opacity .24s, transform .24s; transform:translateY(4px); }.event.active { opacity:1; transform:none; }.event .time { color:#7685a7; }.event .ok { color:var(--green); }.event .tool { color:var(--amber); }.event .info { color:var(--cyan); }
+    .side { padding:8px 7px; }.side h3 { margin:2px 0 8px; font-size:18px; }.side p { color:var(--muted); margin:0 0 18px; }
+    .steps { display:grid; gap:8px; }.step { padding:10px 12px; border-radius:10px; color:#aebbd8; background:#151e35; border:1px solid transparent; }.step.on { color:var(--text); border-color:#3d5590; background:#1b2b4e; }.step small { display:block; color:#8492b0; }
+    button { margin-top:17px; padding:9px 13px; border:1px solid #506bc0; border-radius:9px; color:#eaf0ff; background:#273c7a; font:inherit; cursor:pointer; } button:hover { background:#3450a1; }
+    .architecture { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding:24px; border:1px solid var(--line); border-radius:15px; background:#10182ccc; }.node { flex:1 1 120px; min-width:120px; text-align:center; padding:16px 10px; border:1px solid #344567; border-radius:10px; background:#17213a; font-size:14px; }.arrow { color:var(--cyan); font-size:20px; }
+    footer { margin-top:70px; padding:28px 0 40px; border-top:1px solid var(--line); color:#7f8ead; font-size:13px; }
+    @media(max-width:760px) { .grid { grid-template-columns:1fr; }.run { grid-template-columns:1fr; }.hero { padding-top:52px; }.arrow { transform:rotate(90deg); }.architecture { flex-direction:column; }.node { width:100%; } }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="./">⚡ Aegis Agent Runtime <i>/ showcase</i></a>
+    <a class="back" href="./">← 返回学习站</a>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Open-source learning project · engineering showcase</div>
+      <h1>不止一个聊天框。<br>这是可观察、可约束的 Agent Runtime。</h1>
+      <p>用 FastAPI、LangGraph、MCP 和 Vue 3 构建个人 Agent Runtime；重点验证流式任务、工具调用、人审、安全边界、状态持久化与评测闭环。</p>
+      <div class="pills"><span class="pill">FastAPI</span><span class="pill">LangGraph</span><span class="pill">MCP</span><span class="pill">Vue 3</span><span class="pill">SQLite / PostgreSQL</span><span class="pill">HITL</span></div>
+    </section>
+    <div class="notice"><strong>公开展示说明：</strong>GitHub Pages 仅托管这份静态作品集、架构图与学习内容；需要模型 Key、文件系统或命令执行的 Runtime 仅支持本地运行，不会暴露 API Key 或开放公共 Agent 接口。</div>
+
+    <h2>可以被看见的工程能力</h2>
+    <p class="lead">每一项都对应仓库中的实现，而不是概念清单。</p>
+    <section class="grid">
+      <article class="card"><div class="icon">〰️</div><h3>任务化 SSE 与断线续传</h3><p>POST 创建任务、GET 观察事件；事件带 ID，可由 Last-Event-ID 重放，并保留任务事件用于恢复与审计。</p><a href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/apps/api/app/core/task_stream.py" target="_blank" rel="noopener">查看 task_stream.py →</a></article>
+      <article class="card"><div class="icon">🧑‍⚖️</div><h3>HITL 工具审批</h3><p>高风险工具不会被模型直接执行：LangGraph interrupt 生成审批节点，前端展示允许/拒绝与执行结果。</p><a href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/apps/api/app/core/hitl.py" target="_blank" rel="noopener">查看 hitl.py →</a></article>
+      <article class="card"><div class="icon">🔌</div><h3>MCP 与结构化工具结果</h3><p>支持 stdio / HTTP MCP 配置加载；工具输出兼容双层 JSON，在 UI 中呈现状态、耗时和结构化结果。</p><a href="https://github.com/Eplayed/aegis-agent-runtime/tree/main/apps/api/app/mcp_servers" target="_blank" rel="noopener">查看 MCP servers →</a></article>
+      <article class="card"><div class="icon">🧠</div><h3>记忆、文件与上下文</h3><p>用户隔离的长期记忆、文件类型/大小校验与文本化，让文件内容以受控方式进入 Agent 上下文。</p><a href="https://github.com/Eplayed/aegis-agent-runtime/tree/main/apps/api/app/core" target="_blank" rel="noopener">查看 core modules →</a></article>
+      <article class="card"><div class="icon">📈</div><h3>可观测性与保护机制</h3><p>Trace ID、运行事件、Token 配额、限流、秘密脱敏和 Prometheus 指标，面向“如何稳定运行”而非只追求一次回答成功。</p><a href="https://github.com/Eplayed/aegis-agent-runtime/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">查看运行时架构 →</a></article>
+      <article class="card"><div class="icon">🧪</div><h3>评测与学习闭环</h3><p>内置提示词稳定性、多轮、RAG、工具调用、幻觉和越狱测试；同时提供互动学习关卡和面试题系统。</p><a href="./learn-game/">打开学习关卡 →</a></article>
+    </section>
+
+    <h2>一次受控 Agent 任务的可视化</h2>
+    <p class="lead">这是静态演示，用于说明真实 Runtime 的事件与审批模型，不会调用任何公开模型或工具。</p>
+    <section class="run">
+      <div class="terminal"><div class="terminal-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:7px">run_01J · task event stream</span></div><div class="events" id="events"></div></div>
+      <aside class="side"><h3>执行不是黑盒</h3><p>用户看到模型何时开始、选择了什么工具、何时需要确认，以及最终如何验证结果。</p><div class="steps" id="steps"><div class="step">1. 创建任务<small>分配 runId 与 traceId</small></div><div class="step">2. 规划与调用工具<small>工具参数经过 schema 校验</small></div><div class="step">3. 人工确认<small>高风险操作进入 HITL</small></div><div class="step">4. 结果与验证<small>保存事件并反馈前端</small></div></div><button id="replay" type="button">重放任务事件</button></aside>
+    </section>
+
+    <h2>运行时的分层边界</h2>
+    <section class="architecture"><div class="node">Vue 3 Console<br><small>会话、工具卡片、审批</small></div><span class="arrow">→</span><div class="node">FastAPI API<br><small>鉴权、限流、SSE 任务</small></div><span class="arrow">→</span><div class="node">Agent Registry<br><small>Single / Multi / RAG / Code</small></div><span class="arrow">→</span><div class="node">MCP & Built-in Tools<br><small>受策略、预算与人审约束</small></div><span class="arrow">→</span><div class="node">State & Observability<br><small>Checkpoint、Run、Trace、Metrics</small></div></section>
+  </main>
+  <footer class="wrap">Aegis Agent Runtime · 个人开源 Agent 工程化项目 · <a href="https://github.com/Eplayed/aegis-agent-runtime" target="_blank" rel="noopener">查看源代码</a></footer>
+  <script>
+    const data = [
+      ['10:01:08.022', 'info', 'task.created  run=run_01J  trace=trace_8f2'],
+      ['10:01:08.184', 'info', 'agent.planning  识别任务与可用工具'],
+      ['10:01:09.030', 'tool', 'tool.proposed  dangerous.transfer_money(amount=100)'],
+      ['10:01:09.098', 'tool', 'approval.required  tool=dangerous.transfer_money  risk=high'],
+      ['10:01:11.603', 'ok', 'approval.granted  actor=user'],
+      ['10:01:12.019', 'tool', 'tool.completed  duration=416ms  status=approved'],
+      ['10:01:12.353', 'info', 'assistant.delta  正在组织可验证的回答…'],
+      ['10:01:12.919', 'ok', 'task.completed  events persisted'],
+    ];
+    const box = document.querySelector('#events'); const steps = [...document.querySelectorAll('.step')];
+    function play() { box.innerHTML = ''; steps.forEach(x => x.classList.remove('on')); data.forEach((row, i) => setTimeout(() => { const line = document.createElement('div'); line.className = 'event active'; line.innerHTML = `<span class="time">${row[0]}</span> <span class="${row[1]}">${row[2]}</span>`; box.append(line); if (i === 0) steps[0].classList.add('on'); if (i === 2) steps[1].classList.add('on'); if (i === 3) steps[2].classList.add('on'); if (i >= 6) steps[3].classList.add('on'); }, i * 330)); }
+    document.querySelector('#replay').addEventListener('click', play); play();
+  </script>
+</body>
+</html>

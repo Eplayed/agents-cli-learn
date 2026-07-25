@@ -182,7 +182,7 @@ curl -X POST http://localhost:8000/api/v1/chat/stream_ndjson \
 ```json
 {
   "mcpServers": {
-    "noah-weather": {
+    "local-weather": {
       "command": "/path/to/python",
       "args": ["-m", "app.mcp_servers.weather_server"],
       "cwd": "<本项目绝对路径>/apps/api"

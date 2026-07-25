@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # =========================
     # 应用基础配置
     # =========================
-    APP_NAME: str = "Noah Agent Platform"
+    APP_NAME: str = "Aegis Agent Runtime"
     DEBUG: bool = True
     # 运行环境：development / production。生产会触发 validate_runtime() 的严格校验
     ENVIRONMENT: str = "development"

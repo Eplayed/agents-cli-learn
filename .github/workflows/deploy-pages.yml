@@ -1,0 +1,45 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Build public Pages artifact
+        run: |
+          mkdir -p _site
+          # 只复制白名单内容，避免新增本地运行笔记后被意外公开。
+          cp docs/index.html docs/showcase.html docs/diagrams.html docs/ARCHITECTURE.md docs/AI-TESTING.md docs/.nojekyll _site/
+          cp -R docs/learn-game docs/interview _site/
+          # 页面中不展示历史本地数据库命名，避免与个人工作环境产生关联。
+          sed -i 's/noah_agent\.db/agents_cli_learn.db/g' _site/ARCHITECTURE.md
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,7 +1,4 @@
-"""
-Noah Agent Platform - FastAPI Backend
-Phase 3: Enterprise Python Backend with Multi-Agent
-"""
+"""Aegis Agent Runtime - FastAPI Backend."""
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
@@ -27,7 +24,7 @@ async def lifespan(app: FastAPI):
     # FastAPI 生命周期钩子：
     # - 启动：初始化数据库 + Checkpointer
     # - 关闭：Checkpointer 连接自动通过 contextmanager 释放
-    print("Starting Noah Agent Platform...")
+    print("Starting Aegis Agent Runtime...")
 
     # M13.6：生产化启动校验。生产环境配置不安全（如 SECRET_KEY 为默认值）直接拒绝启动。
     for _w in settings.validate_runtime():
@@ -64,7 +61,7 @@ async def lifespan(app: FastAPI):
 
 
 # FastAPI 应用实例
-app = FastAPI(title="Noah Agent Platform", description="Enterprise AI Agent Backend", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Aegis Agent Runtime", description="Personal Agent runtime and engineering workbench", version="1.0.0", lifespan=lifespan)
 
 # 允许 Web UI/前端跨域调用（学习项目直接全放开 methods/headers）
 app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -111,7 +108,7 @@ if (_web_dist / "assets").exists():
 
 @app.get("/")
 async def root():
-    return {"service": "Noah Agent Platform", "version": "1.0.0", "status": "running"}
+    return {"service": "Aegis Agent Runtime", "version": "1.0.0", "status": "running"}
 
 
 @app.get("/health")

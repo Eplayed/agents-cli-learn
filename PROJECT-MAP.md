@@ -9,7 +9,7 @@ Python 3.13 + FastAPI + LangGraph 1.x + MCP 协议 + ChromaDB + Langfuse + Vue 3
 ## 目录树 + 一行摘要
 
 ```
-agents-cli-learn/
+aegis-agent-runtime/
 ├── .github/workflows/test.yml   — CI：push/PR 自动跑 pytest
 ├── .env.dev                     — 环境变量（OPENAI_API_KEY 等，不提交）
 ├── .python-version              — Python 版本锁定 3.13
@@ -336,7 +336,7 @@ agents-cli-learn/
 
 | 决策 | 原因 |
 |------|------|
-| SQLite（非 PG） | 学习项目优先零配置，clone 即用 |
+| SQLite（非 PG） | 个人工程化项目优先零配置，clone 即用 |
 | Vue SPA + 提交 dist | FastAPI 在 `/ui` 托管构建产物，clone 后零构建可用 |
 | NDJSON 流式（非 SSE） | 兼容性更好，解析更简单 |
 | MCP stdio（非 HTTP） | 开发简单，子进程隔离 |
